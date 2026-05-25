@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   AddItemDecisionSchema,
+  AuthMeDtoSchema,
+  CreateFamilyInputSchema,
   FamilyDtoSchema,
-  JoinPinDtoSchema,
+  GeneratePinResponseSchema,
+  JoinFamilyInputSchema,
+  JoinPinCodeSchema,
   MembershipRoleSchema,
   ShoppingItemDtoSchema,
   ShoppingListDtoSchema,
@@ -41,18 +45,63 @@ describe('AddItemDecisionSchema', () => {
   });
 });
 
-describe('JoinPinDtoSchema', () => {
-  it('acepta un PIN válido de 6 caracteres en mayúsculas', () => {
-    const result = JoinPinDtoSchema.parse({ pin: 'ABC123' });
-    expect(result.pin).toBe('ABC123');
+describe('JoinPinCodeSchema', () => {
+  it('acepta un código válido de 8 caracteres Crockford', () => {
+    expect(JoinPinCodeSchema.parse('A1B2C3D4')).toBe('A1B2C3D4');
   });
 
-  it('rechaza un PIN con minúsculas', () => {
-    expect(() => JoinPinDtoSchema.parse({ pin: 'abc123' })).toThrow();
+  it('normaliza minúsculas y espacios a mayúsculas', () => {
+    expect(JoinPinCodeSchema.parse('  a1b2c3d4 ')).toBe('A1B2C3D4');
   });
 
-  it('rechaza un PIN con longitud incorrecta', () => {
-    expect(() => JoinPinDtoSchema.parse({ pin: 'AB12' })).toThrow();
+  it('rechaza longitud incorrecta', () => {
+    expect(() => JoinPinCodeSchema.parse('A1B2')).toThrow();
+  });
+
+  it('rechaza letras ambiguas excluidas (I, L, O, U)', () => {
+    expect(() => JoinPinCodeSchema.parse('ILOU1234')).toThrow();
+  });
+});
+
+describe('JoinFamilyInputSchema', () => {
+  it('acepta y normaliza un código en el campo code', () => {
+    expect(JoinFamilyInputSchema.parse({ code: 'a1b2c3d4' })).toEqual({ code: 'A1B2C3D4' });
+  });
+});
+
+describe('CreateFamilyInputSchema', () => {
+  it('acepta solo nombre y recorta espacios', () => {
+    expect(CreateFamilyInputSchema.parse({ name: '  Los García  ' })).toEqual({ name: 'Los García' });
+  });
+
+  it('rechaza nombre vacío', () => {
+    expect(() => CreateFamilyInputSchema.parse({ name: '' })).toThrow();
+  });
+});
+
+describe('GeneratePinResponseSchema', () => {
+  it('parsea código y caducidad', () => {
+    const r = GeneratePinResponseSchema.parse({ code: 'A1B2C3D4', expiresAt: SAMPLE_DATE });
+    expect(r.code).toBe('A1B2C3D4');
+    expect(r.expiresAt).toBe(SAMPLE_DATE);
+  });
+});
+
+describe('AuthMeDtoSchema', () => {
+  it('parsea un usuario sin familias', () => {
+    const me = AuthMeDtoSchema.parse({
+      id: SAMPLE_UUID,
+      email: 'ana@example.com',
+      displayName: 'Ana',
+      families: [],
+    });
+    expect(me.families).toEqual([]);
+  });
+
+  it('acepta displayName nulo', () => {
+    expect(() =>
+      AuthMeDtoSchema.parse({ id: SAMPLE_UUID, email: 'ana@example.com', displayName: null, families: [] }),
+    ).not.toThrow();
   });
 });
 
@@ -110,11 +159,13 @@ describe('FamilyDtoSchema', () => {
     const family = {
       id: SAMPLE_UUID,
       name: 'Los García',
+      role: 'OWNER',
       members: [],
       updatedAt: SAMPLE_DATE,
       createdAt: SAMPLE_DATE,
     };
     const result = FamilyDtoSchema.parse(family);
     expect(result.name).toBe('Los García');
+    expect(result.role).toBe('OWNER');
   });
 });

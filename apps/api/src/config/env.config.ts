@@ -18,9 +18,18 @@ const EnvSchema = z.object({
     ),
   DATABASE_URL: z.string().url().optional(),
   SUPABASE_URL: z.string().url().optional(),
+  SUPABASE_PUBLISHABLE_KEY: z.string().optional(),
+  SUPABASE_SECRET_KEY: z.string().optional(),
   JWT_JWKS_URL: z.string().url().optional(),
   JWT_ISSUER: z.string().optional(),
   JWT_AUDIENCE: z.string().optional(),
+  /**
+   * Pepper de servidor para el hash (scrypt) de los PIN de invitación. Hace el
+   * hash determinista (permite buscar por code_hash) y resistente a ataques
+   * offline si se filtra la tabla. Tiene un valor por defecto SOLO para dev/test
+   * local; en producción debe ir en el entorno y ser secreto.
+   */
+  JOIN_PIN_PEPPER: z.string().min(16).default('dev-only-join-pin-pepper-change-me'),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
