@@ -1,6 +1,17 @@
 import { toggleTheme } from '../theme/theme-bootstrap';
+import { useAuthStore } from '@/features/auth/store/auth.store';
+import { useFamilyStore } from '@/features/family/store/family.store';
 
 export function AppHeader() {
+  const session = useAuthStore((s) => s.session);
+  const signOut = useAuthStore((s) => s.signOut);
+  const clearFamily = useFamilyStore((s) => s.clearFamily);
+
+  async function handleLogout() {
+    clearFamily();
+    await signOut();
+  }
+
   return (
     <header
       style={{
@@ -21,22 +32,38 @@ export function AppHeader() {
       >
         Cosas de Casa
       </h1>
-      <button
-        type="button"
-        onClick={toggleTheme}
-        aria-label="Cambiar tema"
-        style={{
-          background: 'none',
-          border: '1px solid var(--color-border)',
-          borderRadius: 'var(--radius-md)',
-          padding: 'var(--space-2) var(--space-3)',
-          cursor: 'pointer',
-          color: 'var(--color-text-muted)',
-          fontSize: 'var(--font-size-sm)',
-        }}
-      >
-        Tema
-      </button>
+
+      <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
+        <button
+          type="button"
+          onClick={toggleTheme}
+          aria-label="Cambiar tema"
+          style={btnStyle}
+        >
+          Tema
+        </button>
+
+        {session && (
+          <button
+            type="button"
+            onClick={() => void handleLogout()}
+            style={btnStyle}
+            aria-label="Cerrar sesión"
+          >
+            Cerrar sesión
+          </button>
+        )}
+      </div>
     </header>
   );
 }
+
+const btnStyle: React.CSSProperties = {
+  background: 'none',
+  border: '1px solid var(--color-border)',
+  borderRadius: 'var(--radius-md)',
+  padding: 'var(--space-2) var(--space-3)',
+  cursor: 'pointer',
+  color: 'var(--color-text-muted)',
+  fontSize: 'var(--font-size-sm)',
+};

@@ -12,6 +12,8 @@ export default defineConfig({
   server: {
     port: 5173,
   },
+  // El .env vive en la raíz del monorepo (compartido con la API), no en apps/web.
+  envDir: resolve(__dirname, '../..'),
   plugins: [
     react(),
     VitePWA({
