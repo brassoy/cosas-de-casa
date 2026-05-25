@@ -1,0 +1,33 @@
+# dependencias
+node_modules/
+.pnpm-store/
+
+# build / cache
+dist/
+build/
+.turbo/
+*.tsbuildinfo
+
+# entorno (NUNCA commitear secretos)
+.env
+.env.*
+!.env.example
+
+# tests / cobertura
+coverage/
+playwright-report/
+test-results/
+
+# supabase local
+supabase/.branches/
+supabase/.temp/
+
+# editores / SO
+.DS_Store
+*.log
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# artefactos dev de vite-plugin-pwa
+dev-dist/

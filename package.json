@@ -1,0 +1,30 @@
+{
+  "name": "cosasdecasa",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@11.1.2",
+  "engines": {
+    "node": ">=20.10"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "type-check": "turbo run type-check",
+    "test": "turbo run test",
+    "test:unit": "turbo run test:unit",
+    "test:integration": "turbo run test:integration",
+    "test:e2e": "playwright test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "db:start": "pnpm dlx supabase start",
+    "db:stop": "pnpm dlx supabase stop",
+    "db:reset": "pnpm dlx supabase db reset"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.50.0",
+    "prettier": "^3.4.2",
+    "turbo": "^2.3.3",
+    "typescript": "^5.9.2"
+  }
+}
