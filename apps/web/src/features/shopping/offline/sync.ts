@@ -11,7 +11,7 @@
  */
 
 import { api } from '@/shared/lib/api';
-import type { ListWithItemsDto } from '@cosasdecasa/contracts';
+import type { ListWithItemsDto, ShoppingListSummaryDto } from '@cosasdecasa/contracts';
 import { db, type OutboxEntry, type OutboxOpType } from './db';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -24,18 +24,14 @@ export async function seedFromApi(familyId: string): Promise<void> {
   if (!navigator.onLine) return;
 
   try {
-    const lists = await api.get<ListWithItemsDto[]>(`/families/${familyId}/lists`);
+    // El listado devuelve RESÚMENES (sin items). Los items se siembran al abrir
+    // el detalle de una lista (seedListDetail).
+    const lists = await api.get<ShoppingListSummaryDto[]>(`/families/${familyId}/lists`);
 
-    await db.transaction('rw', db.lists, db.items, async () => {
+    await db.transaction('rw', db.lists, async () => {
       // Sustituimos sólo las listas de ESTA familia (otras familias quedan intactas)
       const existingIds = await db.lists.where('familyId').equals(familyId).primaryKeys();
       await db.lists.bulkDelete(existingIds as string[]);
-      await db.items.bulkDelete(
-        (await db.items
-          .where('listId')
-          .anyOf(existingIds as string[])
-          .primaryKeys()) as string[],
-      );
 
       for (const list of lists) {
         await db.lists.put({
@@ -46,21 +42,6 @@ export async function seedFromApi(familyId: string): Promise<void> {
           updatedAt: list.updatedAt,
           createdAt: list.createdAt,
         });
-
-        for (const item of list.items) {
-          await db.items.put({
-            id: item.id,
-            listId: list.id,
-            name: item.name,
-            quantity: item.quantity,
-            unit: item.unit,
-            description: item.description,
-            purchaseLink: item.purchaseLink,
-            checked: item.checked,
-            updatedAt: item.updatedAt,
-            createdAt: item.createdAt,
-          });
-        }
       }
     });
   } catch (err) {
@@ -188,7 +169,6 @@ async function dispatchOp(entry: OutboxEntry): Promise<void> {
           unit: payload.unit,
           description: payload.description,
           purchaseLink: payload.purchaseLink,
-          checked: false,
         },
       );
       break;
