@@ -1,6 +1,8 @@
 import { sql } from 'drizzle-orm';
 import {
+  boolean,
   index,
+  numeric,
   pgEnum,
   pgTable,
   text,
@@ -8,6 +10,7 @@ import {
   unique,
   uniqueIndex,
   uuid,
+  integer,
 } from 'drizzle-orm/pg-core';
 
 /**
@@ -103,9 +106,81 @@ export const joinPins = pgTable(
   ],
 );
 
+// ── shopping_lists ───────────────────────────────────────────────────────────
+
+export const listTypeEnum = pgEnum('list_type', ['MAIN', 'CUSTOM']);
+
+export const shoppingLists = pgTable(
+  'shopping_lists',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    familyId: uuid('family_id')
+      .notNull()
+      .references(() => families.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    type: listTypeEnum('type').notNull(),
+    createdBy: uuid('created_by').references(() => appUsers.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    // Garantía a nivel de BD: como mucho UNA lista MAIN por familia (índice único parcial).
+    uniqueIndex('shopping_lists_one_main_per_family')
+      .on(table.familyId)
+      .where(sql`${table.type} = 'MAIN'`),
+    index('shopping_lists_family_idx').on(table.familyId),
+  ],
+);
+
+// ── shopping_items ───────────────────────────────────────────────────────────
+
+export const shoppingItems = pgTable(
+  'shopping_items',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    listId: uuid('list_id')
+      .notNull()
+      .references(() => shoppingLists.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    quantity: numeric('quantity', { precision: 10, scale: 3 }),
+    unit: text('unit'),
+    description: text('description'),
+    purchaseLink: text('purchase_link'),
+    checked: boolean('checked').default(false).notNull(),
+    position: integer('position'),
+    createdBy: uuid('created_by').references(() => appUsers.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('shopping_items_list_idx').on(table.listId),
+  ],
+);
+
+// ── item_comments ────────────────────────────────────────────────────────────
+
+export const itemComments = pgTable(
+  'item_comments',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    itemId: uuid('item_id')
+      .notNull()
+      .references(() => shoppingItems.id, { onDelete: 'cascade' }),
+    authorId: uuid('author_id').references(() => appUsers.id, { onDelete: 'set null' }),
+    body: text('body').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('item_comments_item_idx').on(table.itemId),
+  ],
+);
+
 // ── Tipos de fila inferidos (uso interno de infraestructura) ──────────────────
 
 export type AppUserRow = typeof appUsers.$inferSelect;
 export type FamilyRow = typeof families.$inferSelect;
 export type MembershipRow = typeof memberships.$inferSelect;
 export type JoinPinRow = typeof joinPins.$inferSelect;
+export type ShoppingListRow = typeof shoppingLists.$inferSelect;
+export type ShoppingItemRow = typeof shoppingItems.$inferSelect;
+export type ItemCommentRow = typeof itemComments.$inferSelect;

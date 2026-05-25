@@ -108,6 +108,7 @@ describe('AuthMeDtoSchema', () => {
 describe('ShoppingItemDtoSchema', () => {
   const validItem = {
     id: SAMPLE_UUID,
+    listId: SAMPLE_UUID,
     name: 'Leche entera',
     quantity: 2,
     unit: 'L',
@@ -125,6 +126,7 @@ describe('ShoppingItemDtoSchema', () => {
   it('acepta artículo sin campos opcionales', () => {
     const minimal = {
       id: SAMPLE_UUID,
+      listId: SAMPLE_UUID,
       name: 'Pan',
       checked: true,
       updatedAt: SAMPLE_DATE,

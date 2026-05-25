@@ -71,6 +71,39 @@ import { DrizzleMembersReadModel } from '../../src/contexts/family/infrastructur
 
 import { createRemoteJWKSet } from 'jose';
 
+// ── shopping ───────────────────────────────────────────────────────────────
+import { ShoppingListsController } from '../../src/contexts/shopping/interface/shopping-lists.controller';
+import { ShoppingItemsController } from '../../src/contexts/shopping/interface/shopping-items.controller';
+import { ListScopeGuard } from '../../src/contexts/shopping/interface/list-scope.guard';
+import { ItemScopeGuard } from '../../src/contexts/shopping/interface/item-scope.guard';
+
+import { EnsureAndListListsUseCase } from '../../src/contexts/shopping/application/ensure-and-list-lists.use-case';
+import { CreateCustomListUseCase } from '../../src/contexts/shopping/application/create-custom-list.use-case';
+import { GetListWithItemsUseCase } from '../../src/contexts/shopping/application/get-list-with-items.use-case';
+import { AddItemUseCase } from '../../src/contexts/shopping/application/add-item.use-case';
+import { ToggleItemCheckedUseCase } from '../../src/contexts/shopping/application/toggle-item-checked.use-case';
+import { UpdateItemUseCase } from '../../src/contexts/shopping/application/update-item.use-case';
+import { DeleteItemUseCase } from '../../src/contexts/shopping/application/delete-item.use-case';
+import { DeleteCustomListUseCase } from '../../src/contexts/shopping/application/delete-custom-list.use-case';
+import { AddCommentUseCase } from '../../src/contexts/shopping/application/add-comment.use-case';
+import { ListCommentsUseCase } from '../../src/contexts/shopping/application/list-comments.use-case';
+
+import {
+  SHOPPING_LIST_REPOSITORY,
+} from '../../src/contexts/shopping/domain/ports/shopping-list.repository';
+import {
+  SHOPPING_ITEM_REPOSITORY,
+} from '../../src/contexts/shopping/domain/ports/shopping-item.repository';
+import {
+  ITEM_COMMENT_REPOSITORY,
+} from '../../src/contexts/shopping/domain/ports/item-comment.repository';
+import { SHOPPING_CLOCK } from '../../src/contexts/shopping/application/ports/clock';
+import { SHOPPING_ID_GENERATOR } from '../../src/contexts/shopping/application/ports/id-generator';
+
+import { DrizzleShoppingListRepository } from '../../src/contexts/shopping/infrastructure/drizzle-shopping-list.repository';
+import { DrizzleShoppingItemRepository } from '../../src/contexts/shopping/infrastructure/drizzle-shopping-item.repository';
+import { DrizzleItemCommentRepository } from '../../src/contexts/shopping/infrastructure/drizzle-item-comment.repository';
+
 export interface TestApp {
   app: INestApplication;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -100,7 +133,7 @@ export async function createTestApp(): Promise<TestApp> {
         ignoreEnvFile: true,
       }),
     ],
-    controllers: [FamilyController, AuthController],
+    controllers: [FamilyController, AuthController, ShoppingListsController, ShoppingItemsController],
     providers: [
       // ── DB ─────────────────────────────────────────────────────────────
       {
@@ -206,6 +239,52 @@ export async function createTestApp(): Promise<TestApp> {
       ListMembersUseCase,
       LeaveFamilyUseCase,
       RevokeActivePinUseCase,
+
+      // ── shopping: repositorios ─────────────────────────────────────────
+      {
+        provide: SHOPPING_LIST_REPOSITORY,
+        inject: [DRIZZLE],
+        useFactory: (db: ReturnType<typeof drizzle>) =>
+          new DrizzleShoppingListRepository(db as Parameters<typeof DrizzleShoppingListRepository.prototype.constructor>[0]),
+      },
+      {
+        provide: SHOPPING_ITEM_REPOSITORY,
+        inject: [DRIZZLE],
+        useFactory: (db: ReturnType<typeof drizzle>) =>
+          new DrizzleShoppingItemRepository(db as Parameters<typeof DrizzleShoppingItemRepository.prototype.constructor>[0]),
+      },
+      {
+        provide: ITEM_COMMENT_REPOSITORY,
+        inject: [DRIZZLE],
+        useFactory: (db: ReturnType<typeof drizzle>) =>
+          new DrizzleItemCommentRepository(db as Parameters<typeof DrizzleItemCommentRepository.prototype.constructor>[0]),
+      },
+
+      // ── shopping: puertos de infra (reutiliza los de family) ──────────
+      {
+        provide: SHOPPING_CLOCK,
+        useExisting: SystemClock,
+      },
+      {
+        provide: SHOPPING_ID_GENERATOR,
+        useExisting: UuidIdGenerator,
+      },
+
+      // ── shopping: guards ───────────────────────────────────────────────
+      ListScopeGuard,
+      ItemScopeGuard,
+
+      // ── shopping: casos de uso ─────────────────────────────────────────
+      EnsureAndListListsUseCase,
+      CreateCustomListUseCase,
+      GetListWithItemsUseCase,
+      AddItemUseCase,
+      ToggleItemCheckedUseCase,
+      UpdateItemUseCase,
+      DeleteItemUseCase,
+      DeleteCustomListUseCase,
+      AddCommentUseCase,
+      ListCommentsUseCase,
     ],
   }).compile();
 

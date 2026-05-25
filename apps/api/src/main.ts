@@ -1,3 +1,4 @@
+import './config/load-dotenv';
 import 'reflect-metadata';
 import helmet from 'helmet';
 import { ValidationPipe } from '@nestjs/common';

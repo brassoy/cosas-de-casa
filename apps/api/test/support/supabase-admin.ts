@@ -41,12 +41,9 @@ export interface TestUser {
   accessToken: string;
 }
 
-let counter = 0;
-
-/** Genera un email único por invocación para evitar colisiones entre tests. */
+/** Genera un email único por invocación, resistente a colisiones entre procesos y runs. */
 function uniqueEmail(prefix = 'test'): string {
-  counter += 1;
-  return `${prefix}-${Date.now()}-${counter}@integration.test`;
+  return `${prefix}-${Date.now()}-${globalThis.crypto.randomUUID()}@integration.test`;
 }
 
 /**
