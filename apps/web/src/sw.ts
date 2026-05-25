@@ -22,8 +22,12 @@ const navigationRoute = new NavigationRoute(appShellHandler, {
 registerRoute(navigationRoute);
 
 // ─── API calls: network-first, fall back to cache ─────────────────────────
+// Cubre llamadas a la misma origin (/api/...) y al servidor externo (VITE_API_URL).
 registerRoute(
-  ({ url }) => url.pathname.startsWith('/api/'),
+  ({ url }) =>
+    url.pathname.startsWith('/api/') ||
+    url.hostname === self.location.hostname ||
+    url.port === '3000',
   new NetworkFirst({
     cacheName: 'api-cache',
     networkTimeoutSeconds: 10,
