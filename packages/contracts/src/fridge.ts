@@ -69,3 +69,17 @@ export const EatFridgeItemInputSchema = z.object({
   amount: z.string().regex(/^\d+(\.\d+)?$/, 'La cantidad debe ser un número positivo.').optional(),
 });
 export type EatFridgeItemInput = z.infer<typeof EatFridgeItemInputSchema>;
+
+// ── Respuesta de "comer" ──────────────────────────────────────────────────────
+
+/**
+ * Respuesta del endpoint `POST /fridge-items/:itemId/eat`.
+ *
+ * - `deleted`: indica si el ítem se eliminó completamente (sin cantidad restante).
+ * - `itemId`: identificador del ítem consumido.
+ */
+export const EatFridgeItemResultSchema = z.object({
+  deleted: z.boolean(),
+  itemId: UuidSchema,
+});
+export type EatFridgeItemResult = z.infer<typeof EatFridgeItemResultSchema>;

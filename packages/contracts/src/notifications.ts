@@ -23,3 +23,15 @@ export const PushSubscriptionDtoSchema = z.object({
   createdAt: z.string().datetime(),
 });
 export type PushSubscriptionDto = z.infer<typeof PushSubscriptionDtoSchema>;
+
+// ── Respuesta de suscripción ──────────────────────────────────────────────────
+
+/**
+ * Respuesta del endpoint `POST /families/:familyId/notifications/subscribe`.
+ *
+ * Devuelve el identificador de la suscripción recién creada.
+ */
+export const SubscribePushResponseSchema = z.object({
+  id: UuidSchema,
+});
+export type SubscribePushResponse = z.infer<typeof SubscribePushResponseSchema>;

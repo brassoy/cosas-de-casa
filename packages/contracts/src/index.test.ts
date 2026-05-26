@@ -3,6 +3,7 @@ import {
   AddItemDecisionSchema,
   AuthMeDtoSchema,
   CreateFamilyInputSchema,
+  EatFridgeItemResultSchema,
   FamilyDtoSchema,
   GeneratePinResponseSchema,
   JoinFamilyInputSchema,
@@ -10,6 +11,7 @@ import {
   MembershipRoleSchema,
   ShoppingItemDtoSchema,
   ShoppingListDtoSchema,
+  SubscribePushResponseSchema,
   UuidSchema,
 } from './index';
 
@@ -169,5 +171,33 @@ describe('FamilyDtoSchema', () => {
     const result = FamilyDtoSchema.parse(family);
     expect(result.name).toBe('Los García');
     expect(result.role).toBe('OWNER');
+  });
+});
+
+describe('EatFridgeItemResultSchema', () => {
+  it('parsea resultado con deleted true', () => {
+    const result = EatFridgeItemResultSchema.parse({ deleted: true, itemId: SAMPLE_UUID });
+    expect(result.deleted).toBe(true);
+    expect(result.itemId).toBe(SAMPLE_UUID);
+  });
+
+  it('parsea resultado con deleted false', () => {
+    const result = EatFridgeItemResultSchema.parse({ deleted: false, itemId: SAMPLE_UUID });
+    expect(result.deleted).toBe(false);
+  });
+
+  it('rechaza itemId que no es UUID', () => {
+    expect(() => EatFridgeItemResultSchema.parse({ deleted: true, itemId: 'no-uuid' })).toThrow();
+  });
+});
+
+describe('SubscribePushResponseSchema', () => {
+  it('parsea respuesta con id UUID válido', () => {
+    const result = SubscribePushResponseSchema.parse({ id: SAMPLE_UUID });
+    expect(result.id).toBe(SAMPLE_UUID);
+  });
+
+  it('rechaza id que no es UUID', () => {
+    expect(() => SubscribePushResponseSchema.parse({ id: 'no-uuid' })).toThrow();
   });
 });
