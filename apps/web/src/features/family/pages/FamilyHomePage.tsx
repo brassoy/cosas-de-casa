@@ -192,6 +192,22 @@ export function FamilyHomePage() {
             <span style={styles.quickLinkIcon}>🎉</span>
             <span style={styles.quickLinkLabel}>Peñas</span>
           </button>
+          <button
+            type="button"
+            onClick={() => void navigate({ to: '/plans' })}
+            style={styles.quickLinkCard}
+          >
+            <span style={styles.quickLinkIcon}>🗺️</span>
+            <span style={styles.quickLinkLabel}>Planes</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => void navigate({ to: '/friends' })}
+            style={styles.quickLinkCard}
+          >
+            <span style={styles.quickLinkIcon}>👯</span>
+            <span style={styles.quickLinkLabel}>Familias amigas</span>
+          </button>
         </div>
       </section>
 

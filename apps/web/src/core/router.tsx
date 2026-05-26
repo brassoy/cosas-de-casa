@@ -23,6 +23,11 @@ import { GroupsPage } from '@/features/groups/pages/GroupsPage';
 import { CreateGroupPage } from '@/features/groups/pages/CreateGroupPage';
 import { JoinGroupPage } from '@/features/groups/pages/JoinGroupPage';
 import { GroupHomePage } from '@/features/groups/pages/GroupHomePage';
+import { FriendsPage } from '@/features/friends/pages/FriendsPage';
+import { RedeemFriendPage } from '@/features/friends/pages/RedeemFriendPage';
+import { PlansPage } from '@/features/plans/pages/PlansPage';
+import { CreatePlanPage } from '@/features/plans/pages/CreatePlanPage';
+import { PlanDetailPage } from '@/features/plans/pages/PlanDetailPage';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { useFamilyStore } from '@/features/family/store/family.store';
 import { api } from '@/shared/lib/api';
@@ -261,6 +266,45 @@ const groupHomeRoute = createRoute({
   component: GroupHomePage,
 });
 
+// ── Friends routes ────────────────────────────────────────────────────────────
+
+const friendsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/friends',
+  beforeLoad: requireAuth,
+  component: FriendsPage,
+});
+
+const friendsRedeemRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/friends/redeem',
+  beforeLoad: requireAuth,
+  component: RedeemFriendPage,
+});
+
+// ── Plans routes ──────────────────────────────────────────────────────────────
+
+const plansRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/plans',
+  beforeLoad: requireAuth,
+  component: PlansPage,
+});
+
+const planCreateRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/plans/create',
+  beforeLoad: requireAuth,
+  component: CreatePlanPage,
+});
+
+const planDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/plans/$planId',
+  beforeLoad: requireAuth,
+  component: PlanDetailPage,
+});
+
 // ── Route tree ────────────────────────────────────────────────────────────────
 
 const routeTree = rootRoute.addChildren([
@@ -283,6 +327,11 @@ const routeTree = rootRoute.addChildren([
   groupCreateRoute,
   groupJoinRoute,
   groupHomeRoute,
+  friendsRoute,
+  friendsRedeemRoute,
+  plansRoute,
+  planCreateRoute,
+  planDetailRoute,
 ]);
 
 export const router = createRouter({ routeTree });
