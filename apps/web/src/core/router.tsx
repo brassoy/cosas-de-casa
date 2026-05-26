@@ -13,6 +13,8 @@ import { FamilyHomePage } from '@/features/family/pages/FamilyHomePage';
 import { OnboardingPage } from '@/features/family/pages/OnboardingPage';
 import { ListsPage } from '@/features/shopping/pages/ListsPage';
 import { ListDetailPage } from '@/features/shopping/pages/ListDetailPage';
+import { TasksPage } from '@/features/tasks/pages/TasksPage';
+import { TaskDetailPage } from '@/features/tasks/pages/TaskDetailPage';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { useFamilyStore } from '@/features/family/store/family.store';
 import { api } from '@/shared/lib/api';
@@ -169,6 +171,22 @@ const shoppingListDetailRoute = createRoute({
   component: ListDetailPage,
 });
 
+// ── Tasks routes ──────────────────────────────────────────────────────────────
+
+const tasksRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/family/$familyId/tasks',
+  beforeLoad: requireAuth,
+  component: TasksPage,
+});
+
+const taskDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/tasks/$taskId',
+  beforeLoad: requireAuth,
+  component: TaskDetailPage,
+});
+
 // ── Route tree ────────────────────────────────────────────────────────────────
 
 const routeTree = rootRoute.addChildren([
@@ -181,6 +199,8 @@ const routeTree = rootRoute.addChildren([
   familyHomeRoute,
   shoppingListsRoute,
   shoppingListDetailRoute,
+  tasksRoute,
+  taskDetailRoute,
 ]);
 
 export const router = createRouter({ routeTree });

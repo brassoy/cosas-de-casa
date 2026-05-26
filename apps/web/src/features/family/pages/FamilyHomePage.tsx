@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from '@tanstack/react-router';
 import type { FamilyMemberDto } from '@cosasdecasa/contracts';
 import { useFamilyMembers, useGenerateJoinPin } from '../hooks/useFamily';
 import { useFamilyStore } from '../store/family.store';
@@ -61,6 +62,7 @@ function MemberRow({ member }: { member: FamilyMemberDto }) {
 }
 
 export function FamilyHomePage() {
+  const navigate = useNavigate();
   const activeFamily = useFamilyStore((s) => s.activeFamily);
   const user = useAuthStore((s) => s.user);
   const [generatedPin, setGeneratedPin] = useState<string | null>(null);
@@ -98,6 +100,39 @@ export function FamilyHomePage() {
       <header style={styles.pageHeader}>
         <h2 style={styles.familyName}>{activeFamily.name}</h2>
       </header>
+
+      {/* Accesos rápidos */}
+      <section style={styles.section}>
+        <h3 style={styles.sectionTitle}>Accesos rápidos</h3>
+        <div style={styles.quickLinks}>
+          <button
+            type="button"
+            onClick={() =>
+              void navigate({
+                to: '/family/$familyId/lists',
+                params: { familyId: activeFamily.id },
+              })
+            }
+            style={styles.quickLinkCard}
+          >
+            <span style={styles.quickLinkIcon}>🛒</span>
+            <span style={styles.quickLinkLabel}>Listas de la compra</span>
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              void navigate({
+                to: '/family/$familyId/tasks',
+                params: { familyId: activeFamily.id },
+              })
+            }
+            style={styles.quickLinkCard}
+          >
+            <span style={styles.quickLinkIcon}>✅</span>
+            <span style={styles.quickLinkLabel}>Tareas</span>
+          </button>
+        </div>
+      </section>
 
       {isOwner && (
         <section style={styles.section}>
@@ -274,6 +309,32 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     justifyContent: 'center',
     height: '60dvh',
+  },
+  quickLinks: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: 'var(--space-3)',
+  },
+  quickLinkCard: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 'var(--space-2)',
+    padding: 'var(--space-5)',
+    border: '1px solid var(--color-border)',
+    borderRadius: 'var(--radius-card)',
+    backgroundColor: 'var(--color-surface-raised)',
+    cursor: 'pointer',
+    textAlign: 'center',
+    background: 'none',
+  },
+  quickLinkIcon: {
+    fontSize: '1.75rem',
+  },
+  quickLinkLabel: {
+    fontSize: 'var(--font-size-sm)',
+    fontWeight: 'var(--font-weight-medium)',
+    color: 'var(--color-text)',
   },
   muted: {
     color: 'var(--color-text-muted)',
