@@ -50,6 +50,54 @@ registerRoute(
   }),
 );
 
+// ─── Push notifications ─────────────────────────────────────────────────────
+self.addEventListener('push', (event: PushEvent) => {
+  let title = 'Cosas de Casa';
+  let body = 'Tienes una nueva notificación.';
+  let icon = '/icons/icon-192.png';
+
+  if (event.data) {
+    try {
+      const data = event.data.json() as {
+        title?: string;
+        body?: string;
+        icon?: string;
+      };
+      title = data.title ?? title;
+      body = data.body ?? body;
+      icon = data.icon ?? icon;
+    } catch {
+      // Si el payload no es JSON válido, usamos los valores por defecto.
+      body = event.data.text();
+    }
+  }
+
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      icon,
+      badge: '/icons/icon-192.png',
+      tag: 'cosasdecasa',
+    }),
+  );
+});
+
+self.addEventListener('notificationclick', (event: NotificationEvent) => {
+  event.notification.close();
+  event.waitUntil(
+    self.clients
+      .matchAll({ type: 'window', includeUncontrolled: true })
+      .then((clientList) => {
+        for (const client of clientList) {
+          if ('focus' in client) return (client as WindowClient).focus();
+        }
+        if (self.clients.openWindow) {
+          return self.clients.openWindow('/');
+        }
+      }),
+  );
+});
+
 // ─── SW lifecycle ──────────────────────────────────────────────────────────
 self.addEventListener('install', () => {
   self.skipWaiting();

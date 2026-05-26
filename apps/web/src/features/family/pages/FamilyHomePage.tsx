@@ -5,6 +5,7 @@ import { useFamilyMembers, useGenerateJoinPin } from '../hooks/useFamily';
 import { useFamilyStore } from '../store/family.store';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { ApiRequestError } from '@/shared/lib/api';
+import { NotificationToggle } from '@/features/notifications/components/NotificationToggle';
 
 function buildShareText(pin: string): string {
   return `¡Únete a mi familia en Cosas de Casa! Usa el PIN: ${pin}`;
@@ -144,7 +145,26 @@ export function FamilyHomePage() {
             <span style={styles.quickLinkIcon}>🧊</span>
             <span style={styles.quickLinkLabel}>Nevera</span>
           </button>
+          <button
+            type="button"
+            onClick={() =>
+              void navigate({
+                to: '/family/$familyId/stats',
+                params: { familyId: activeFamily.id },
+              })
+            }
+            style={styles.quickLinkCard}
+          >
+            <span style={styles.quickLinkIcon}>📊</span>
+            <span style={styles.quickLinkLabel}>Estadísticas</span>
+          </button>
         </div>
+      </section>
+
+      {/* Notificaciones */}
+      <section style={styles.section}>
+        <h3 style={styles.sectionTitle}>Notificaciones</h3>
+        <NotificationToggle />
       </section>
 
       {isOwner && (
