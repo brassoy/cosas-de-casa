@@ -5,43 +5,15 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1779748234569,
-      "tag": "0000_medical_abomination",
+      "when": 1779790816550,
+      "tag": "0000_init",
       "breakpoints": true
     },
     {
       "idx": 1,
       "version": "7",
-      "when": 1779750597031,
-      "tag": "0001_sad_tinkerer",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1779780900401,
-      "tag": "0002_stiff_lila_cheney",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1779784088106,
-      "tag": "0003_reflective_falcon",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1779784836466,
-      "tag": "0004_realtime_publication",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1779785678337,
-      "tag": "0005_gifted_landau",
+      "when": 1779790831040,
+      "tag": "0001_realtime_publication",
       "breakpoints": true
     }
   ]

@@ -13,6 +13,7 @@ import { FridgeModule } from './contexts/fridge/fridge.module';
 import { NotificationsModule } from './contexts/notifications/notifications.module';
 import { StatsModule } from './contexts/stats/stats.module';
 import { CalendarModule } from './contexts/calendar/calendar.module';
+import { RomanticModule } from './contexts/romantic/romantic.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { CalendarModule } from './contexts/calendar/calendar.module';
     NotificationsModule,
     StatsModule,
     CalendarModule,
+    RomanticModule,
   ],
 })
 export class AppModule {}

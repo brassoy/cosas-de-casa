@@ -376,6 +376,73 @@ export const eventAttendees = pgTable(
   ],
 );
 
+// ── couples ───────────────────────────────────────────────────────────────────
+
+export const couples = pgTable(
+  'couples',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    familyId: uuid('family_id')
+      .notNull()
+      .references(() => families.id, { onDelete: 'cascade' }),
+    /** Miembro A de la pareja (el que inicia la creación). */
+    userA: uuid('user_a')
+      .notNull()
+      .references(() => appUsers.id, { onDelete: 'cascade' }),
+    /** Miembro B de la pareja (el otro miembro elegido). */
+    userB: uuid('user_b')
+      .notNull()
+      .references(() => appUsers.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    // Un par ordenado (userA, userB) es único dentro de una familia.
+    unique('couples_family_users_unique').on(table.familyId, table.userA, table.userB),
+    index('couples_family_idx').on(table.familyId),
+    index('couples_user_a_idx').on(table.userA),
+    index('couples_user_b_idx').on(table.userB),
+  ],
+);
+
+// ── couple_notes ──────────────────────────────────────────────────────────────
+
+export const coupleNotes = pgTable(
+  'couple_notes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    coupleId: uuid('couple_id')
+      .notNull()
+      .references(() => couples.id, { onDelete: 'cascade' }),
+    authorId: uuid('author_id')
+      .notNull()
+      .references(() => appUsers.id, { onDelete: 'cascade' }),
+    body: text('body').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('couple_notes_couple_idx').on(table.coupleId),
+  ],
+);
+
+// ── couple_challenges ─────────────────────────────────────────────────────────
+
+export const coupleChallenges = pgTable(
+  'couple_challenges',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    coupleId: uuid('couple_id')
+      .notNull()
+      .references(() => couples.id, { onDelete: 'cascade' }),
+    /** Clave del catálogo de retos (constante en código). */
+    challengeKey: text('challenge_key').notNull(),
+    done: boolean('done').default(false).notNull(),
+    doneAt: timestamp('done_at', { withTimezone: true }),
+  },
+  (table) => [
+    index('couple_challenges_couple_idx').on(table.coupleId),
+  ],
+);
+
 // ── Tipos de fila inferidos (uso interno de infraestructura) ──────────────────
 
 export type AppUserRow = typeof appUsers.$inferSelect;
@@ -393,3 +460,6 @@ export type FridgeItemRow = typeof fridgeItems.$inferSelect;
 export type PushSubscriptionRow = typeof pushSubscriptions.$inferSelect;
 export type CalendarEventRow = typeof calendarEvents.$inferSelect;
 export type EventAttendeeRow = typeof eventAttendees.$inferSelect;
+export type CoupleRow = typeof couples.$inferSelect;
+export type CoupleNoteRow = typeof coupleNotes.$inferSelect;
+export type CoupleChallengeRow = typeof coupleChallenges.$inferSelect;

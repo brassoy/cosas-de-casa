@@ -164,6 +164,26 @@ import { UpdateEventUseCase } from '../../src/contexts/calendar/application/upda
 import { DeleteEventUseCase } from '../../src/contexts/calendar/application/delete-event.use-case';
 import { SetAttendeesUseCase } from '../../src/contexts/calendar/application/set-attendees.use-case';
 
+// ── romantic ───────────────────────────────────────────────────────────────
+import { RomanticController } from '../../src/contexts/romantic/interface/romantic.controller';
+import { CoupleScopeGuard } from '../../src/contexts/romantic/interface/couple-scope.guard';
+import { COUPLE_REPOSITORY } from '../../src/contexts/romantic/domain/ports/couple.repository';
+import { COUPLE_NOTE_REPOSITORY } from '../../src/contexts/romantic/domain/ports/couple-note.repository';
+import { COUPLE_CHALLENGE_REPOSITORY } from '../../src/contexts/romantic/domain/ports/couple-challenge.repository';
+import { ROMANTIC_CLOCK } from '../../src/contexts/romantic/application/ports/clock';
+import { ROMANTIC_ID_GENERATOR } from '../../src/contexts/romantic/application/ports/id-generator';
+import { DrizzleCoupleRepository } from '../../src/contexts/romantic/infrastructure/drizzle-couple.repository';
+import { DrizzleCoupleNoteRepository } from '../../src/contexts/romantic/infrastructure/drizzle-couple-note.repository';
+import { DrizzleCoupleChallengeRepository } from '../../src/contexts/romantic/infrastructure/drizzle-couple-challenge.repository';
+import { CreateCoupleUseCase } from '../../src/contexts/romantic/application/create-couple.use-case';
+import { GetMyCoupleUseCase } from '../../src/contexts/romantic/application/get-my-couple.use-case';
+import { CreateCoupleNoteUseCase } from '../../src/contexts/romantic/application/create-couple-note.use-case';
+import { ListCoupleNotesUseCase } from '../../src/contexts/romantic/application/list-couple-notes.use-case';
+import { AddChallengeUseCase } from '../../src/contexts/romantic/application/add-challenge.use-case';
+import { ListChallengesUseCase } from '../../src/contexts/romantic/application/list-challenges.use-case';
+import { MarkChallengeDoneUseCase } from '../../src/contexts/romantic/application/mark-challenge-done.use-case';
+import { DoMischiefUseCase } from '../../src/contexts/romantic/application/do-mischief.use-case';
+
 // ── tasks ──────────────────────────────────────────────────────────────────
 import { TasksController } from '../../src/contexts/tasks/interface/tasks.controller';
 import { TaskScopeGuard } from '../../src/contexts/tasks/interface/task-scope.guard';
@@ -214,7 +234,7 @@ export async function createTestApp(): Promise<TestApp> {
       }),
       ScheduleModule.forRoot(),
     ],
-    controllers: [FamilyController, AuthController, ShoppingListsController, ShoppingItemsController, AiController, TasksController, FridgeController, NotificationsController, StatsController, CalendarController],
+    controllers: [FamilyController, AuthController, ShoppingListsController, ShoppingItemsController, AiController, TasksController, FridgeController, NotificationsController, StatsController, CalendarController, RomanticController],
     providers: [
       // ── DB ─────────────────────────────────────────────────────────────
       {
@@ -562,6 +582,49 @@ export async function createTestApp(): Promise<TestApp> {
       UpdateEventUseCase,
       DeleteEventUseCase,
       SetAttendeesUseCase,
+
+      // ── romantic: repositorios ─────────────────────────────────────────
+      {
+        provide: COUPLE_REPOSITORY,
+        inject: [DRIZZLE],
+        useFactory: (db: ReturnType<typeof drizzle>) =>
+          new DrizzleCoupleRepository(db as Parameters<typeof DrizzleCoupleRepository.prototype.constructor>[0]),
+      },
+      {
+        provide: COUPLE_NOTE_REPOSITORY,
+        inject: [DRIZZLE],
+        useFactory: (db: ReturnType<typeof drizzle>) =>
+          new DrizzleCoupleNoteRepository(db as Parameters<typeof DrizzleCoupleNoteRepository.prototype.constructor>[0]),
+      },
+      {
+        provide: COUPLE_CHALLENGE_REPOSITORY,
+        inject: [DRIZZLE],
+        useFactory: (db: ReturnType<typeof drizzle>) =>
+          new DrizzleCoupleChallengeRepository(db as Parameters<typeof DrizzleCoupleChallengeRepository.prototype.constructor>[0]),
+      },
+
+      // ── romantic: puertos de infra (reutiliza los de family) ──────────
+      {
+        provide: ROMANTIC_CLOCK,
+        useExisting: SystemClock,
+      },
+      {
+        provide: ROMANTIC_ID_GENERATOR,
+        useExisting: UuidIdGenerator,
+      },
+
+      // ── romantic: guards ───────────────────────────────────────────────
+      CoupleScopeGuard,
+
+      // ── romantic: casos de uso ─────────────────────────────────────────
+      CreateCoupleUseCase,
+      GetMyCoupleUseCase,
+      CreateCoupleNoteUseCase,
+      ListCoupleNotesUseCase,
+      AddChallengeUseCase,
+      ListChallengesUseCase,
+      MarkChallengeDoneUseCase,
+      DoMischiefUseCase,
     ],
   }).compile();
 
