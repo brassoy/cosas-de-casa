@@ -6,7 +6,7 @@ Aquí vive el **porqué** del proyecto, no solo el cómo.
 - `adr/` — Architecture Decision Records: una decisión por archivo (contexto, opciones, decisión, consecuencias).
 - `modules/` — documentación por contexto de dominio (cada uno incluye su sección **Casos de uso**).
 - `casos-de-uso.md` — catálogo maestro de los 88 casos de uso de la API.
-- `auditoria/` — auditorías de calidad: `contratos.md` (coherencia API↔frontend) y, próximamente, seguridad.
+- `auditoria/` — auditorías de calidad: `contratos.md`, `seguridad-endpoints.md`, `tests-cobertura.md`, `buenas-practicas.md`.
 - `roadmap/` — fases y unidades de trabajo.
 - `infra/` — puesta en marcha local y gestión de secretos.
 
@@ -15,7 +15,7 @@ Aquí vive el **porqué** del proyecto, no solo el cómo.
 - ¿Cómo trabajamos y por qué? → `didactica/00-como-procedemos.md`.
 - Decisiones de arquitectura → `adr/` (empezando por `0001`).
 - ¿Qué debe hacer cada caso de uso de la API? → `casos-de-uso.md`.
-- ¿Coinciden los contratos API↔frontend? → `auditoria/contratos.md`.
+- ¿Coinciden los contratos? ¿Es seguro? ¿Está testeado? → `auditoria/`.
 
 ## ADRs
 
