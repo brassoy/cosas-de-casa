@@ -28,6 +28,10 @@ import { RedeemFriendPage } from '@/features/friends/pages/RedeemFriendPage';
 import { PlansPage } from '@/features/plans/pages/PlansPage';
 import { CreatePlanPage } from '@/features/plans/pages/CreatePlanPage';
 import { PlanDetailPage } from '@/features/plans/pages/PlanDetailPage';
+import { ReceiptsPage } from '@/features/budget/pages/ReceiptsPage';
+import { ReceiptDetailPage } from '@/features/budget/pages/ReceiptDetailPage';
+import { SpendPage } from '@/features/budget/pages/SpendPage';
+import { MenuPage } from '@/features/menu/pages/MenuPage';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { useFamilyStore } from '@/features/family/store/family.store';
 import { api } from '@/shared/lib/api';
@@ -305,6 +309,38 @@ const planDetailRoute = createRoute({
   component: PlanDetailPage,
 });
 
+// ── Budget routes ─────────────────────────────────────────────────────────────
+
+const budgetRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/family/$familyId/budget',
+  beforeLoad: requireAuth,
+  component: ReceiptsPage,
+});
+
+const budgetReceiptDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/family/$familyId/budget/receipts/$receiptId',
+  beforeLoad: requireAuth,
+  component: ReceiptDetailPage,
+});
+
+const budgetSpendRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/family/$familyId/budget/spend',
+  beforeLoad: requireAuth,
+  component: SpendPage,
+});
+
+// ── Menu route ────────────────────────────────────────────────────────────────
+
+const menuRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/family/$familyId/menu',
+  beforeLoad: requireAuth,
+  component: MenuPage,
+});
+
 // ── Route tree ────────────────────────────────────────────────────────────────
 
 const routeTree = rootRoute.addChildren([
@@ -332,6 +368,10 @@ const routeTree = rootRoute.addChildren([
   plansRoute,
   planCreateRoute,
   planDetailRoute,
+  budgetRoute,
+  budgetReceiptDetailRoute,
+  budgetSpendRoute,
+  menuRoute,
 ]);
 
 export const router = createRouter({ routeTree });

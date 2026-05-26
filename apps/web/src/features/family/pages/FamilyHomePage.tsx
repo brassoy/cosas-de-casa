@@ -208,6 +208,32 @@ export function FamilyHomePage() {
             <span style={styles.quickLinkIcon}>👯</span>
             <span style={styles.quickLinkLabel}>Familias amigas</span>
           </button>
+          <button
+            type="button"
+            onClick={() =>
+              void navigate({
+                to: '/family/$familyId/budget',
+                params: { familyId: activeFamily.id },
+              })
+            }
+            style={styles.quickLinkCard}
+          >
+            <span style={styles.quickLinkIcon}>🧾</span>
+            <span style={styles.quickLinkLabel}>Tickets y gasto</span>
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              void navigate({
+                to: '/family/$familyId/menu',
+                params: { familyId: activeFamily.id },
+              })
+            }
+            style={styles.quickLinkCard}
+          >
+            <span style={styles.quickLinkIcon}>🍳</span>
+            <span style={styles.quickLinkLabel}>Menú de la nevera</span>
+          </button>
         </div>
       </section>
 
