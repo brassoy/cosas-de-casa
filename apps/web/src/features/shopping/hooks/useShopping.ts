@@ -206,6 +206,9 @@ export interface DedupState {
 export function useAddItemWithDedup() {
   const [dedupState, setDedupState] = useState<DedupState | null>(null);
   const [autoMergeMessage, setAutoMergeMessage] = useState<string | null>(null);
+  const [showSuccessOverlay, setShowSuccessOverlay] = useState(false);
+  /** Incrementa cada vez que se añade un ítem con éxito. Úsalo como `key` del overlay. */
+  const [successCount, setSuccessCount] = useState(0);
 
   const addItemWithDedup = useCallback(
     async (
@@ -238,6 +241,8 @@ export function useAddItemWithDedup() {
           createdAt: ts,
         });
         await enqueue('addItem', { listId, ...data, localId });
+        setSuccessCount((c) => c + 1);
+        setShowSuccessOverlay(true);
         return { needsConfirmation: false };
       }
 
@@ -274,6 +279,8 @@ export function useAddItemWithDedup() {
           });
           setAutoMergeMessage(`"${data.name}" se ha fusionado con un artículo existente.`);
           setTimeout(() => setAutoMergeMessage(null), 3000);
+          setSuccessCount((c) => c + 1);
+          setShowSuccessOverlay(true);
           return { needsConfirmation: false };
         }
 
@@ -291,6 +298,8 @@ export function useAddItemWithDedup() {
           createdAt: response.item.createdAt,
         });
 
+        setSuccessCount((c) => c + 1);
+        setShowSuccessOverlay(true);
         return { needsConfirmation: false };
       } catch {
         // Error de red: caemos al path offline (optimistic write + outbox).
@@ -307,6 +316,8 @@ export function useAddItemWithDedup() {
           createdAt: ts,
         });
         await enqueue('addItem', { listId, ...data, localId });
+        setSuccessCount((c) => c + 1);
+        setShowSuccessOverlay(true);
         return { needsConfirmation: false };
       }
     },
@@ -330,5 +341,9 @@ export function useAddItemWithDedup() {
     confirmDedup,
     cancelDedup,
     autoMergeMessage,
+    showSuccessOverlay,
+    /** Incrementa con cada ítem añadido con éxito. Úsalo como `key` del overlay. */
+    successCount,
+    hideSuccessOverlay: () => setShowSuccessOverlay(false),
   };
 }

@@ -112,6 +112,10 @@ vi.mock('@/features/shopping/offline/db', () => ({
   },
 }));
 
+vi.mock('@/features/shopping/hooks/useRealtimeItems', () => ({
+  useRealtimeItems: vi.fn(),
+}));
+
 vi.mock('@/features/shopping/offline/sync', () => ({
   seedFromApi: vi.fn(async () => {}),
   seedListDetail: vi.fn(async () => {}),
@@ -543,6 +547,9 @@ describe('ListDetailPage — dedup integration', () => {
       confirmDedup: mockConfirmDedup,
       cancelDedup: mockCancelDedup,
       autoMergeMessage: null,
+      showSuccessOverlay: false,
+      successCount: 0,
+      hideSuccessOverlay: vi.fn(),
     });
 
     wrap(<ListDetailPage />);
@@ -557,6 +564,9 @@ describe('ListDetailPage — dedup integration', () => {
       confirmDedup: mockConfirmDedup,
       cancelDedup: mockCancelDedup,
       autoMergeMessage: '"leche" se ha fusionado con un artículo existente.',
+      showSuccessOverlay: false,
+      successCount: 0,
+      hideSuccessOverlay: vi.fn(),
     });
 
     wrap(<ListDetailPage />);

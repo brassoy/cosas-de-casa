@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { useParams, useNavigate } from '@tanstack/react-router';
 import { useShoppingListDetail, useToggleItem, useDeleteItem, useAddItemWithDedup } from '../hooks/useShopping';
 import { useFrequentItems } from '../hooks/useFrequentItems';
+import { useRealtimeItems } from '../hooks/useRealtimeItems';
 import { useShoppingStore } from '../store/shopping.store';
 import { ItemSheet } from '../components/ItemSheet';
 import { VoiceAddButton } from '../components/VoiceAddButton';
 import { FrequentItemsBar } from '../components/FrequentItemsBar';
 import { DedupConfirmDialog } from '../components/DedupConfirmDialog';
+import { AddSuccessOverlay } from '../components/AddSuccessOverlay';
 import type { LocalItem } from '../offline/db';
 
 // ── Presentational: fila de ítem ─────────────────────────────────────────────
@@ -184,7 +186,13 @@ export function ListDetailPage() {
     confirmDedup,
     cancelDedup,
     autoMergeMessage,
+    showSuccessOverlay,
+    successCount,
+    hideSuccessOverlay,
   } = useAddItemWithDedup();
+
+  // Suscripción Realtime: mergea cambios remotos en Dexie; useLiveQuery repinta.
+  useRealtimeItems(listId);
   const openItemId = useShoppingStore((s) => s.openItemId);
   const openItem = useShoppingStore((s) => s.openItem);
   const closeItem = useShoppingStore((s) => s.closeItem);
@@ -302,6 +310,13 @@ export function ListDetailPage() {
           onCancel={cancelDedup}
         />
       )}
+
+      {/* Overlay festivo al añadir un ítem. `key` fuerza re-mount para obtener frase/gif nuevos. */}
+      <AddSuccessOverlay
+        key={successCount}
+        visible={showSuccessOverlay}
+        onClose={hideSuccessOverlay}
+      />
     </div>
   );
 }

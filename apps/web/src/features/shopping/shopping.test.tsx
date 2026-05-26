@@ -170,6 +170,9 @@ vi.mock('@/features/shopping/hooks/useShopping', () => ({
     confirmDedup: vi.fn(async () => {}),
     cancelDedup: vi.fn(),
     autoMergeMessage: null,
+    showSuccessOverlay: false,
+    successCount: 0,
+    hideSuccessOverlay: vi.fn(),
   })),
 }));
 
@@ -180,6 +183,10 @@ vi.mock('@/features/shopping/store/shopping.store', () => ({
 }));
 
 // ── Mock de enqueue (para test de Outbox) ─────────────────────────────────────
+
+vi.mock('@/features/shopping/hooks/useRealtimeItems', () => ({
+  useRealtimeItems: vi.fn(),
+}));
 
 const { mockEnqueue } = vi.hoisted(() => ({ mockEnqueue: vi.fn(async () => {}) }));
 
