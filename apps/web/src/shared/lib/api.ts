@@ -34,6 +34,11 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(`${BASE_URL}${path}`, { ...init, headers });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      // Sesión inválida o expirada: la limpiamos para que el guard de rutas
+      // redirija a /login en vez de dejar la app en un estado roto.
+      void supabase.auth.signOut();
+    }
     let body: ApiError;
     try {
       body = (await response.json()) as ApiError;

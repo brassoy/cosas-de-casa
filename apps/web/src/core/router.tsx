@@ -20,8 +20,35 @@ import type { FamilyDto } from '@cosasdecasa/contracts';
 
 // ── Root ─────────────────────────────────────────────────────────────────────
 
+/** Pantalla de error de ruta: evita el crash pelado y ofrece recuperación. */
+function RouteErrorScreen() {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '60dvh',
+        gap: '1rem',
+        padding: '2rem',
+        textAlign: 'center',
+      }}
+    >
+      <h2 style={{ color: 'var(--color-text)' }}>Algo ha salido mal</h2>
+      <p style={{ color: 'var(--color-text-muted)' }}>
+        Puede que tu sesión haya caducado. Vuelve a iniciar sesión.
+      </p>
+      <a href="/login" style={{ color: 'var(--color-accent)', textDecoration: 'underline' }}>
+        Ir a iniciar sesión
+      </a>
+    </div>
+  );
+}
+
 const rootRoute = createRootRoute({
   component: App,
+  errorComponent: RouteErrorScreen,
 });
 
 // ── Rutas públicas ────────────────────────────────────────────────────────────
