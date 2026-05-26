@@ -31,3 +31,10 @@ export function loadRootDotenv(): void {
     }
   }
 }
+
+// Efecto colateral al importar: `import './config/load-dotenv'` (primera línea
+// de main.ts, antes de cualquier import que lea process.env) carga el .env de
+// la raíz de inmediato. Es idempotente y no pisa variables ya inyectadas por el
+// entorno real (contenedor/CI), así que llamarla también desde tests/drizzle-kit
+// es inofensivo.
+loadRootDotenv();
