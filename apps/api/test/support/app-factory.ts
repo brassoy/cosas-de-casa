@@ -148,6 +148,22 @@ import { ExpiryReminderService } from '../../src/contexts/notifications/applicat
 import { StatsController } from '../../src/contexts/stats/interface/stats.controller';
 import { FamilyStatsQuery } from '../../src/contexts/stats/application/family-stats.query';
 
+// ── calendar ───────────────────────────────────────────────────────────────
+import { CalendarController } from '../../src/contexts/calendar/interface/calendar.controller';
+import { EventScopeGuard } from '../../src/contexts/calendar/interface/event-scope.guard';
+import { CALENDAR_EVENT_REPOSITORY } from '../../src/contexts/calendar/domain/ports/calendar-event.repository';
+import { CALENDAR_SYNC_PORT } from '../../src/contexts/calendar/domain/ports/calendar-sync.port';
+import { CALENDAR_CLOCK } from '../../src/contexts/calendar/application/ports/clock';
+import { CALENDAR_ID_GENERATOR } from '../../src/contexts/calendar/application/ports/id-generator';
+import { DrizzleCalendarEventRepository } from '../../src/contexts/calendar/infrastructure/drizzle-calendar-event.repository';
+import { NoopCalendarSyncAdapter } from '../../src/contexts/calendar/infrastructure/noop-calendar-sync.adapter';
+import { CreateEventUseCase } from '../../src/contexts/calendar/application/create-event.use-case';
+import { GetEventUseCase } from '../../src/contexts/calendar/application/get-event.use-case';
+import { ListEventsUseCase } from '../../src/contexts/calendar/application/list-events.use-case';
+import { UpdateEventUseCase } from '../../src/contexts/calendar/application/update-event.use-case';
+import { DeleteEventUseCase } from '../../src/contexts/calendar/application/delete-event.use-case';
+import { SetAttendeesUseCase } from '../../src/contexts/calendar/application/set-attendees.use-case';
+
 // ── tasks ──────────────────────────────────────────────────────────────────
 import { TasksController } from '../../src/contexts/tasks/interface/tasks.controller';
 import { TaskScopeGuard } from '../../src/contexts/tasks/interface/task-scope.guard';
@@ -198,7 +214,7 @@ export async function createTestApp(): Promise<TestApp> {
       }),
       ScheduleModule.forRoot(),
     ],
-    controllers: [FamilyController, AuthController, ShoppingListsController, ShoppingItemsController, AiController, TasksController, FridgeController, NotificationsController, StatsController],
+    controllers: [FamilyController, AuthController, ShoppingListsController, ShoppingItemsController, AiController, TasksController, FridgeController, NotificationsController, StatsController, CalendarController],
     providers: [
       // ── DB ─────────────────────────────────────────────────────────────
       {
@@ -510,6 +526,42 @@ export async function createTestApp(): Promise<TestApp> {
 
       // ── stats: read-model ─────────────────────────────────────────────
       FamilyStatsQuery,
+
+      // ── calendar: repositorio ──────────────────────────────────────────
+      {
+        provide: CALENDAR_EVENT_REPOSITORY,
+        inject: [DRIZZLE],
+        useFactory: (db: ReturnType<typeof drizzle>) =>
+          new DrizzleCalendarEventRepository(db as Parameters<typeof DrizzleCalendarEventRepository.prototype.constructor>[0]),
+      },
+
+      // ── calendar: sync port (no-op en tests) ──────────────────────────
+      NoopCalendarSyncAdapter,
+      {
+        provide: CALENDAR_SYNC_PORT,
+        useExisting: NoopCalendarSyncAdapter,
+      },
+
+      // ── calendar: puertos de infra (reutiliza los de family) ──────────
+      {
+        provide: CALENDAR_CLOCK,
+        useExisting: SystemClock,
+      },
+      {
+        provide: CALENDAR_ID_GENERATOR,
+        useExisting: UuidIdGenerator,
+      },
+
+      // ── calendar: guards ───────────────────────────────────────────────
+      EventScopeGuard,
+
+      // ── calendar: casos de uso ─────────────────────────────────────────
+      CreateEventUseCase,
+      GetEventUseCase,
+      ListEventsUseCase,
+      UpdateEventUseCase,
+      DeleteEventUseCase,
+      SetAttendeesUseCase,
     ],
   }).compile();
 

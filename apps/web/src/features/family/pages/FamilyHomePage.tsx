@@ -158,6 +158,19 @@ export function FamilyHomePage() {
             <span style={styles.quickLinkIcon}>📊</span>
             <span style={styles.quickLinkLabel}>Estadísticas</span>
           </button>
+          <button
+            type="button"
+            onClick={() =>
+              void navigate({
+                to: '/family/$familyId/calendar',
+                params: { familyId: activeFamily.id },
+              })
+            }
+            style={styles.quickLinkCard}
+          >
+            <span style={styles.quickLinkIcon}>📅</span>
+            <span style={styles.quickLinkLabel}>Calendario</span>
+          </button>
         </div>
       </section>
 

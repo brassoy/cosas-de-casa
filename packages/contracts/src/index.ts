@@ -6,3 +6,4 @@ export * from './tasks';
 export * from './fridge';
 export * from './notifications';
 export * from './stats';
+export * from './calendar';

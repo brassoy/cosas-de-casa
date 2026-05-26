@@ -331,6 +331,51 @@ export const pushSubscriptions = pgTable(
   ],
 );
 
+// ── calendar_events ───────────────────────────────────────────────────────────
+
+export const calendarEvents = pgTable(
+  'calendar_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    familyId: uuid('family_id')
+      .notNull()
+      .references(() => families.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    description: text('description'),
+    location: text('location'),
+    startsAt: timestamp('starts_at', { withTimezone: true }).notNull(),
+    endsAt: timestamp('ends_at', { withTimezone: true }),
+    allDay: boolean('all_day').default(false).notNull(),
+    /** RRULE iCal (p.ej. FREQ=WEEKLY;BYDAY=MO,WE;UNTIL=20261231T000000Z). Null si no es recurrente. */
+    recurrenceRule: text('recurrence_rule'),
+    createdBy: uuid('created_by').references(() => appUsers.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('calendar_events_family_idx').on(table.familyId),
+    index('calendar_events_starts_at_idx').on(table.startsAt),
+  ],
+);
+
+// ── event_attendees ───────────────────────────────────────────────────────────
+
+export const eventAttendees = pgTable(
+  'event_attendees',
+  {
+    eventId: uuid('event_id')
+      .notNull()
+      .references(() => calendarEvents.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => appUsers.id, { onDelete: 'cascade' }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.eventId, table.userId] }),
+    index('event_attendees_user_idx').on(table.userId),
+  ],
+);
+
 // ── Tipos de fila inferidos (uso interno de infraestructura) ──────────────────
 
 export type AppUserRow = typeof appUsers.$inferSelect;
@@ -346,3 +391,5 @@ export type TaskAssigneeRow = typeof taskAssignees.$inferSelect;
 export type TaskPhotoRow = typeof taskPhotos.$inferSelect;
 export type FridgeItemRow = typeof fridgeItems.$inferSelect;
 export type PushSubscriptionRow = typeof pushSubscriptions.$inferSelect;
+export type CalendarEventRow = typeof calendarEvents.$inferSelect;
+export type EventAttendeeRow = typeof eventAttendees.$inferSelect;

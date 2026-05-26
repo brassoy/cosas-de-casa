@@ -12,6 +12,7 @@ import { TasksModule } from './contexts/tasks/tasks.module';
 import { FridgeModule } from './contexts/fridge/fridge.module';
 import { NotificationsModule } from './contexts/notifications/notifications.module';
 import { StatsModule } from './contexts/stats/stats.module';
+import { CalendarModule } from './contexts/calendar/calendar.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { StatsModule } from './contexts/stats/stats.module';
     FridgeModule,
     NotificationsModule,
     StatsModule,
+    CalendarModule,
   ],
 })
 export class AppModule {}

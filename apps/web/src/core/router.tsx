@@ -17,6 +17,7 @@ import { TasksPage } from '@/features/tasks/pages/TasksPage';
 import { TaskDetailPage } from '@/features/tasks/pages/TaskDetailPage';
 import { FridgePage } from '@/features/fridge/pages/FridgePage';
 import { StatsPage } from '@/features/stats/pages/StatsPage';
+import { CalendarPage } from '@/features/calendar/pages/CalendarPage';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { useFamilyStore } from '@/features/family/store/family.store';
 import { api } from '@/shared/lib/api';
@@ -207,6 +208,15 @@ const statsRoute = createRoute({
   component: StatsPage,
 });
 
+// ── Calendar route ────────────────────────────────────────────────────────────
+
+const calendarRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/family/$familyId/calendar',
+  beforeLoad: requireAuth,
+  component: CalendarPage,
+});
+
 // ── Route tree ────────────────────────────────────────────────────────────────
 
 const routeTree = rootRoute.addChildren([
@@ -223,6 +233,7 @@ const routeTree = rootRoute.addChildren([
   taskDetailRoute,
   fridgeRoute,
   statsRoute,
+  calendarRoute,
 ]);
 
 export const router = createRouter({ routeTree });
