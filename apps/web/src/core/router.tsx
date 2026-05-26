@@ -105,6 +105,43 @@ async function requireAuth() {
   }
 }
 
+/**
+ * Guard de las rutas con `:familyId`. Además de exigir sesión, SINCRONIZA la
+ * familia activa desde la URL: la fuente de verdad es el `familyId` del path,
+ * no el store persistido. Sin esto, abrir una URL de familia directamente
+ * (deep-link, recarga, incógnito, store vacío) mostraba "No hay ninguna familia
+ * activa" porque la página leía el store en vez de la URL.
+ */
+async function requireFamily({ params }: { params: Record<string, string> }) {
+  await useAuthStore.getState().ready;
+  const { session } = useAuthStore.getState();
+  if (!session) {
+    throw redirect({ to: '/login' });
+  }
+
+  const familyId = params.familyId;
+  if (!familyId) return;
+
+  const { activeFamily, setActiveFamily } = useFamilyStore.getState();
+  if (activeFamily?.id === familyId) return;
+
+  // El store no coincide con la URL → resolvemos la familia desde la API.
+  let families: FamilyDto[];
+  try {
+    families = await api.get<FamilyDto[]>('/families');
+  } catch {
+    // Error de red: no bloqueamos; la página mostrará su estado de carga/error.
+    return;
+  }
+  const match = families.find((f) => f.id === familyId);
+  if (match) {
+    setActiveFamily({ id: match.id, name: match.name });
+  } else {
+    // El usuario no pertenece a esa familia → al inicio (que resuelve la suya).
+    throw redirect({ to: '/' });
+  }
+}
+
 // ── Ruta raíz autenticada ─────────────────────────────────────────────────────
 // Comprueba si el usuario ya tiene familia; si no → onboarding.
 
@@ -169,7 +206,7 @@ const familyJoinRoute = createRoute({
 const familyHomeRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/family/$familyId',
-  beforeLoad: requireAuth,
+  beforeLoad: requireFamily,
   component: FamilyHomePage,
 });
 
@@ -178,14 +215,14 @@ const familyHomeRoute = createRoute({
 const shoppingListsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/family/$familyId/lists',
-  beforeLoad: requireAuth,
+  beforeLoad: requireFamily,
   component: ListsPage,
 });
 
 const shoppingListDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/family/$familyId/lists/$listId',
-  beforeLoad: requireAuth,
+  beforeLoad: requireFamily,
   component: ListDetailPage,
 });
 
@@ -194,7 +231,7 @@ const shoppingListDetailRoute = createRoute({
 const tasksRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/family/$familyId/tasks',
-  beforeLoad: requireAuth,
+  beforeLoad: requireFamily,
   component: TasksPage,
 });
 
@@ -210,7 +247,7 @@ const taskDetailRoute = createRoute({
 const fridgeRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/family/$familyId/fridge',
-  beforeLoad: requireAuth,
+  beforeLoad: requireFamily,
   component: FridgePage,
 });
 
@@ -219,7 +256,7 @@ const fridgeRoute = createRoute({
 const statsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/family/$familyId/stats',
-  beforeLoad: requireAuth,
+  beforeLoad: requireFamily,
   component: StatsPage,
 });
 
@@ -228,7 +265,7 @@ const statsRoute = createRoute({
 const calendarRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/family/$familyId/calendar',
-  beforeLoad: requireAuth,
+  beforeLoad: requireFamily,
   component: CalendarPage,
 });
 
@@ -237,7 +274,7 @@ const calendarRoute = createRoute({
 const romanticRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/family/$familyId/romantic',
-  beforeLoad: requireAuth,
+  beforeLoad: requireFamily,
   component: RomanticPage,
 });
 
@@ -315,21 +352,21 @@ const planDetailRoute = createRoute({
 const budgetRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/family/$familyId/budget',
-  beforeLoad: requireAuth,
+  beforeLoad: requireFamily,
   component: ReceiptsPage,
 });
 
 const budgetReceiptDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/family/$familyId/budget/receipts/$receiptId',
-  beforeLoad: requireAuth,
+  beforeLoad: requireFamily,
   component: ReceiptDetailPage,
 });
 
 const budgetSpendRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/family/$familyId/budget/spend',
-  beforeLoad: requireAuth,
+  beforeLoad: requireFamily,
   component: SpendPage,
 });
 
@@ -338,7 +375,7 @@ const budgetSpendRoute = createRoute({
 const menuRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/family/$familyId/menu',
-  beforeLoad: requireAuth,
+  beforeLoad: requireFamily,
   component: MenuPage,
 });
 
