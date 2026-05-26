@@ -31,3 +31,6 @@ supabase/.temp/
 
 # artefactos dev de vite-plugin-pwa
 dev-dist/
+
+# caché de modelos de fastembed (binarios grandes)
+local_cache/

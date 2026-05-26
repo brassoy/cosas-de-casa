@@ -15,6 +15,13 @@
       "when": 1779750597031,
       "tag": "0001_sad_tinkerer",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1779780900401,
+      "tag": "0002_stiff_lila_cheney",
+      "breakpoints": true
     }
   ]
 }

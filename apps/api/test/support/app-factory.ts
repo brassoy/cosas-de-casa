@@ -77,6 +77,17 @@ import { ShoppingItemsController } from '../../src/contexts/shopping/interface/s
 import { ListScopeGuard } from '../../src/contexts/shopping/interface/list-scope.guard';
 import { ItemScopeGuard } from '../../src/contexts/shopping/interface/item-scope.guard';
 
+// ── ai ─────────────────────────────────────────────────────────────────────
+import { AiController } from '../../src/contexts/ai/interface/ai.controller';
+import { EMBEDDING_PORT } from '../../src/contexts/ai/domain/ports/embedding.port';
+import { ITEM_EXTRACTION_PORT } from '../../src/contexts/ai/domain/ports/item-extraction.port';
+import { CATALOG_ITEM_REPOSITORY } from '../../src/contexts/ai/domain/ports/catalog-item.repository';
+import { DrizzleCatalogItemRepository } from '../../src/contexts/ai/infrastructure/drizzle-catalog-item.repository';
+import { ExtractItemsUseCase } from '../../src/contexts/ai/application/extract-items.use-case';
+import { DedupCheckUseCase } from '../../src/contexts/ai/application/dedup-check.use-case';
+import { UpsertCatalogItemUseCase } from '../../src/contexts/ai/application/upsert-catalog-item.use-case';
+import { GetFrequentItemsUseCase } from '../../src/contexts/ai/application/get-frequent-items.use-case';
+
 import { EnsureAndListListsUseCase } from '../../src/contexts/shopping/application/ensure-and-list-lists.use-case';
 import { CreateCustomListUseCase } from '../../src/contexts/shopping/application/create-custom-list.use-case';
 import { GetListWithItemsUseCase } from '../../src/contexts/shopping/application/get-list-with-items.use-case';
@@ -133,7 +144,7 @@ export async function createTestApp(): Promise<TestApp> {
         ignoreEnvFile: true,
       }),
     ],
-    controllers: [FamilyController, AuthController, ShoppingListsController, ShoppingItemsController],
+    controllers: [FamilyController, AuthController, ShoppingListsController, ShoppingItemsController, AiController],
     providers: [
       // ── DB ─────────────────────────────────────────────────────────────
       {
@@ -285,6 +296,52 @@ export async function createTestApp(): Promise<TestApp> {
       DeleteCustomListUseCase,
       AddCommentUseCase,
       ListCommentsUseCase,
+
+      // ── ai: embedding port (stub determinista para tests) ─────────────
+      // Usamos un stub con vector fijo en lugar del modelo real para evitar
+      // descargar fastembed en CI y hacer los tests deterministas.
+      {
+        provide: EMBEDDING_PORT,
+        useValue: {
+          embed: async (text: string) => {
+            // Vector determinista: hash simple basado en el texto (384 dims).
+            // Textos idénticos → mismo vector; textos distintos → distinto.
+            const hash = Array.from({ length: 384 }, (_, i) => {
+              const charCode = text.charCodeAt(i % text.length) || 1;
+              return (Math.sin(i + charCode) * 0.5 + 0.5);
+            });
+            return hash;
+          },
+        },
+      },
+
+      // ── ai: extracción de ítems (stub para tests) ─────────────────────
+      {
+        provide: ITEM_EXTRACTION_PORT,
+        useValue: {
+          extractItems: async (phrase: string) => {
+            // Stub: divide por comas o "y"
+            return phrase
+              .split(/,|\sy\s/)
+              .map((s) => s.trim())
+              .filter((s) => s.length > 0);
+          },
+        },
+      },
+
+      // ── ai: catálogo ──────────────────────────────────────────────────
+      {
+        provide: CATALOG_ITEM_REPOSITORY,
+        inject: [DRIZZLE],
+        useFactory: (db: ReturnType<typeof drizzle>) =>
+          new DrizzleCatalogItemRepository(db as Parameters<typeof DrizzleCatalogItemRepository.prototype.constructor>[0]),
+      },
+
+      // ── ai: casos de uso ──────────────────────────────────────────────
+      ExtractItemsUseCase,
+      DedupCheckUseCase,
+      UpsertCatalogItemUseCase,
+      GetFrequentItemsUseCase,
     ],
   }).compile();
 

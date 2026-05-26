@@ -30,6 +30,14 @@ const EnvSchema = z.object({
    * local; en producción debe ir en el entorno y ser secreto.
    */
   JOIN_PIN_PEPPER: z.string().min(16).default('dev-only-join-pin-pepper-change-me'),
+
+  // ── MiniMax (extracción de artículos por IA) ─────────────────────────────
+  /** URL base de la API MiniMax (compatible con Anthropic SDK). */
+  MINIMAX_BASE_URL: z.string().url().optional(),
+  /** API Key de MiniMax. */
+  MINIMAX_API_KEY: z.string().optional(),
+  /** Identificador del modelo MiniMax a usar. */
+  MINIMAX_MODEL: z.string().optional(),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

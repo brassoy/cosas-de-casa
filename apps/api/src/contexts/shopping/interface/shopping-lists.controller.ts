@@ -5,6 +5,8 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Inject,
+  NotFoundException,
   Param,
   ParseUUIDPipe,
   Post,
@@ -22,7 +24,7 @@ import {
 import type {
   ShoppingListSummaryDto,
   ListWithItemsDto,
-  ShoppingItemDto,
+  AddItemResultDto,
 } from '@cosasdecasa/contracts';
 import type { AuthenticatedUser } from '../../identity-access/domain/authenticated-user';
 import { CurrentUser } from '../../identity-access/interface/current-user.decorator';
@@ -33,6 +35,12 @@ import { CreateCustomListUseCase } from '../application/create-custom-list.use-c
 import { GetListWithItemsUseCase } from '../application/get-list-with-items.use-case';
 import { AddItemUseCase } from '../application/add-item.use-case';
 import { DeleteCustomListUseCase } from '../application/delete-custom-list.use-case';
+import {
+  SHOPPING_LIST_REPOSITORY,
+  type ShoppingListRepository,
+} from '../domain/ports/shopping-list.repository';
+import { DedupCheckUseCase } from '../../ai/application/dedup-check.use-case';
+import { UpsertCatalogItemUseCase } from '../../ai/application/upsert-catalog-item.use-case';
 import { CreateListDto } from './dto/create-list.dto';
 import { AddItemDto } from './dto/add-item.dto';
 import { ShoppingErrorFilter } from './shopping-error.filter';
@@ -57,6 +65,10 @@ export class ShoppingListsController {
     private readonly getListWithItems: GetListWithItemsUseCase,
     private readonly addItem: AddItemUseCase,
     private readonly deleteCustomList: DeleteCustomListUseCase,
+    @Inject(SHOPPING_LIST_REPOSITORY)
+    private readonly lists: ShoppingListRepository,
+    private readonly dedupCheck: DedupCheckUseCase,
+    private readonly upsertCatalog: UpsertCatalogItemUseCase,
   ) {}
 
   // ── Rutas con familyId (guard de familia) ─────────────────────────────────
@@ -108,13 +120,26 @@ export class ShoppingListsController {
 
   @Post('lists/:listId/items')
   @UseGuards(ListScopeGuard)
-  @ApiOperation({ summary: 'Añadir un artículo a una lista.' })
-  @ApiCreatedResponse({ description: 'Artículo añadido.' })
+  @ApiOperation({ summary: 'Añadir un artículo a una lista (con dedup semántico).' })
+  @ApiCreatedResponse({ description: 'Artículo añadido con decisión de dedup.' })
   async addItemToList(
     @CurrentUser() user: AuthenticatedUser,
     @Param('listId', ParseUUIDPipe) listId: string,
     @Body() body: AddItemDto,
-  ): Promise<ShoppingItemDto> {
+  ): Promise<AddItemResultDto> {
+    // Obtenemos el familyId de la lista para acotar el catálogo de dedup.
+    const list = await this.lists.findById(listId);
+    if (!list) {
+      throw new NotFoundException('La lista no existe.');
+    }
+
+    // Dedup semántico (no lanza; solo decide).
+    const dedupResult = await this.dedupCheck.execute({
+      familyId: list.familyId,
+      name: body.name,
+    });
+
+    // Creamos el ítem en la lista (siempre; la decisión informa al frontend).
     const item = await this.addItem.execute({
       listId,
       actingUserId: user.id,
@@ -124,7 +149,22 @@ export class ShoppingListsController {
       description: body.description,
       purchaseLink: body.purchaseLink,
     });
-    return ShoppingPresenter.toItemDto(item);
+
+    // Actualizamos el catálogo de la familia (incrementa frecuencia o crea).
+    // Se hace de forma fire-and-forget para no bloquear la respuesta; si falla
+    // no queremos impedir que el ítem se haya añadido a la lista.
+    void this.upsertCatalog.execute({ familyId: list.familyId, displayName: body.name }).catch(
+      (err: unknown) => {
+        // Log silencioso: el ítem ya fue añadido; solo el catálogo queda desactualizado.
+        console.error('[shopping] upsertCatalog falló (no bloqueante):', err);
+      },
+    );
+
+    return {
+      decision: dedupResult.decision,
+      item: ShoppingPresenter.toItemDto(item),
+      candidates: dedupResult.candidates.length > 0 ? dedupResult.candidates : undefined,
+    };
   }
 
   @Delete('lists/:listId')

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { DRIZZLE } from '../../db/drizzle.tokens';
 import { IdentityAccessModule } from '../identity-access/identity-access.module';
+import { AiModule } from '../ai/ai.module';
 import type { Database } from '../../db/db.types';
 
 // ── Domain ports ─────────────────────────────────────────────────────────────
@@ -43,7 +44,7 @@ import { SystemClock } from '../family/infrastructure/system-clock';
 import { UuidIdGenerator } from '../family/infrastructure/uuid-id-generator';
 
 @Module({
-  imports: [IdentityAccessModule],
+  imports: [IdentityAccessModule, AiModule],
   controllers: [ShoppingListsController, ShoppingItemsController],
   providers: [
     // ── Infrastructure: repositorios ──────────────────────────────────────

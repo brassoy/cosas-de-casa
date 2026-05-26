@@ -1,0 +1,90 @@
+import { Module } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { DRIZZLE } from '../../db/drizzle.tokens';
+import type { Database } from '../../db/db.types';
+import type { Env } from '../../config/env.config';
+import { IdentityAccessModule } from '../identity-access/identity-access.module';
+
+// ── Domain ports ──────────────────────────────────────────────────────────────
+import { EMBEDDING_PORT } from './domain/ports/embedding.port';
+import { ITEM_EXTRACTION_PORT } from './domain/ports/item-extraction.port';
+import { CATALOG_ITEM_REPOSITORY } from './domain/ports/catalog-item.repository';
+
+// ── Infrastructure ────────────────────────────────────────────────────────────
+import { FastEmbedEmbeddingAdapter } from './infrastructure/fastembed-embedding.adapter';
+import { MinimaxItemExtractionAdapter } from './infrastructure/minimax-item-extraction.adapter';
+import { DrizzleCatalogItemRepository } from './infrastructure/drizzle-catalog-item.repository';
+
+// ── Use cases ─────────────────────────────────────────────────────────────────
+import { ExtractItemsUseCase } from './application/extract-items.use-case';
+import { DedupCheckUseCase } from './application/dedup-check.use-case';
+import { UpsertCatalogItemUseCase } from './application/upsert-catalog-item.use-case';
+import { GetFrequentItemsUseCase } from './application/get-frequent-items.use-case';
+
+// ── Interface ─────────────────────────────────────────────────────────────────
+import { AiController } from './interface/ai.controller';
+
+// ── Family (guard) ────────────────────────────────────────────────────────────
+import { FAMILY_REPOSITORY } from '../family/domain/ports/family.repository';
+import { DrizzleFamilyRepository } from '../family/infrastructure/drizzle-family.repository';
+import { FamilyScopeGuard } from '../family/interface/family-scope.guard';
+
+@Module({
+  imports: [IdentityAccessModule],
+  controllers: [AiController],
+  providers: [
+    // ── Repositorio de familia (para FamilyScopeGuard) ────────────────────
+    {
+      provide: FAMILY_REPOSITORY,
+      inject: [DRIZZLE],
+      useFactory: (db: Database) => new DrizzleFamilyRepository(db),
+    },
+    FamilyScopeGuard,
+
+    // ── Embedding (fastembed, singleton perezoso) ─────────────────────────
+    {
+      provide: EMBEDDING_PORT,
+      useFactory: () => FastEmbedEmbeddingAdapter.getInstance(),
+    },
+
+    // ── Extracción de ítems (MiniMax/Anthropic SDK) ───────────────────────
+    {
+      provide: ITEM_EXTRACTION_PORT,
+      inject: [ConfigService],
+      useFactory: (config: ConfigService<Env, true>) => {
+        const baseURL = config.get('MINIMAX_BASE_URL' as keyof Env, { infer: true }) as string | undefined;
+        const apiKey = config.get('MINIMAX_API_KEY' as keyof Env, { infer: true }) as string | undefined;
+        const model = config.get('MINIMAX_MODEL' as keyof Env, { infer: true }) as string | undefined;
+
+        if (!baseURL || !apiKey || !model) {
+          // Si no hay config, devuelve una implementación nula segura
+          return {
+            extractItems: async () => [],
+          };
+        }
+        return new MinimaxItemExtractionAdapter({ baseURL, apiKey, model });
+      },
+    },
+
+    // ── Catálogo (Drizzle + pgvector) ─────────────────────────────────────
+    {
+      provide: CATALOG_ITEM_REPOSITORY,
+      inject: [DRIZZLE],
+      useFactory: (db: Database) => new DrizzleCatalogItemRepository(db),
+    },
+
+    // ── Casos de uso ──────────────────────────────────────────────────────
+    ExtractItemsUseCase,
+    DedupCheckUseCase,
+    UpsertCatalogItemUseCase,
+    GetFrequentItemsUseCase,
+  ],
+  exports: [
+    UpsertCatalogItemUseCase,
+    DedupCheckUseCase,
+    GetFrequentItemsUseCase,
+    EMBEDDING_PORT,
+    CATALOG_ITEM_REPOSITORY,
+  ],
+})
+export class AiModule {}

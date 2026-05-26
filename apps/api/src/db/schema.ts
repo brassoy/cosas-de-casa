@@ -2,6 +2,8 @@ import { sql } from 'drizzle-orm';
 import {
   boolean,
   index,
+  integer,
+  jsonb,
   numeric,
   pgEnum,
   pgTable,
@@ -10,8 +12,8 @@ import {
   unique,
   uniqueIndex,
   uuid,
-  integer,
 } from 'drizzle-orm/pg-core';
+import { vector } from 'drizzle-orm/pg-core';
 
 /**
  * Esquema de persistencia (Drizzle / Postgres).
@@ -175,6 +177,42 @@ export const itemComments = pgTable(
   ],
 );
 
+// ── catalog_items ────────────────────────────────────────────────────────────
+// Catálogo de artículos por familia: base para dedup semántico y frecuencia.
+// Requiere la extensión pgvector (CREATE EXTENSION IF NOT EXISTS vector).
+
+export const catalogItems = pgTable(
+  'catalog_items',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    familyId: uuid('family_id')
+      .notNull()
+      .references(() => families.id, { onDelete: 'cascade' }),
+    normalizedName: text('normalized_name').notNull(),
+    displayName: text('display_name').notNull(),
+    /** Atributos semánticos extraídos (p.ej. { grasa: "entera" }). */
+    attributes: jsonb('attributes').$type<Record<string, string>>().notNull().default({}),
+    /**
+     * Embedding de 384 dims (BGE-Small-EN-v1.5 vía fastembed).
+     * NULL cuando el modelo no pudo generar el vector (modo fallback).
+     */
+    embedding: vector('embedding', { dimensions: 384 }),
+    /** Número de veces que este artículo ha sido añadido a una lista. */
+    frequency: integer('frequency').notNull().default(1),
+    lastAddedAt: timestamp('last_added_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    // Unicidad: un nombre normalizado es único por familia (base del upsert de frecuencia).
+    unique('catalog_items_family_name_unique').on(table.familyId, table.normalizedName),
+    index('catalog_items_family_idx').on(table.familyId),
+    // Índice HNSW para búsqueda por coseno (pgvector).
+    // pgvector ignora automáticamente las filas con NULL en embedding.
+    index('catalog_items_embedding_hnsw_idx')
+      .using('hnsw', table.embedding.op('vector_cosine_ops'))
+      .where(sql`${table.embedding} IS NOT NULL`),
+  ],
+);
+
 // ── Tipos de fila inferidos (uso interno de infraestructura) ──────────────────
 
 export type AppUserRow = typeof appUsers.$inferSelect;
@@ -184,3 +222,4 @@ export type JoinPinRow = typeof joinPins.$inferSelect;
 export type ShoppingListRow = typeof shoppingLists.$inferSelect;
 export type ShoppingItemRow = typeof shoppingItems.$inferSelect;
 export type ItemCommentRow = typeof itemComments.$inferSelect;
+export type CatalogItemRow = typeof catalogItems.$inferSelect;

@@ -2,10 +2,10 @@ packages:
   - 'apps/*'
   - 'packages/*'
 
-# pnpm 11 bloquea por seguridad los scripts de instalacion (postinstall).
-# Solo habilitamos los que necesitan binarios nativos; el resto (telemetria) quedan en false.
+# pnpm 11 bloquea por seguridad los postinstall. Habilitamos solo los nativos necesarios.
 allowBuilds:
   '@nestjs/core': false
   '@scarf/scarf': false
   '@swc/core': true
   esbuild: true
+  onnxruntime-node: true

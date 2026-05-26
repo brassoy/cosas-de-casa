@@ -6,6 +6,7 @@ import { HealthModule } from './health/health.module';
 import { IdentityAccessModule } from './contexts/identity-access/identity-access.module';
 import { FamilyModule } from './contexts/family/family.module';
 import { ShoppingModule } from './contexts/shopping/shopping.module';
+import { AiModule } from './contexts/ai/ai.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { ShoppingModule } from './contexts/shopping/shopping.module';
     IdentityAccessModule,
     FamilyModule,
     ShoppingModule,
+    AiModule,
   ],
 })
 export class AppModule {}

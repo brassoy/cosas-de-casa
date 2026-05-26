@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { UuidSchema } from './common';
+import { DedupCandidateDtoSchema } from './ai';
 
 // ── Enumerados ───────────────────────────────────────────────────────────────
 
@@ -97,6 +98,20 @@ export const CreateListInputSchema = z.object({
   name: z.string().min(1).max(100),
 });
 export type CreateListInput = z.infer<typeof CreateListInputSchema>;
+
+/**
+ * Respuesta de añadir un artículo a una lista (incluye decisión de dedup).
+ *
+ * - ADD_NEW: ítem creado sin conflicto.
+ * - AUTO_MERGE: fusión automática; `item` contiene el ítem resultante.
+ * - SUGGEST: hay candidatos similares; el frontend debe pedir confirmación.
+ */
+export const AddItemResultDtoSchema = z.object({
+  decision: AddItemDecisionSchema,
+  item: ShoppingItemDtoSchema,
+  candidates: z.array(DedupCandidateDtoSchema).optional(),
+});
+export type AddItemResultDto = z.infer<typeof AddItemResultDtoSchema>;
 
 /** Payload para añadir un artículo a una lista. */
 export const AddItemInputSchema = z.object({

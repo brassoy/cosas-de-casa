@@ -7,7 +7,8 @@
  *  ✓ GET  /api/v1/families/:familyId/lists     → crea MAIN si no existe, la devuelve
  *  ✓ POST /api/v1/families/:familyId/lists     → crea lista CUSTOM
  *  ✓ GET  /api/v1/lists/:listId               → devuelve lista con ítems
- *  ✓ POST /api/v1/lists/:listId/items         → añade un ítem
+ *  ✓ POST /api/v1/lists/:listId/items         → devuelve { decision, item, candidates? }
+ *  ✓ POST /api/v1/lists/:listId/items (x2)   → segunda vez sube frecuencia en catálogo
  *  ✓ PATCH /api/v1/items/:itemId             → edita ítem (nombre, checked)
  *  ✓ DELETE /api/v1/items/:itemId            → elimina ítem
  *  ✓ DELETE /api/v1/lists/:listId            → elimina lista CUSTOM; 409 para MAIN
@@ -197,13 +198,14 @@ describe('Shopping context – integración', () => {
     });
   });
 
-  describe('POST /api/v1/lists/:listId/items (añadir ítem)', () => {
+  describe('POST /api/v1/lists/:listId/items (añadir ítem + dedup)', () => {
     let owner: TestUser;
+    let familyId: string;
     let listId: string;
 
     beforeEach(async () => {
       owner = await createTestUser();
-      const familyId = await makeFamily(owner.accessToken);
+      familyId = await makeFamily(owner.accessToken);
       const lists = await getLists(owner.accessToken, familyId);
       listId = lists.find((l) => l.type === 'MAIN')!.id;
     });
@@ -212,7 +214,7 @@ describe('Shopping context – integración', () => {
       if (owner) await deleteTestUser(owner.userId);
     });
 
-    it('añade un ítem y lo devuelve con checked=false', async () => {
+    it('devuelve { decision, item, candidates? } con el ítem creado', async () => {
       const res = await request(server)
         .post(`/api/v1/lists/${listId}/items`)
         .set('Authorization', `Bearer ${owner.accessToken}`)
@@ -220,13 +222,47 @@ describe('Shopping context – integración', () => {
 
       expect(res.status).toBe(201);
       expect(res.body).toMatchObject({
-        id: expect.any(String),
-        listId,
-        name: 'Leche entera',
-        quantity: 2,
-        unit: 'l',
-        checked: false,
+        decision: expect.stringMatching(/^(ADD_NEW|AUTO_MERGE|SUGGEST)$/),
+        item: {
+          id: expect.any(String),
+          listId,
+          name: 'Leche entera',
+          quantity: 2,
+          unit: 'l',
+          checked: false,
+        },
       });
+    });
+
+    it('primer añadir devuelve decision ADD_NEW (catálogo vacío)', async () => {
+      const res = await request(server)
+        .post(`/api/v1/lists/${listId}/items`)
+        .set('Authorization', `Bearer ${owner.accessToken}`)
+        .send({ name: 'Yogur natural' });
+
+      expect(res.status).toBe(201);
+      expect((res.body as { decision: string }).decision).toBe('ADD_NEW');
+    });
+
+    it('tras añadir el ítem, el catálogo refleja la frecuencia en frequent-items', async () => {
+      // Añadimos un ítem
+      await request(server)
+        .post(`/api/v1/lists/${listId}/items`)
+        .set('Authorization', `Bearer ${owner.accessToken}`)
+        .send({ name: 'Pan integral' });
+
+      // Damos tiempo al upsert fire-and-forget (es async pero casi inmediato)
+      await new Promise<void>((r) => setTimeout(r, 300));
+
+      const freqRes = await request(server)
+        .get(`/api/v1/families/${familyId}/frequent-items`)
+        .set('Authorization', `Bearer ${owner.accessToken}`);
+
+      expect(freqRes.status).toBe(200);
+      const frequents = freqRes.body as Array<{ displayName: string; frequency: number }>;
+      const panEntry = frequents.find((f) => f.displayName === 'Pan integral');
+      expect(panEntry).toBeDefined();
+      expect(panEntry!.frequency).toBeGreaterThanOrEqual(1);
     });
 
     it('devuelve 400 si el nombre está vacío', async () => {
@@ -253,7 +289,8 @@ describe('Shopping context – integración', () => {
         .post(`/api/v1/lists/${listId}/items`)
         .set('Authorization', `Bearer ${owner.accessToken}`)
         .send({ name: 'Aceite de oliva' });
-      itemId = (itemRes.body as { id: string }).id;
+      // El endpoint ahora devuelve { decision, item }
+      itemId = (itemRes.body as { item: { id: string } }).item.id;
     });
 
     afterAll(async () => {
@@ -306,7 +343,8 @@ describe('Shopping context – integración', () => {
         .post(`/api/v1/lists/${listId}/items`)
         .set('Authorization', `Bearer ${owner.accessToken}`)
         .send({ name: 'Pan de centeno' });
-      itemId = (itemRes.body as { id: string }).id;
+      // El endpoint ahora devuelve { decision, item }
+      itemId = (itemRes.body as { item: { id: string } }).item.id;
     });
 
     afterAll(async () => {
@@ -382,7 +420,8 @@ describe('Shopping context – integración', () => {
         .post(`/api/v1/lists/${listId}/items`)
         .set('Authorization', `Bearer ${owner.accessToken}`)
         .send({ name: 'Cerveza artesanal' });
-      itemId = (itemRes.body as { id: string }).id;
+      // El endpoint ahora devuelve { decision, item }
+      itemId = (itemRes.body as { item: { id: string } }).item.id;
     });
 
     afterAll(async () => {
