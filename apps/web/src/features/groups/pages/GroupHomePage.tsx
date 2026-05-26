@@ -1,14 +1,13 @@
 import { useState } from 'react';
-import { useNavigate } from '@tanstack/react-router';
-import type { FamilyMemberDto } from '@cosasdecasa/contracts';
-import { useFamilyMembers, useGenerateJoinPin } from '../hooks/useFamily';
-import { useFamilyStore } from '../store/family.store';
+import { useNavigate, useParams } from '@tanstack/react-router';
+import type { GroupMemberDto } from '../contracts';
+import { useGroupMembers, useGenerateGroupPin, useLeaveGroup } from '../hooks/useGroups';
+import { useGroupsStore } from '../store/groups.store';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { ApiRequestError } from '@/shared/lib/api';
-import { NotificationToggle } from '@/features/notifications/components/NotificationToggle';
 
 function buildShareText(pin: string): string {
-  return `¡Únete a mi familia en Cosas de Casa! Usa el PIN: ${pin}`;
+  return `¡Únete a mi peña en Cosas de Casa! Usa el PIN: ${pin}`;
 }
 
 function PinShare({ pin }: { pin: string }) {
@@ -44,7 +43,7 @@ function PinShare({ pin }: { pin: string }) {
   );
 }
 
-function MemberRow({ member }: { member: FamilyMemberDto }) {
+function MemberRow({ member }: { member: GroupMemberDto }) {
   return (
     <li style={styles.memberRow}>
       <div style={styles.avatar}>
@@ -62,15 +61,19 @@ function MemberRow({ member }: { member: FamilyMemberDto }) {
   );
 }
 
-export function FamilyHomePage() {
+export function GroupHomePage() {
   const navigate = useNavigate();
-  const activeFamily = useFamilyStore((s) => s.activeFamily);
+  const { groupId } = useParams({ from: '/groups/$groupId' });
+  const activeGroup = useGroupsStore((s) => s.activeGroup);
   const user = useAuthStore((s) => s.user);
   const [generatedPin, setGeneratedPin] = useState<string | null>(null);
   const [pinError, setPinError] = useState<string | null>(null);
+  const [leaveError, setLeaveError] = useState<string | null>(null);
+  const [confirmLeave, setConfirmLeave] = useState(false);
 
-  const { data: members, isLoading, error } = useFamilyMembers(activeFamily?.id);
-  const generatePin = useGenerateJoinPin(activeFamily?.id ?? '');
+  const { data: members, isLoading, error } = useGroupMembers(groupId);
+  const generatePin = useGenerateGroupPin(groupId);
+  const leaveGroup = useLeaveGroup(groupId);
 
   const isOwner = members?.some((m) => m.userId === user?.id && m.role === 'OWNER') ?? false;
 
@@ -88,10 +91,33 @@ export function FamilyHomePage() {
     });
   }
 
-  if (!activeFamily) {
+  function handleLeave() {
+    if (!confirmLeave) {
+      setConfirmLeave(true);
+      return;
+    }
+    setLeaveError(null);
+    leaveGroup.mutate(undefined, {
+      onSuccess: async () => {
+        await navigate({ to: '/groups' });
+      },
+      onError: (err) => {
+        setConfirmLeave(false);
+        const msg =
+          err instanceof ApiRequestError
+            ? err.body.message
+            : 'No se ha podido salir de la peña. Inténtalo de nuevo.';
+        setLeaveError(msg);
+      },
+    });
+  }
+
+  const groupName = activeGroup?.name ?? 'Peña';
+
+  if (!groupId) {
     return (
       <div style={styles.center}>
-        <p style={{ color: 'var(--color-text-muted)' }}>No hay ninguna familia activa.</p>
+        <p style={{ color: 'var(--color-text-muted)' }}>Peña no encontrada.</p>
       </div>
     );
   }
@@ -99,128 +125,18 @@ export function FamilyHomePage() {
   return (
     <div style={styles.page}>
       <header style={styles.pageHeader}>
-        <h2 style={styles.familyName}>{activeFamily.name}</h2>
+        <button
+          type="button"
+          onClick={() => void navigate({ to: '/groups' })}
+          style={styles.backBtn}
+          aria-label="Volver a mis peñas"
+        >
+          ← Mis peñas
+        </button>
+        <h2 style={styles.groupName}>{groupName}</h2>
       </header>
 
-      {/* Accesos rápidos */}
-      <section style={styles.section}>
-        <h3 style={styles.sectionTitle}>Accesos rápidos</h3>
-        <div style={styles.quickLinks}>
-          <button
-            type="button"
-            onClick={() =>
-              void navigate({
-                to: '/family/$familyId/lists',
-                params: { familyId: activeFamily.id },
-              })
-            }
-            style={styles.quickLinkCard}
-          >
-            <span style={styles.quickLinkIcon}>🛒</span>
-            <span style={styles.quickLinkLabel}>Listas de la compra</span>
-          </button>
-          <button
-            type="button"
-            onClick={() =>
-              void navigate({
-                to: '/family/$familyId/tasks',
-                params: { familyId: activeFamily.id },
-              })
-            }
-            style={styles.quickLinkCard}
-          >
-            <span style={styles.quickLinkIcon}>✅</span>
-            <span style={styles.quickLinkLabel}>Tareas</span>
-          </button>
-          <button
-            type="button"
-            onClick={() =>
-              void navigate({
-                to: '/family/$familyId/fridge',
-                params: { familyId: activeFamily.id },
-              })
-            }
-            style={styles.quickLinkCard}
-          >
-            <span style={styles.quickLinkIcon}>🧊</span>
-            <span style={styles.quickLinkLabel}>Nevera</span>
-          </button>
-          <button
-            type="button"
-            onClick={() =>
-              void navigate({
-                to: '/family/$familyId/stats',
-                params: { familyId: activeFamily.id },
-              })
-            }
-            style={styles.quickLinkCard}
-          >
-            <span style={styles.quickLinkIcon}>📊</span>
-            <span style={styles.quickLinkLabel}>Estadísticas</span>
-          </button>
-          <button
-            type="button"
-            onClick={() =>
-              void navigate({
-                to: '/family/$familyId/calendar',
-                params: { familyId: activeFamily.id },
-              })
-            }
-            style={styles.quickLinkCard}
-          >
-            <span style={styles.quickLinkIcon}>📅</span>
-            <span style={styles.quickLinkLabel}>Calendario</span>
-          </button>
-          <button
-            type="button"
-            onClick={() =>
-              void navigate({
-                to: '/family/$familyId/romantic',
-                params: { familyId: activeFamily.id },
-              })
-            }
-            style={styles.quickLinkCard}
-          >
-            <span style={styles.quickLinkIcon}>💕</span>
-            <span style={styles.quickLinkLabel}>Rincón</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => void navigate({ to: '/groups' })}
-            style={styles.quickLinkCard}
-          >
-            <span style={styles.quickLinkIcon}>🎉</span>
-            <span style={styles.quickLinkLabel}>Peñas</span>
-          </button>
-        </div>
-      </section>
-
-      {/* Notificaciones */}
-      <section style={styles.section}>
-        <h3 style={styles.sectionTitle}>Notificaciones</h3>
-        <NotificationToggle />
-      </section>
-
-      {isOwner && (
-        <section style={styles.section}>
-          <h3 style={styles.sectionTitle}>Invitar miembros</h3>
-          <button
-            type="button"
-            onClick={handleGeneratePin}
-            style={styles.btnPrimary}
-            disabled={generatePin.isPending}
-          >
-            {generatePin.isPending ? 'Generando...' : 'Genera un PIN'}
-          </button>
-          {pinError && (
-            <p role="alert" style={styles.error}>
-              {pinError}
-            </p>
-          )}
-          {generatedPin && <PinShare pin={generatedPin} />}
-        </section>
-      )}
-
+      {/* Miembros */}
       <section style={styles.section}>
         <h3 style={styles.sectionTitle}>
           Miembros {members ? `(${members.length})` : ''}
@@ -240,6 +156,64 @@ export function FamilyHomePage() {
           </ul>
         )}
       </section>
+
+      {/* Invitar (solo OWNER) */}
+      {isOwner && (
+        <section style={styles.section}>
+          <h3 style={styles.sectionTitle}>Invitar miembros</h3>
+          <button
+            type="button"
+            onClick={handleGeneratePin}
+            style={styles.btnPrimary}
+            disabled={generatePin.isPending}
+          >
+            {generatePin.isPending ? 'Generando...' : 'Generar PIN'}
+          </button>
+          {pinError && (
+            <p role="alert" style={styles.error}>
+              {pinError}
+            </p>
+          )}
+          {generatedPin && <PinShare pin={generatedPin} />}
+        </section>
+      )}
+
+      {/* Salir de la peña */}
+      <section style={styles.section}>
+        <h3 style={styles.sectionTitle}>Salir de la peña</h3>
+        {leaveError && (
+          <p role="alert" style={styles.error}>
+            {leaveError}
+          </p>
+        )}
+        {confirmLeave ? (
+          <div style={styles.confirmRow}>
+            <p style={styles.muted}>¿Seguro que quieres salir de esta peña?</p>
+            <div style={styles.confirmActions}>
+              <button
+                type="button"
+                onClick={handleLeave}
+                style={styles.btnDanger}
+                disabled={leaveGroup.isPending}
+              >
+                {leaveGroup.isPending ? 'Saliendo...' : 'Confirmar'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmLeave(false)}
+                style={styles.btnSecondary}
+                disabled={leaveGroup.isPending}
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button type="button" onClick={handleLeave} style={styles.btnDanger}>
+            Salir de la peña
+          </button>
+        )}
+      </section>
     </div>
   );
 }
@@ -256,8 +230,20 @@ const styles: Record<string, React.CSSProperties> = {
   pageHeader: {
     borderBottom: '1px solid var(--color-border)',
     paddingBottom: 'var(--space-4)',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 'var(--space-2)',
   },
-  familyName: {
+  backBtn: {
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    color: 'var(--color-accent)',
+    fontSize: 'var(--font-size-sm)',
+    padding: 0,
+    textAlign: 'left',
+  },
+  groupName: {
     fontSize: 'var(--font-size-3xl)',
     fontWeight: 'var(--font-weight-bold)',
     color: 'var(--color-text)',
@@ -290,6 +276,17 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: 'var(--color-surface)',
     color: 'var(--color-text)',
     fontSize: 'var(--font-size-sm)',
+    cursor: 'pointer',
+  },
+  btnDanger: {
+    alignSelf: 'flex-start',
+    padding: 'var(--space-2) var(--space-4)',
+    borderRadius: 'var(--radius-md)',
+    border: '1px solid var(--color-error)',
+    backgroundColor: 'transparent',
+    color: 'var(--color-error)',
+    fontSize: 'var(--font-size-sm)',
+    fontWeight: 'var(--font-weight-medium)',
     cursor: 'pointer',
   },
   pinBox: {
@@ -377,31 +374,14 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: 'center',
     height: '60dvh',
   },
-  quickLinks: {
-    display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
-    gap: 'var(--space-3)',
-  },
-  quickLinkCard: {
+  confirmRow: {
     display: 'flex',
     flexDirection: 'column',
-    alignItems: 'center',
+    gap: 'var(--space-3)',
+  },
+  confirmActions: {
+    display: 'flex',
     gap: 'var(--space-2)',
-    padding: 'var(--space-5)',
-    border: '1px solid var(--color-border)',
-    borderRadius: 'var(--radius-card)',
-    backgroundColor: 'var(--color-surface-raised)',
-    cursor: 'pointer',
-    textAlign: 'center',
-    background: 'none',
-  },
-  quickLinkIcon: {
-    fontSize: '1.75rem',
-  },
-  quickLinkLabel: {
-    fontSize: 'var(--font-size-sm)',
-    fontWeight: 'var(--font-weight-medium)',
-    color: 'var(--color-text)',
   },
   muted: {
     color: 'var(--color-text-muted)',

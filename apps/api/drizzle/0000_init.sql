@@ -1,6 +1,8 @@
 CREATE EXTENSION IF NOT EXISTS vector;
 --> statement-breakpoint
 CREATE TYPE "public"."fridge_location" AS ENUM('FRIDGE', 'FREEZER', 'PANTRY');--> statement-breakpoint
+CREATE TYPE "public"."group_join_pin_status" AS ENUM('ACTIVE', 'CONSUMED', 'REVOKED');--> statement-breakpoint
+CREATE TYPE "public"."group_role" AS ENUM('OWNER', 'MEMBER');--> statement-breakpoint
 CREATE TYPE "public"."join_pin_status" AS ENUM('ACTIVE', 'CONSUMED', 'REVOKED');--> statement-breakpoint
 CREATE TYPE "public"."list_type" AS ENUM('MAIN', 'CUSTOM');--> statement-breakpoint
 CREATE TYPE "public"."membership_role" AS ENUM('OWNER', 'MEMBER');--> statement-breakpoint
@@ -90,6 +92,37 @@ CREATE TABLE "fridge_items" (
 	"location" "fridge_location" DEFAULT 'FRIDGE' NOT NULL,
 	"expiry_date" date,
 	"created_by" uuid,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "group_join_pins" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"group_id" uuid NOT NULL,
+	"code_hash" text NOT NULL,
+	"status" "group_join_pin_status" DEFAULT 'ACTIVE' NOT NULL,
+	"expires_at" timestamp with time zone NOT NULL,
+	"created_by" uuid NOT NULL,
+	"consumed_by" uuid,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"consumed_at" timestamp with time zone
+);
+--> statement-breakpoint
+CREATE TABLE "group_memberships" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"group_id" uuid NOT NULL,
+	"user_id" uuid NOT NULL,
+	"role" "group_role" NOT NULL,
+	"joined_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "group_memberships_group_user_unique" UNIQUE("group_id","user_id")
+);
+--> statement-breakpoint
+CREATE TABLE "groups" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"name" text NOT NULL,
+	"description" text,
+	"image_url" text,
+	"created_by" uuid NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
@@ -198,6 +231,12 @@ ALTER TABLE "event_attendees" ADD CONSTRAINT "event_attendees_user_id_app_users_
 ALTER TABLE "families" ADD CONSTRAINT "families_created_by_app_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."app_users"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "fridge_items" ADD CONSTRAINT "fridge_items_family_id_families_id_fk" FOREIGN KEY ("family_id") REFERENCES "public"."families"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "fridge_items" ADD CONSTRAINT "fridge_items_created_by_app_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."app_users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "group_join_pins" ADD CONSTRAINT "group_join_pins_group_id_groups_id_fk" FOREIGN KEY ("group_id") REFERENCES "public"."groups"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "group_join_pins" ADD CONSTRAINT "group_join_pins_created_by_app_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."app_users"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "group_join_pins" ADD CONSTRAINT "group_join_pins_consumed_by_app_users_id_fk" FOREIGN KEY ("consumed_by") REFERENCES "public"."app_users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "group_memberships" ADD CONSTRAINT "group_memberships_group_id_groups_id_fk" FOREIGN KEY ("group_id") REFERENCES "public"."groups"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "group_memberships" ADD CONSTRAINT "group_memberships_user_id_app_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."app_users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "groups" ADD CONSTRAINT "groups_created_by_app_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."app_users"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "item_comments" ADD CONSTRAINT "item_comments_item_id_shopping_items_id_fk" FOREIGN KEY ("item_id") REFERENCES "public"."shopping_items"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "item_comments" ADD CONSTRAINT "item_comments_author_id_app_users_id_fk" FOREIGN KEY ("author_id") REFERENCES "public"."app_users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "join_pins" ADD CONSTRAINT "join_pins_family_id_families_id_fk" FOREIGN KEY ("family_id") REFERENCES "public"."families"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -228,6 +267,9 @@ CREATE INDEX "couples_user_b_idx" ON "couples" USING btree ("user_b");--> statem
 CREATE INDEX "event_attendees_user_idx" ON "event_attendees" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "fridge_items_family_idx" ON "fridge_items" USING btree ("family_id");--> statement-breakpoint
 CREATE INDEX "fridge_items_expiry_idx" ON "fridge_items" USING btree ("expiry_date");--> statement-breakpoint
+CREATE UNIQUE INDEX "group_join_pins_one_active_per_group" ON "group_join_pins" USING btree ("group_id") WHERE "group_join_pins"."status" = 'ACTIVE';--> statement-breakpoint
+CREATE INDEX "group_join_pins_active_hash_idx" ON "group_join_pins" USING btree ("code_hash") WHERE "group_join_pins"."status" = 'ACTIVE';--> statement-breakpoint
+CREATE INDEX "group_memberships_user_idx" ON "group_memberships" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "item_comments_item_idx" ON "item_comments" USING btree ("item_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "join_pins_one_active_per_family" ON "join_pins" USING btree ("family_id") WHERE "join_pins"."status" = 'ACTIVE';--> statement-breakpoint
 CREATE INDEX "join_pins_active_hash_idx" ON "join_pins" USING btree ("code_hash") WHERE "join_pins"."status" = 'ACTIVE';--> statement-breakpoint

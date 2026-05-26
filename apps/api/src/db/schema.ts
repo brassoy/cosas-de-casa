@@ -443,6 +443,74 @@ export const coupleChallenges = pgTable(
   ],
 );
 
+// ── groups ────────────────────────────────────────────────────────────────────
+// "Peñas" / chupipandis — agrupaciones de usuarios distintas de la familia.
+
+export const groupRoleEnum = pgEnum('group_role', ['OWNER', 'MEMBER']);
+export const groupJoinPinStatusEnum = pgEnum('group_join_pin_status', ['ACTIVE', 'CONSUMED', 'REVOKED']);
+
+export const groups = pgTable('groups', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull(),
+  description: text('description'),
+  imageUrl: text('image_url'),
+  createdBy: uuid('created_by')
+    .notNull()
+    .references(() => appUsers.id, { onDelete: 'restrict' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const groupMemberships = pgTable(
+  'group_memberships',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    groupId: uuid('group_id')
+      .notNull()
+      .references(() => groups.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => appUsers.id, { onDelete: 'cascade' }),
+    role: groupRoleEnum('role').notNull(),
+    joinedAt: timestamp('joined_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    // Un usuario no puede estar dos veces en la misma peña.
+    unique('group_memberships_group_user_unique').on(table.groupId, table.userId),
+    index('group_memberships_user_idx').on(table.userId),
+  ],
+);
+
+// Solo se persiste el hash (scrypt) del código, nunca el código en claro.
+export const groupJoinPins = pgTable(
+  'group_join_pins',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    groupId: uuid('group_id')
+      .notNull()
+      .references(() => groups.id, { onDelete: 'cascade' }),
+    codeHash: text('code_hash').notNull(),
+    status: groupJoinPinStatusEnum('status').notNull().default('ACTIVE'),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    createdBy: uuid('created_by')
+      .notNull()
+      .references(() => appUsers.id, { onDelete: 'restrict' }),
+    consumedBy: uuid('consumed_by').references(() => appUsers.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    consumedAt: timestamp('consumed_at', { withTimezone: true }),
+  },
+  (table) => [
+    // Garantía a nivel de BD: como mucho UN PIN ACTIVE por peña (índice único parcial).
+    uniqueIndex('group_join_pins_one_active_per_group')
+      .on(table.groupId)
+      .where(sql`${table.status} = 'ACTIVE'`),
+    // Búsqueda del PIN activo por hash (consumo atómico).
+    index('group_join_pins_active_hash_idx')
+      .on(table.codeHash)
+      .where(sql`${table.status} = 'ACTIVE'`),
+  ],
+);
+
 // ── Tipos de fila inferidos (uso interno de infraestructura) ──────────────────
 
 export type AppUserRow = typeof appUsers.$inferSelect;
@@ -463,3 +531,6 @@ export type EventAttendeeRow = typeof eventAttendees.$inferSelect;
 export type CoupleRow = typeof couples.$inferSelect;
 export type CoupleNoteRow = typeof coupleNotes.$inferSelect;
 export type CoupleChallengeRow = typeof coupleChallenges.$inferSelect;
+export type GroupRow = typeof groups.$inferSelect;
+export type GroupMembershipRow = typeof groupMemberships.$inferSelect;
+export type GroupJoinPinRow = typeof groupJoinPins.$inferSelect;

@@ -164,6 +164,23 @@ import { UpdateEventUseCase } from '../../src/contexts/calendar/application/upda
 import { DeleteEventUseCase } from '../../src/contexts/calendar/application/delete-event.use-case';
 import { SetAttendeesUseCase } from '../../src/contexts/calendar/application/set-attendees.use-case';
 
+// ── groups ─────────────────────────────────────────────────────────────────
+import { GroupsController } from '../../src/contexts/groups/interface/groups.controller';
+import { GroupScopeGuard } from '../../src/contexts/groups/interface/group-scope.guard';
+import { GROUP_REPOSITORY } from '../../src/contexts/groups/domain/ports/group.repository';
+import { GROUP_UNIT_OF_WORK } from '../../src/contexts/groups/application/ports/unit-of-work';
+import { GROUP_MEMBERS_READ_MODEL } from '../../src/contexts/groups/application/ports/group-members-read-model';
+import { DrizzleGroupRepository } from '../../src/contexts/groups/infrastructure/drizzle-group.repository';
+import { DrizzleGroupUnitOfWork } from '../../src/contexts/groups/infrastructure/drizzle-group-unit-of-work';
+import { DrizzleGroupMembersReadModel } from '../../src/contexts/groups/infrastructure/drizzle-group-members-read-model';
+import { CreateGroupUseCase } from '../../src/contexts/groups/application/create-group.use-case';
+import { ListMyGroupsUseCase } from '../../src/contexts/groups/application/list-my-groups.use-case';
+import { GenerateGroupJoinPinUseCase } from '../../src/contexts/groups/application/generate-group-join-pin.use-case';
+import { JoinGroupByPinUseCase } from '../../src/contexts/groups/application/join-group-by-pin.use-case';
+import { ListGroupMembersUseCase } from '../../src/contexts/groups/application/list-group-members.use-case';
+import { LeaveGroupUseCase } from '../../src/contexts/groups/application/leave-group.use-case';
+import { RevokeActiveGroupPinUseCase } from '../../src/contexts/groups/application/revoke-active-group-pin.use-case';
+
 // ── romantic ───────────────────────────────────────────────────────────────
 import { RomanticController } from '../../src/contexts/romantic/interface/romantic.controller';
 import { CoupleScopeGuard } from '../../src/contexts/romantic/interface/couple-scope.guard';
@@ -234,7 +251,7 @@ export async function createTestApp(): Promise<TestApp> {
       }),
       ScheduleModule.forRoot(),
     ],
-    controllers: [FamilyController, AuthController, ShoppingListsController, ShoppingItemsController, AiController, TasksController, FridgeController, NotificationsController, StatsController, CalendarController, RomanticController],
+    controllers: [FamilyController, AuthController, GroupsController, ShoppingListsController, ShoppingItemsController, AiController, TasksController, FridgeController, NotificationsController, StatsController, CalendarController, RomanticController],
     providers: [
       // ── DB ─────────────────────────────────────────────────────────────
       {
@@ -340,6 +357,31 @@ export async function createTestApp(): Promise<TestApp> {
       ListMembersUseCase,
       LeaveFamilyUseCase,
       RevokeActivePinUseCase,
+
+      // ── groups: infraestructura ────────────────────────────────────────
+      DrizzleGroupUnitOfWork,
+      { provide: GROUP_UNIT_OF_WORK, useExisting: DrizzleGroupUnitOfWork },
+
+      DrizzleGroupMembersReadModel,
+      { provide: GROUP_MEMBERS_READ_MODEL, useExisting: DrizzleGroupMembersReadModel },
+
+      {
+        provide: GROUP_REPOSITORY,
+        inject: [DRIZZLE],
+        useFactory: (db: ReturnType<typeof drizzle>) =>
+          new DrizzleGroupRepository(db as Parameters<typeof DrizzleGroupRepository.prototype.constructor>[0]),
+      },
+
+      GroupScopeGuard,
+
+      // ── groups: casos de uso ───────────────────────────────────────────
+      CreateGroupUseCase,
+      ListMyGroupsUseCase,
+      GenerateGroupJoinPinUseCase,
+      JoinGroupByPinUseCase,
+      ListGroupMembersUseCase,
+      LeaveGroupUseCase,
+      RevokeActiveGroupPinUseCase,
 
       // ── shopping: repositorios ─────────────────────────────────────────
       {

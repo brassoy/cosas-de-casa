@@ -19,6 +19,10 @@ import { FridgePage } from '@/features/fridge/pages/FridgePage';
 import { StatsPage } from '@/features/stats/pages/StatsPage';
 import { CalendarPage } from '@/features/calendar/pages/CalendarPage';
 import { RomanticPage } from '@/features/romantic/pages/RomanticPage';
+import { GroupsPage } from '@/features/groups/pages/GroupsPage';
+import { CreateGroupPage } from '@/features/groups/pages/CreateGroupPage';
+import { JoinGroupPage } from '@/features/groups/pages/JoinGroupPage';
+import { GroupHomePage } from '@/features/groups/pages/GroupHomePage';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { useFamilyStore } from '@/features/family/store/family.store';
 import { api } from '@/shared/lib/api';
@@ -227,6 +231,36 @@ const romanticRoute = createRoute({
   component: RomanticPage,
 });
 
+// ── Groups routes ─────────────────────────────────────────────────────────────
+
+const groupsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/groups',
+  beforeLoad: requireAuth,
+  component: GroupsPage,
+});
+
+const groupCreateRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/groups/create',
+  beforeLoad: requireAuth,
+  component: CreateGroupPage,
+});
+
+const groupJoinRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/groups/join',
+  beforeLoad: requireAuth,
+  component: JoinGroupPage,
+});
+
+const groupHomeRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/groups/$groupId',
+  beforeLoad: requireAuth,
+  component: GroupHomePage,
+});
+
 // ── Route tree ────────────────────────────────────────────────────────────────
 
 const routeTree = rootRoute.addChildren([
@@ -245,6 +279,10 @@ const routeTree = rootRoute.addChildren([
   statsRoute,
   calendarRoute,
   romanticRoute,
+  groupsRoute,
+  groupCreateRoute,
+  groupJoinRoute,
+  groupHomeRoute,
 ]);
 
 export const router = createRouter({ routeTree });

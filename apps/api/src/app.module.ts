@@ -14,6 +14,7 @@ import { NotificationsModule } from './contexts/notifications/notifications.modu
 import { StatsModule } from './contexts/stats/stats.module';
 import { CalendarModule } from './contexts/calendar/calendar.module';
 import { RomanticModule } from './contexts/romantic/romantic.module';
+import { GroupsModule } from './contexts/groups/groups.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { RomanticModule } from './contexts/romantic/romantic.module';
     HealthModule,
     IdentityAccessModule,
     FamilyModule,
+    GroupsModule,
     ShoppingModule,
     AiModule,
     TasksModule,
