@@ -1,4 +1,4 @@
-import { IsArray, IsISO8601, IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
+import { IsArray, IsOptional, IsString, IsUUID, Matches, MaxLength, MinLength } from 'class-validator';
 
 export class CreateTaskDto {
   @IsString()
@@ -13,12 +13,12 @@ export class CreateTaskDto {
 
   @IsOptional()
   @IsString()
-  @IsISO8601({ strict: false })
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'Formato esperado: YYYY-MM-DD.' })
   recommendedDate?: string;
 
   @IsOptional()
   @IsString()
-  @IsISO8601({ strict: false })
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'Formato esperado: YYYY-MM-DD.' })
   deadlineDate?: string;
 
   @IsOptional()

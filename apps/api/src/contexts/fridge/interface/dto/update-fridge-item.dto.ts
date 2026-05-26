@@ -1,6 +1,5 @@
 import {
   IsEnum,
-  IsISO8601,
   IsNumberString,
   IsOptional,
   IsString,
@@ -32,6 +31,7 @@ export class UpdateFridgeItemDto {
   location?: FridgeLocation;
 
   @IsOptional()
-  @IsISO8601({ strict: false })
+  @IsString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'Formato esperado: YYYY-MM-DD.' })
   expiryDate?: string | null;
 }

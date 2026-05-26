@@ -1,4 +1,4 @@
-import { IsEnum, IsISO8601, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsEnum, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
 
 export class UpdateTaskDto {
   @IsOptional()
@@ -18,11 +18,11 @@ export class UpdateTaskDto {
 
   @IsOptional()
   @IsString()
-  @IsISO8601({ strict: false })
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'Formato esperado: YYYY-MM-DD.' })
   recommendedDate?: string | null;
 
   @IsOptional()
   @IsString()
-  @IsISO8601({ strict: false })
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'Formato esperado: YYYY-MM-DD.' })
   deadlineDate?: string | null;
 }
