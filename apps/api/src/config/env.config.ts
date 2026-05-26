@@ -38,6 +38,14 @@ const EnvSchema = z.object({
   MINIMAX_API_KEY: z.string().optional(),
   /** Identificador del modelo MiniMax a usar. */
   MINIMAX_MODEL: z.string().optional(),
+
+  // ── Web Push (VAPID) ─────────────────────────────────────────────────────
+  /** Clave pública VAPID (base64url). */
+  VAPID_PUBLIC_KEY: z.string().optional(),
+  /** Clave privada VAPID (base64url). */
+  VAPID_PRIVATE_KEY: z.string().optional(),
+  /** Sujeto VAPID: mailto: o URL. */
+  VAPID_SUBJECT: z.string().optional(),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

@@ -306,6 +306,31 @@ export const fridgeItems = pgTable(
   ],
 );
 
+// ── push_subscriptions ────────────────────────────────────────────────────────
+// Una suscripción Web Push por dispositivo/usuario. El endpoint es único
+// (un navegador no puede estar suscrito dos veces al mismo service worker).
+
+export const pushSubscriptions = pgTable(
+  'push_subscriptions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => appUsers.id, { onDelete: 'cascade' }),
+    familyId: uuid('family_id')
+      .notNull()
+      .references(() => families.id, { onDelete: 'cascade' }),
+    endpoint: text('endpoint').notNull().unique(),
+    /** { p256dh: string; auth: string } */
+    keys: jsonb('keys').$type<{ p256dh: string; auth: string }>().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('push_subscriptions_user_idx').on(table.userId),
+    index('push_subscriptions_family_idx').on(table.familyId),
+  ],
+);
+
 // ── Tipos de fila inferidos (uso interno de infraestructura) ──────────────────
 
 export type AppUserRow = typeof appUsers.$inferSelect;
@@ -320,3 +345,4 @@ export type TaskRow = typeof tasks.$inferSelect;
 export type TaskAssigneeRow = typeof taskAssignees.$inferSelect;
 export type TaskPhotoRow = typeof taskPhotos.$inferSelect;
 export type FridgeItemRow = typeof fridgeItems.$inferSelect;
+export type PushSubscriptionRow = typeof pushSubscriptions.$inferSelect;

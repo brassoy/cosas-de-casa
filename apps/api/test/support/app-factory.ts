@@ -13,6 +13,7 @@
 import 'reflect-metadata';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { Test } from '@nestjs/testing';
 import type { INestApplication } from '@nestjs/common';
 import { drizzle } from 'drizzle-orm/node-postgres';
@@ -132,6 +133,21 @@ import { ThrowFridgeItemUseCase } from '../../src/contexts/fridge/application/th
 import { FreezeFridgeItemUseCase } from '../../src/contexts/fridge/application/freeze-fridge-item.use-case';
 import { GetExpiringSoonUseCase } from '../../src/contexts/fridge/application/get-expiring-soon.use-case';
 
+// ── notifications ──────────────────────────────────────────────────────────
+import { NotificationsController } from '../../src/contexts/notifications/interface/notifications.controller';
+import { PUSH_SUBSCRIPTION_REPOSITORY } from '../../src/contexts/notifications/domain/ports/push-subscription.repository';
+import { NOTIFICATION_SENDER } from '../../src/contexts/notifications/domain/ports/notification-sender.port';
+import { NOTIFICATIONS_CLOCK } from '../../src/contexts/notifications/application/ports/clock';
+import { NOTIFICATIONS_ID_GENERATOR } from '../../src/contexts/notifications/application/ports/id-generator';
+import { DrizzlePushSubscriptionRepository } from '../../src/contexts/notifications/infrastructure/drizzle-push-subscription.repository';
+import { SubscribePushUseCase } from '../../src/contexts/notifications/application/subscribe-push.use-case';
+import { UnsubscribePushUseCase } from '../../src/contexts/notifications/application/unsubscribe-push.use-case';
+import { ExpiryReminderService } from '../../src/contexts/notifications/application/expiry-reminder.service';
+
+// ── stats ──────────────────────────────────────────────────────────────────
+import { StatsController } from '../../src/contexts/stats/interface/stats.controller';
+import { FamilyStatsQuery } from '../../src/contexts/stats/application/family-stats.query';
+
 // ── tasks ──────────────────────────────────────────────────────────────────
 import { TasksController } from '../../src/contexts/tasks/interface/tasks.controller';
 import { TaskScopeGuard } from '../../src/contexts/tasks/interface/task-scope.guard';
@@ -180,8 +196,9 @@ export async function createTestApp(): Promise<TestApp> {
         // de process.env sin necesidad de especificar envFilePath.
         ignoreEnvFile: true,
       }),
+      ScheduleModule.forRoot(),
     ],
-    controllers: [FamilyController, AuthController, ShoppingListsController, ShoppingItemsController, AiController, TasksController, FridgeController],
+    controllers: [FamilyController, AuthController, ShoppingListsController, ShoppingItemsController, AiController, TasksController, FridgeController, NotificationsController, StatsController],
     providers: [
       // ── DB ─────────────────────────────────────────────────────────────
       {
@@ -457,6 +474,42 @@ export async function createTestApp(): Promise<TestApp> {
       ThrowFridgeItemUseCase,
       FreezeFridgeItemUseCase,
       GetExpiringSoonUseCase,
+
+      // ── notifications: repositorio ─────────────────────────────────────
+      {
+        provide: PUSH_SUBSCRIPTION_REPOSITORY,
+        inject: [DRIZZLE],
+        useFactory: (db: ReturnType<typeof drizzle>) =>
+          new DrizzlePushSubscriptionRepository(db as Parameters<typeof DrizzlePushSubscriptionRepository.prototype.constructor>[0]),
+      },
+
+      // ── notifications: sender (stub no-op en tests) ───────────────────
+      {
+        provide: NOTIFICATION_SENDER,
+        useValue: {
+          sendToTargets: async () => undefined,
+        },
+      },
+
+      // ── notifications: puertos de infra ──────────────────────────────
+      {
+        provide: NOTIFICATIONS_CLOCK,
+        useExisting: SystemClock,
+      },
+      {
+        provide: NOTIFICATIONS_ID_GENERATOR,
+        useExisting: UuidIdGenerator,
+      },
+
+      // ── notifications: casos de uso ───────────────────────────────────
+      SubscribePushUseCase,
+      UnsubscribePushUseCase,
+
+      // ── notifications: cron (no ejecuta en tests: sender es stub) ─────
+      ExpiryReminderService,
+
+      // ── stats: read-model ─────────────────────────────────────────────
+      FamilyStatsQuery,
     ],
   }).compile();
 
