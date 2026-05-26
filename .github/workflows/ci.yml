@@ -1,0 +1,113 @@
+# Integración continua — calidad de código
+# Disparado en cada PR y en cada push a main.
+# Ejecuta lint, comprobación de tipos y tests unitarios vía Turborepo.
+#
+# Tests de integración (apps/api/test:integration) quedan separados en el
+# job `integration` porque requieren una instancia de Supabase local.
+# TODO: activar el job `integration` cuando se configure el servicio Supabase
+#   en CI. Ver: https://supabase.com/docs/guides/cli/github-action-tests
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  # ─── Calidad mínima viable ───────────────────────────────────────────────
+  # Lint + comprobación de tipos + tests unitarios (sin servicios externos).
+  quality:
+    name: Lint, tipos y tests unitarios
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Clonar repositorio
+        uses: actions/checkout@v4
+
+      # pnpm debe configurarse antes que Node para que el cache funcione.
+      - name: Configurar pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.1.2   # Valor exacto de "packageManager" en package.json raíz
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'    # engines.node >= 20.10 — usamos la LTS más reciente del rango
+          cache: pnpm
+
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
+
+      # Turbo ejecuta lint → type-check → test en paralelo por paquete,
+      # respetando las dependencias declaradas en turbo.json.
+      # build se incluye porque lint y type-check dependen de "^build"
+      # (los paquetes compartidos deben estar compilados primero).
+      - name: Build, lint, tipos y tests unitarios
+        run: pnpm turbo run build lint type-check test:unit
+        env:
+          # Turborepo puede usar caché remota; TURBO_TOKEN y TURBO_TEAM
+          # son opcionales — sin ellos simplemente usa caché local.
+          TURBO_TELEMETRY_DISABLED: 1
+
+  # ─── Tests de integración (desactivado hasta configurar Supabase) ─────────
+  # Los tests de integración de apps/api usan una instancia NestJS real
+  # contra Supabase local (CLI de Supabase con PostgreSQL + Auth + Storage).
+  #
+  # Para activar este job:
+  #   1. Añadir el step de Supabase CLI:
+  #        uses: supabase/setup-cli@v1
+  #        with: { version: latest }
+  #   2. Arrancar los servicios:
+  #        run: supabase start
+  #        working-directory: apps/api   # donde esté supabase/config.toml
+  #   3. Exportar las variables de entorno que necesita la API:
+  #        SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, DATABASE_URL, etc.
+  #   4. Quitar el `if: false` de abajo.
+  #
+  # Referencia: https://supabase.com/docs/guides/cli/github-action-tests
+  integration:
+    name: Tests de integración (API + Supabase)
+    runs-on: ubuntu-latest
+    if: false   # TODO: eliminar esta línea cuando Supabase esté configurado en CI
+
+    steps:
+      - name: Clonar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.1.2
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: pnpm
+
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
+
+      # Paso pendiente: arrancar Supabase local
+      # - name: Instalar Supabase CLI
+      #   uses: supabase/setup-cli@v1
+      #   with:
+      #     version: latest
+      # - name: Arrancar Supabase
+      #   run: supabase start
+      #   working-directory: apps/api
+
+      - name: Compilar paquetes compartidos
+        run: pnpm turbo run build --filter=@cosasdecasa/contracts
+
+      - name: Ejecutar tests de integración
+        run: pnpm turbo run test:integration --filter=@cosasdecasa/api
+        env:
+          # Variables que necesita la API para conectarse a Supabase local.
+          # Sustituir por los valores reales que devuelve `supabase status`.
+          SUPABASE_URL: http://localhost:54321
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          DATABASE_URL: postgresql://postgres:postgres@localhost:54322/postgres
