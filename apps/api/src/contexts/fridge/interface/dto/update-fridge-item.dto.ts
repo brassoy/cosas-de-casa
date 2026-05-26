@@ -4,6 +4,7 @@ import {
   IsNumberString,
   IsOptional,
   IsString,
+  Matches,
   MaxLength,
   MinLength,
 } from 'class-validator';
@@ -18,6 +19,7 @@ export class UpdateFridgeItemDto {
 
   @IsOptional()
   @IsNumberString()
+  @Matches(/^\d+(\.\d+)?$/, { message: 'La cantidad debe ser un número positivo.' })
   quantity?: string | null;
 
   @IsOptional()
