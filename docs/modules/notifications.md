@@ -15,8 +15,30 @@ Gestionar las suscripciones Web Push de los dispositivos y enviar notificaciones
 
 | Verbo | Ruta | Descripción |
 |---|---|---|
-| POST | `/families/:familyId/push-subscriptions` | Suscribir un dispositivo |
-| DELETE | `/families/:familyId/push-subscriptions` | Desuscribir el dispositivo actual |
+| POST | `/families/:familyId/notifications/subscribe` | Suscribir un dispositivo |
+| DELETE | `/families/:familyId/notifications/subscribe` | Desuscribir el dispositivo actual |
+
+## Casos de uso
+
+### `SubscribePushUseCase`
+Registra (o actualiza) la suscripción Web Push de un dispositivo para una familia.
+- **Endpoint**: `POST /families/:familyId/notifications/subscribe` · **Autorización**: `JwtAuthGuard` + `FamilyScopeGuard` (miembro de la familia).
+- **Entrada**: `endpoint` URL válida (requerida); `keys.p256dh` string no vacío (requerido); `keys.auth` string no vacío (requerido).
+- **Salida**: `{ id: string }` — UUID de la suscripción creada.
+- **Reglas/invariantes**: si el endpoint ya existe, la operación lo actualiza (upsert). El `id`, `userId` y `createdAt` los genera el controlador (no el caso de uso) antes de construir el comando.
+- **Errores**: ninguno de dominio propio.
+
+---
+
+### `UnsubscribePushUseCase`
+Elimina la suscripción Web Push de un endpoint concreto.
+- **Endpoint**: `DELETE /families/:familyId/notifications/subscribe` · **Autorización**: `JwtAuthGuard` + `FamilyScopeGuard` (miembro de la familia).
+- **Entrada**: `endpoint` URL válida (requerida) — identifica de forma única la suscripción a borrar.
+- **Salida**: `void` (HTTP 204).
+- **Reglas/invariantes**: si el endpoint no existe, la operación es silenciosa (no error).
+- **Errores**: ninguno de dominio propio.
+
+---
 
 ## Servicio cron
 

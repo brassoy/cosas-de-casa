@@ -4,7 +4,9 @@ Aquí vive el **porqué** del proyecto, no solo el cómo.
 
 - `didactica/` — cómo procedemos y el razonamiento detrás de cada decisión. Empieza por `00-como-procedemos.md`.
 - `adr/` — Architecture Decision Records: una decisión por archivo (contexto, opciones, decisión, consecuencias).
-- `modules/` — documentación por contexto de dominio.
+- `modules/` — documentación por contexto de dominio (cada uno incluye su sección **Casos de uso**).
+- `casos-de-uso.md` — catálogo maestro de los 88 casos de uso de la API.
+- `auditoria/` — auditorías de calidad: `contratos.md` (coherencia API↔frontend) y, próximamente, seguridad.
 - `roadmap/` — fases y unidades de trabajo.
 - `infra/` — puesta en marcha local y gestión de secretos.
 
@@ -12,6 +14,8 @@ Aquí vive el **porqué** del proyecto, no solo el cómo.
 
 - ¿Cómo trabajamos y por qué? → `didactica/00-como-procedemos.md`.
 - Decisiones de arquitectura → `adr/` (empezando por `0001`).
+- ¿Qué debe hacer cada caso de uso de la API? → `casos-de-uso.md`.
+- ¿Coinciden los contratos API↔frontend? → `auditoria/contratos.md`.
 
 ## ADRs
 
@@ -35,7 +39,7 @@ Aquí vive el **porqué** del proyecto, no solo el cómo.
 
 ## Módulos documentados
 
-`tasks` · `fridge` · `notifications` · `stats` · `calendar` · `romantic` · `groups` · `social` · `plans` · `menu` · `budget`
+`identity-access` · `family` · `groups` · `social` · `shopping` · `ai` · `menu` · `fridge` · `tasks` · `calendar` · `plans` · `budget` · `romantic` · `notifications` · `stats`
 
 ## Guías didácticas (patrones transversales)
 
