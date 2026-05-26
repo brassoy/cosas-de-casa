@@ -114,30 +114,31 @@ const indexRoute = createRoute({
   beforeLoad: requireAuth,
   loader: async () => {
     const { activeFamily, setActiveFamily } = useFamilyStore.getState();
-    if (activeFamily) return { redirectTo: `/family/${activeFamily.id}` };
 
-    try {
-      const families = await api.get<FamilyDto[]>('/families');
-      const first = families[0];
-      if (first) {
-        setActiveFamily({ id: first.id, name: first.name });
-        return { redirectTo: `/family/${first.id}` };
+    // Resolvemos la familia: la activa del store o, si no hay, la primera del usuario.
+    let familyId = activeFamily?.id ?? null;
+    if (!familyId) {
+      try {
+        const families = await api.get<FamilyDto[]>('/families');
+        const first = families[0];
+        if (first) {
+          setActiveFamily({ id: first.id, name: first.name });
+          familyId = first.id;
+        }
+      } catch {
+        // Si la API falla, dejamos al usuario en onboarding.
       }
-    } catch {
-      // Si la API falla dejamos al usuario en onboarding
     }
-    return { redirectTo: null };
-  },
-  component: function IndexRedirect() {
-    // El loader resuelve antes de renderizar; si hay redirección la lanzamos aquí.
-    // TanStack Router v1 no ejecuta redirect() dentro de loader sin beforeLoad;
-    // usamos component para evaluar el resultado.
-    const { activeFamily } = useFamilyStore.getState();
-    if (activeFamily) {
-      throw redirect({ to: '/family/$familyId', params: { familyId: activeFamily.id } });
+
+    // El redirect DEBE lanzarse en el loader: TanStack Router lo trata como
+    // navegación. Lanzarlo dentro del componente lo captura el error boundary,
+    // que era el bug que rompía el login de los usuarios que YA tenían familia.
+    if (familyId) {
+      throw redirect({ to: '/family/$familyId', params: { familyId } });
     }
-    return <OnboardingPage />;
   },
+  // Si el loader no redirigió, es que no hay familia → onboarding.
+  component: OnboardingPage,
 });
 
 // ── Onboarding ────────────────────────────────────────────────────────────────
