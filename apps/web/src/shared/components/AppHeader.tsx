@@ -1,15 +1,27 @@
+import { useNavigate } from '@tanstack/react-router';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { useFamilyStore } from '@/features/family/store/family.store';
 import { ThemeSelector } from './ThemeSelector';
+import { NavDrawer } from './NavDrawer';
 
 export function AppHeader() {
   const session = useAuthStore((s) => s.session);
   const signOut = useAuthStore((s) => s.signOut);
+  const activeFamily = useFamilyStore((s) => s.activeFamily);
   const clearFamily = useFamilyStore((s) => s.clearFamily);
+  const navigate = useNavigate();
 
   async function handleLogout() {
     clearFamily();
     await signOut();
+  }
+
+  function goHome() {
+    if (activeFamily) {
+      void navigate({ to: '/family/$familyId', params: { familyId: activeFamily.id } });
+    } else {
+      void navigate({ to: '/' });
+    }
   }
 
   return (
@@ -23,16 +35,29 @@ export function AppHeader() {
         backgroundColor: 'var(--color-surface)',
       }}
     >
-      <h1
-        style={{
-          fontSize: 'var(--font-size-xl)',
-          fontWeight: 'var(--font-weight-semibold)',
-          color: 'var(--color-text)',
-          fontFamily: 'var(--font-heading)',
-        }}
-      >
-        Cosas de Casa
-      </h1>
+      <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
+        {/* El drawer se renderiza a sí mismo solo si hay sesión + familia activa. */}
+        <NavDrawer />
+
+        <button
+          type="button"
+          onClick={goHome}
+          aria-label="Ir al inicio"
+          style={{
+            background: 'none',
+            border: 'none',
+            padding: 0,
+            margin: 0,
+            cursor: 'pointer',
+            fontSize: 'var(--font-size-xl)',
+            fontWeight: 'var(--font-weight-semibold)',
+            color: 'var(--color-text)',
+            fontFamily: 'var(--font-heading)',
+          }}
+        >
+          Cosas de Casa
+        </button>
+      </div>
 
       <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
         <ThemeSelector />

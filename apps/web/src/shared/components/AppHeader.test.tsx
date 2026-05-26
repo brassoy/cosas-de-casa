@@ -10,12 +10,22 @@ vi.mock('@/shared/lib/supabase', () => ({
   },
 }));
 
+// AppHeader monta NavDrawer, que usa los hooks de TanStack Router. En un test
+// unitario sin RouterProvider los mockeamos para aislar la cabecera.
+vi.mock('@tanstack/react-router', () => ({
+  useNavigate: () => vi.fn(),
+  useRouterState: (opts: { select: (s: { location: { pathname: string } }) => unknown }) =>
+    opts.select({ location: { pathname: '/' } }),
+}));
+
 import { AppHeader } from './AppHeader';
 
 describe('AppHeader', () => {
-  it('renders the app name', () => {
+  it('renders the app name as a home link', () => {
     render(<AppHeader />);
-    expect(screen.getByRole('heading', { name: /cosas de casa/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /ir al inicio/i })).toHaveTextContent(
+      /cosas de casa/i,
+    );
   });
 
   it('renders the theme toggle button', () => {
