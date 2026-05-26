@@ -11,6 +11,19 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    // Escuchar en todas las interfaces para que el host (p. ej. Windows sobre
+    // WSL2) pueda acceder, no solo localhost del propio WSL.
+    host: true,
+    proxy: {
+      // El navegador del host no siempre alcanza el puerto 3000 de un proceso
+      // node en WSL2 (sí llega a Vite). Reenviamos /api al backend DESDE el
+      // servidor de Vite, que sí lo alcanza dentro de WSL. Así el navegador
+      // solo habla con el mismo origen (5173) y se evita el cross-port.
+      '/api': {
+        target: 'http://127.0.0.1:3000',
+        changeOrigin: true,
+      },
+    },
   },
   // El .env vive en la raíz del monorepo (compartido con la API), no en apps/web.
   envDir: resolve(__dirname, '../..'),

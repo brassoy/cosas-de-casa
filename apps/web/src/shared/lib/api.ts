@@ -1,7 +1,14 @@
 import type { ApiError } from '@cosasdecasa/contracts';
 import { supabase } from './supabase';
 
-const BASE_URL = `${import.meta.env.VITE_API_URL as string}/api/v1`;
+// En DEV usamos ruta RELATIVA: las peticiones van al mismo origen que la web
+// (5173) y las reenvía el proxy de Vite (/api → backend). Esto evita el problema
+// de cross-port en WSL2, donde el navegador del host no siempre alcanza el 3000
+// del proceso node. En producción se usa la URL absoluta de VITE_API_URL.
+const API_ORIGIN = import.meta.env.DEV
+  ? ''
+  : ((import.meta.env.VITE_API_URL as string | undefined) ?? '');
+const BASE_URL = `${API_ORIGIN}/api/v1`;
 
 /** Error tipado que lanza el wrapper cuando el servidor devuelve un status >= 400. */
 export class ApiRequestError extends Error {
