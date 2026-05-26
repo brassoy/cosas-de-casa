@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, renderHook, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
@@ -195,6 +195,22 @@ vi.mock('@/features/shopping/offline/sync', () => ({
   seedListDetail: vi.fn(async () => {}),
   enqueue: mockEnqueue,
   replayOutbox: vi.fn(async () => {}),
+}));
+
+// ── Mock de la capa API (para tests del hook real) ────────────────────────────
+
+const { mockApiPost, mockApiPatch } = vi.hoisted(() => ({
+  mockApiPost: vi.fn(async () => ({})),
+  mockApiPatch: vi.fn(async () => ({})),
+}));
+
+vi.mock('@/shared/lib/api', () => ({
+  api: {
+    get: vi.fn(async () => []),
+    post: mockApiPost,
+    patch: mockApiPatch,
+    delete: vi.fn(async () => ({})),
+  },
 }));
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -422,16 +438,10 @@ describe('Outbox', () => {
     expect(mockOutboxStore[0]).toMatchObject({ type: 'addItem', status: 'pending' });
   });
 
-  it('replayOutbox llama a fetch para enviar ops pendientes y las elimina al éxito', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(
-        new Response(JSON.stringify({}), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }),
-      ),
-    );
+  it('replayOutbox envía ops pendientes al servidor y las elimina al éxito', async () => {
+    // api.patch está mockeado (vi.mock @/shared/lib/api arriba).
+    // toggleItem usa api.patch, así que verificamos ese mock.
+    mockApiPatch.mockResolvedValueOnce({});
     Object.defineProperty(navigator, 'onLine', {
       value: true,
       writable: true,
@@ -454,7 +464,171 @@ describe('Outbox', () => {
 
     await realReplay();
 
-    expect(fetch).toHaveBeenCalled();
+    expect(mockApiPatch).toHaveBeenCalled();
     expect(db.outbox.delete).toHaveBeenCalledWith(1);
+  });
+});
+
+// ── 3. useAddItemWithDedup (hook real) ────────────────────────────────────────
+//
+// Estos tests ejercen la implementación real del hook con la api mockeada.
+// Verifican el comportamiento correcto tras el fix del bug de duplicación:
+//  - SUGGEST sin forceAdd → needsConfirmation=true, NO escribe en Dexie
+//  - ADD_NEW → escribe el ítem del servidor en Dexie
+//  - forceAdd online → POST directo sin outbox, escribe ítem del servidor
+
+describe('useAddItemWithDedup (hook real)', () => {
+  beforeEach(() => {
+    // mockReset limpia también las resoluciones programadas con mockResolvedValueOnce
+    mockApiPost.mockReset();
+    mockApiPatch.mockReset();
+    mockEnqueue.mockReset();
+    vi.clearAllMocks();
+    Object.defineProperty(navigator, 'onLine', {
+      value: true,
+      writable: true,
+      configurable: true,
+    });
+  });
+
+  it('SUGGEST sin forceAdd → needsConfirmation=true, NO llama a db.items.put', async () => {
+    // Simulamos que la API devuelve SUGGEST (sin item, con candidates)
+    mockApiPost.mockResolvedValueOnce({
+      decision: 'SUGGEST',
+      candidates: [{ id: 'cat-1', displayName: 'leche', frequency: 3 }],
+    });
+
+    const { db } = await import('@/features/shopping/offline/db');
+    const { useAddItemWithDedup } = await vi.importActual<
+      typeof import('./hooks/useShopping')
+    >('./hooks/useShopping');
+
+    const { result } = renderHook(() => useAddItemWithDedup());
+
+    let returnValue: { needsConfirmation: boolean } | undefined;
+    await act(async () => {
+      returnValue = await result.current.addItemWithDedup('list-1', { name: 'leche desnatada' });
+    });
+
+    expect(returnValue).toEqual({ needsConfirmation: true });
+    expect(result.current.dedupState).toMatchObject({
+      listId: 'list-1',
+      itemData: { name: 'leche desnatada' },
+      existingName: 'leche',
+    });
+    expect(db.items.put).not.toHaveBeenCalled();
+  });
+
+  it('ADD_NEW → needsConfirmation=false, escribe el ítem del servidor en Dexie', async () => {
+    const serverItem = {
+      id: 'srv-item-1',
+      listId: 'list-1',
+      name: 'Pan',
+      checked: false,
+      updatedAt: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+    };
+
+    mockApiPost.mockResolvedValueOnce({
+      decision: 'ADD_NEW',
+      item: serverItem,
+    });
+
+    const { db } = await import('@/features/shopping/offline/db');
+    const { useAddItemWithDedup } = await vi.importActual<
+      typeof import('./hooks/useShopping')
+    >('./hooks/useShopping');
+
+    const { result } = renderHook(() => useAddItemWithDedup());
+
+    let returnValue: { needsConfirmation: boolean } | undefined;
+    await act(async () => {
+      returnValue = await result.current.addItemWithDedup('list-1', { name: 'Pan' });
+    });
+
+    expect(returnValue).toEqual({ needsConfirmation: false });
+    expect(db.items.put).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'srv-item-1', name: 'Pan', listId: 'list-1' }),
+    );
+    // No debe haber encolado nada en el outbox (path online directo)
+    expect(db.outbox.add).not.toHaveBeenCalled();
+  });
+
+  it('forceAdd=true online → POST con forceAdd, escribe ítem del servidor, SIN outbox', async () => {
+    const serverItem = {
+      id: 'srv-item-2',
+      listId: 'list-1',
+      name: 'leche desnatada',
+      checked: false,
+      updatedAt: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+    };
+
+    mockApiPost.mockResolvedValueOnce({
+      decision: 'ADD_NEW',
+      item: serverItem,
+    });
+
+    const { db } = await import('@/features/shopping/offline/db');
+    const { useAddItemWithDedup } = await vi.importActual<
+      typeof import('./hooks/useShopping')
+    >('./hooks/useShopping');
+
+    const { result } = renderHook(() => useAddItemWithDedup());
+
+    let returnValue: { needsConfirmation: boolean } | undefined;
+    await act(async () => {
+      returnValue = await result.current.addItemWithDedup(
+        'list-1',
+        { name: 'leche desnatada' },
+        { forceAdd: true },
+      );
+    });
+
+    expect(returnValue).toEqual({ needsConfirmation: false });
+    // El POST debe incluir forceAdd:true
+    expect(mockApiPost).toHaveBeenCalledWith(
+      '/lists/list-1/items',
+      expect.objectContaining({ name: 'leche desnatada', forceAdd: true }),
+    );
+    // El ítem del servidor se escribe en Dexie
+    expect(db.items.put).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'srv-item-2', name: 'leche desnatada' }),
+    );
+    // NO debe haber entrada en el outbox (add forzado online es POST directo)
+    expect(db.outbox.add).not.toHaveBeenCalled();
+  });
+
+  it('offline → escritura en Dexie + outbox con forceAdd=true (sin POST inmediato)', async () => {
+    Object.defineProperty(navigator, 'onLine', {
+      value: false,
+      writable: true,
+      configurable: true,
+    });
+
+    const { db } = await import('@/features/shopping/offline/db');
+    const { useAddItemWithDedup } = await vi.importActual<
+      typeof import('./hooks/useShopping')
+    >('./hooks/useShopping');
+
+    const { result } = renderHook(() => useAddItemWithDedup());
+
+    let returnValue: { needsConfirmation: boolean } | undefined;
+    await act(async () => {
+      returnValue = await result.current.addItemWithDedup('list-1', { name: 'Queso' });
+    });
+
+    expect(returnValue).toEqual({ needsConfirmation: false });
+    // Escribe en Dexie de forma optimista
+    expect(db.items.put).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'Queso', listId: 'list-1', checked: false }),
+    );
+    // Encola con forceAdd=true
+    expect(mockEnqueue).toHaveBeenCalledWith(
+      'addItem',
+      expect.objectContaining({ name: 'Queso', listId: 'list-1', forceAdd: true }),
+    );
+    // NO llama a la API directamente
+    expect(mockApiPost).not.toHaveBeenCalled();
   });
 });

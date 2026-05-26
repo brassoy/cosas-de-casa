@@ -139,7 +139,16 @@ export class ShoppingListsController {
       name: body.name,
     });
 
-    // Creamos el ítem en la lista (siempre; la decisión informa al frontend).
+    // Si el sistema sugiere posible duplicado y el cliente no ha confirmado
+    // explícitamente la adición, devolvemos SUGGEST sin crear el ítem.
+    if (dedupResult.decision === 'SUGGEST' && !body.forceAdd) {
+      return {
+        decision: 'SUGGEST' as const,
+        candidates: dedupResult.candidates.length > 0 ? dedupResult.candidates : undefined,
+      };
+    }
+
+    // ADD_NEW, AUTO_MERGE o forceAdd=true → creamos el ítem.
     const item = await this.addItem.execute({
       listId,
       actingUserId: user.id,

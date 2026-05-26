@@ -222,12 +222,12 @@ export function useAddItemWithDedup() {
       },
       opts: { forceAdd?: boolean } = {},
     ): Promise<{ needsConfirmation: boolean }> => {
-      // Escritura optimista en Dexie (sólo si vamos a añadir de verdad)
       const localId = crypto.randomUUID();
       const ts = new Date().toISOString();
 
-      if (!navigator.onLine || opts.forceAdd) {
-        // Offline o force: escritura local directa, sin esperar decisión de la API.
+      // Path offline: escritura local + outbox (el usuario ya tomó la decisión,
+      // así que los adds offline van siempre forzados al sincronizar).
+      if (!navigator.onLine) {
         await db.items.put({
           id: localId,
           listId,
@@ -240,21 +240,29 @@ export function useAddItemWithDedup() {
           updatedAt: ts,
           createdAt: ts,
         });
-        await enqueue('addItem', { listId, ...data, localId });
+        await enqueue('addItem', { listId, ...data, localId, forceAdd: true });
         setSuccessCount((c) => c + 1);
         setShowSuccessOverlay(true);
         return { needsConfirmation: false };
       }
 
-      // Online: llamamos al endpoint y gestionamos la decisión de dedup.
+      // Path online: POST directo a la API (incluyendo forceAdd si procede).
+      // No usamos el outbox para el add forzado online — el POST ya lo persiste.
       try {
         const response = await api.post<AddItemResultDto>(
           `/lists/${listId}/items`,
           opts.forceAdd ? { ...data, forceAdd: true } : data,
         );
 
-        if (response.decision === 'SUGGEST' && response.candidates && response.candidates.length > 0) {
-          // No escribimos en Dexie todavía; esperamos confirmación del usuario.
+        if (
+          !opts.forceAdd &&
+          response.decision === 'SUGGEST' &&
+          response.candidates &&
+          response.candidates.length > 0
+        ) {
+          // El servidor NO creó el ítem; esperamos confirmación del usuario.
+          // Si venimos de "Añadir igualmente" (forceAdd) NO reabrimos el diálogo:
+          // el servidor ya creó el ítem y lo escribimos más abajo.
           setDedupState({
             listId,
             itemData: data,
@@ -263,7 +271,7 @@ export function useAddItemWithDedup() {
           return { needsConfirmation: true };
         }
 
-        if (response.decision === 'AUTO_MERGE') {
+        if (response.decision === 'AUTO_MERGE' && response.item) {
           // El backend fusionó; actualizamos Dexie con el ítem resultante.
           await db.items.put({
             id: response.item.id,
@@ -284,19 +292,21 @@ export function useAddItemWithDedup() {
           return { needsConfirmation: false };
         }
 
-        // ADD_NEW: escribimos el ítem del servidor en Dexie.
-        await db.items.put({
-          id: response.item.id,
-          listId,
-          name: response.item.name,
-          quantity: response.item.quantity,
-          unit: response.item.unit,
-          description: response.item.description,
-          purchaseLink: response.item.purchaseLink,
-          checked: response.item.checked,
-          updatedAt: response.item.updatedAt,
-          createdAt: response.item.createdAt,
-        });
+        // ADD_NEW o forceAdd confirmado: el servidor creó el ítem; lo escribimos en Dexie.
+        if (response.item) {
+          await db.items.put({
+            id: response.item.id,
+            listId,
+            name: response.item.name,
+            quantity: response.item.quantity,
+            unit: response.item.unit,
+            description: response.item.description,
+            purchaseLink: response.item.purchaseLink,
+            checked: response.item.checked,
+            updatedAt: response.item.updatedAt,
+            createdAt: response.item.createdAt,
+          });
+        }
 
         setSuccessCount((c) => c + 1);
         setShowSuccessOverlay(true);
@@ -315,7 +325,7 @@ export function useAddItemWithDedup() {
           updatedAt: ts,
           createdAt: ts,
         });
-        await enqueue('addItem', { listId, ...data, localId });
+        await enqueue('addItem', { listId, ...data, localId, forceAdd: true });
         setSuccessCount((c) => c + 1);
         setShowSuccessOverlay(true);
         return { needsConfirmation: false };

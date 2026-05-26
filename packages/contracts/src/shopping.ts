@@ -108,7 +108,7 @@ export type CreateListInput = z.infer<typeof CreateListInputSchema>;
  */
 export const AddItemResultDtoSchema = z.object({
   decision: AddItemDecisionSchema,
-  item: ShoppingItemDtoSchema,
+  item: ShoppingItemDtoSchema.optional(),
   candidates: z.array(DedupCandidateDtoSchema).optional(),
 });
 export type AddItemResultDto = z.infer<typeof AddItemResultDtoSchema>;
@@ -120,6 +120,7 @@ export const AddItemInputSchema = z.object({
   unit: z.string().max(50).optional(),
   description: z.string().max(500).optional(),
   purchaseLink: z.string().url().optional(),
+  forceAdd: z.boolean().optional(),
 });
 export type AddItemInput = z.infer<typeof AddItemInputSchema>;
 

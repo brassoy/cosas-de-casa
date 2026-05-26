@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsNumber,
   IsOptional,
   IsPositive,
@@ -35,4 +36,8 @@ export class AddItemDto {
   @IsOptional()
   @IsUrl({}, { message: 'El enlace de compra debe ser una URL válida.' })
   purchaseLink?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  forceAdd?: boolean;
 }

@@ -161,6 +161,9 @@ async function dispatchOp(entry: OutboxEntry): Promise<void> {
       break;
 
     case 'addItem':
+      // Los adds del outbox son operaciones ya confirmadas por el usuario
+      // (offline o error de red). Se envían siempre con forceAdd=true para
+      // que el servidor cree el ítem sin re-disparar el diálogo de dedup.
       await api.post<unknown>(
         `/lists/${payload.listId as string}/items`,
         {
@@ -169,6 +172,7 @@ async function dispatchOp(entry: OutboxEntry): Promise<void> {
           unit: payload.unit,
           description: payload.description,
           purchaseLink: payload.purchaseLink,
+          forceAdd: true,
         },
       );
       break;
