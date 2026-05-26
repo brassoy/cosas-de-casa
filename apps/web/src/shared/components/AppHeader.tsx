@@ -1,6 +1,6 @@
-import { toggleTheme } from '../theme/theme-bootstrap';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { useFamilyStore } from '@/features/family/store/family.store';
+import { ThemeSelector } from './ThemeSelector';
 
 export function AppHeader() {
   const session = useAuthStore((s) => s.session);
@@ -28,20 +28,14 @@ export function AppHeader() {
           fontSize: 'var(--font-size-xl)',
           fontWeight: 'var(--font-weight-semibold)',
           color: 'var(--color-text)',
+          fontFamily: 'var(--font-heading)',
         }}
       >
         Cosas de Casa
       </h1>
 
       <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
-        <button
-          type="button"
-          onClick={toggleTheme}
-          aria-label="Cambiar tema"
-          style={btnStyle}
-        >
-          Tema
-        </button>
+        <ThemeSelector />
 
         {session && (
           <button
@@ -66,4 +60,5 @@ const btnStyle: React.CSSProperties = {
   cursor: 'pointer',
   color: 'var(--color-text-muted)',
   fontSize: 'var(--font-size-sm)',
+  fontFamily: 'var(--font-body)',
 };

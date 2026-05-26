@@ -4,9 +4,10 @@ import { RouterProvider } from '@tanstack/react-router';
 import { Providers } from './core/providers';
 import { router } from './core/router';
 import './shared/theme/tokens.base.css';
+import './shared/theme/tokens.themes.css';
 import { applyTheme } from './shared/theme/theme-bootstrap';
 
-// Apply theme before first render to avoid flash
+// Aplicar tema antes del primer render para evitar flash
 applyTheme();
 
 const root = document.getElementById('root');

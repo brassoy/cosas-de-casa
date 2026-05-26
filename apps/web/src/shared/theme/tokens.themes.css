@@ -1,0 +1,330 @@
+/* ─── Design Tokens por Estética ────────────────────────────────────────────
+ *
+ * Modelo: [data-aesthetic="X"][data-mode="Y"] { --token: value }
+ *
+ * Tres estéticas visualmente distintas:
+ *   pixel  — retro pixel-art (Courier, radius 0, sombras duras 8-bit)
+ *   ios    — moderno iOS-like (sistema, esquinas redondas, sombras suaves)
+ *   okuda  — pop-art geométrico Okuda (colores saturados, negros, neon)
+ *
+ * Cada una tiene variante light + dark → 6 combinaciones en total.
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * PIXEL — Retro 8-bit
+ * Paleta: verdes/ámbar sobre negro (dark) · crema sobre gris oscuro (light)
+ * Fuente: Courier New monoespaciada, peso bold
+ * Radius: 0 en todo
+ * Sombras: offset sólido sin blur (estilo sprite)
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+[data-aesthetic='pixel'][data-mode='light'] {
+  /* Surface */
+  --color-surface: #f0ede0;
+  --color-surface-raised: #e8e4d0;
+  --color-surface-overlay: rgba(0, 0, 0, 0.06);
+
+  /* Text */
+  --color-text: #1a1a1a;
+  --color-text-muted: #555544;
+  --color-text-inverse: #f0ede0;
+
+  /* Accent */
+  --color-accent: #0a6b0a;
+  --color-accent-hover: #085908;
+  --color-accent-subtle: #d4edda;
+
+  /* Feedback */
+  --color-success: #0a6b0a;
+  --color-warning: #b86800;
+  --color-error: #cc0000;
+  --color-info: #004488;
+
+  /* Border */
+  --color-border: #1a1a1a;
+  --color-border-strong: #000000;
+
+  /* Radius — todo cuadrado */
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-card: 0px;
+  --radius-full: 0px;
+
+  /* Tipografía pixelada */
+  --font-body: 'Courier New', 'Lucida Console', monospace;
+  --font-heading: 'Courier New', 'Lucida Console', monospace;
+  --font-mono: 'Courier New', 'Lucida Console', monospace;
+
+  /* Sombras 8-bit: offset sólido sin blur */
+  --shadow-sm: 2px 2px 0 #1a1a1a;
+  --shadow-md: 4px 4px 0 #1a1a1a;
+  --shadow-lg: 6px 6px 0 #1a1a1a;
+  --shadow-card: 4px 4px 0 #1a1a1a;
+
+  /* Transición lenta y discreta */
+  --transition-fast: 50ms steps(1);
+  --transition-base: 100ms steps(2);
+  --transition-slow: 150ms steps(3);
+}
+
+[data-aesthetic='pixel'][data-mode='dark'] {
+  /* Surface — pantalla CRT con fósforo verde */
+  --color-surface: #0a0a0a;
+  --color-surface-raised: #151515;
+  --color-surface-overlay: rgba(0, 255, 70, 0.05);
+
+  /* Text */
+  --color-text: #00ff46;
+  --color-text-muted: #00bb33;
+  --color-text-inverse: #0a0a0a;
+
+  /* Accent — ámbar retro */
+  --color-accent: #ffaa00;
+  --color-accent-hover: #ffcc33;
+  --color-accent-subtle: #1a1200;
+
+  /* Feedback */
+  --color-success: #00ff46;
+  --color-warning: #ffaa00;
+  --color-error: #ff2222;
+  --color-info: #00ccff;
+
+  /* Border */
+  --color-border: #00ff46;
+  --color-border-strong: #ffffff;
+
+  /* Radius — todo cuadrado */
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-card: 0px;
+  --radius-full: 0px;
+
+  /* Tipografía pixelada */
+  --font-body: 'Courier New', 'Lucida Console', monospace;
+  --font-heading: 'Courier New', 'Lucida Console', monospace;
+  --font-mono: 'Courier New', 'Lucida Console', monospace;
+
+  /* Sombras 8-bit neon */
+  --shadow-sm: 2px 2px 0 #00ff46;
+  --shadow-md: 4px 4px 0 #00ff46;
+  --shadow-lg: 6px 6px 0 #00ff46;
+  --shadow-card: 4px 4px 0 #00ff46;
+
+  --transition-fast: 50ms steps(1);
+  --transition-base: 100ms steps(2);
+  --transition-slow: 150ms steps(3);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * IOS — Moderno, pulido, iOS-like
+ * Paleta: blancos/grises neutros + azul sistema (light) · dark neutrales
+ * Fuente: -apple-system stack
+ * Radius: muy redondo (16–24px)
+ * Sombras: suaves difuminadas, sin color
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+[data-aesthetic='ios'][data-mode='light'] {
+  /* Surface — blanco puro + gris sistema */
+  --color-surface: #f2f2f7;
+  --color-surface-raised: #ffffff;
+  --color-surface-overlay: rgba(0, 0, 0, 0.04);
+
+  /* Text */
+  --color-text: #000000;
+  --color-text-muted: #8e8e93;
+  --color-text-inverse: #ffffff;
+
+  /* Accent — azul iOS */
+  --color-accent: #007aff;
+  --color-accent-hover: #0062cc;
+  --color-accent-subtle: #e5f0ff;
+
+  /* Feedback */
+  --color-success: #34c759;
+  --color-warning: #ff9500;
+  --color-error: #ff3b30;
+  --color-info: #5ac8fa;
+
+  /* Border */
+  --color-border: rgba(60, 60, 67, 0.13);
+  --color-border-strong: rgba(60, 60, 67, 0.36);
+
+  /* Radius generoso */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-card: 16px;
+  --radius-full: 9999px;
+
+  /* Fuente del sistema */
+  --font-body: -apple-system, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
+  --font-heading: -apple-system, 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace;
+
+  /* Sombras suaves */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 20px 40px rgba(0, 0, 0, 0.10), 0 8px 16px rgba(0, 0, 0, 0.06);
+  --shadow-card: var(--shadow-md);
+
+  --transition-fast: 120ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --transition-base: 240ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --transition-slow: 400ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+[data-aesthetic='ios'][data-mode='dark'] {
+  /* Surface — sistema dark iOS */
+  --color-surface: #000000;
+  --color-surface-raised: #1c1c1e;
+  --color-surface-overlay: rgba(255, 255, 255, 0.05);
+
+  /* Text */
+  --color-text: #ffffff;
+  --color-text-muted: #8e8e93;
+  --color-text-inverse: #000000;
+
+  /* Accent — azul iOS dark mode */
+  --color-accent: #0a84ff;
+  --color-accent-hover: #409cff;
+  --color-accent-subtle: #001f3f;
+
+  /* Feedback */
+  --color-success: #30d158;
+  --color-warning: #ff9f0a;
+  --color-error: #ff453a;
+  --color-info: #64d2ff;
+
+  /* Border */
+  --color-border: rgba(84, 84, 88, 0.65);
+  --color-border-strong: rgba(84, 84, 88, 0.85);
+
+  /* Radius generoso */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-card: 16px;
+  --radius-full: 9999px;
+
+  /* Fuente del sistema */
+  --font-body: -apple-system, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
+  --font-heading: -apple-system, 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace;
+
+  /* Sombras sutiles en dark */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 20px 40px rgba(0, 0, 0, 0.6);
+  --shadow-card: var(--shadow-md);
+
+  --transition-fast: 120ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --transition-base: 240ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --transition-slow: 400ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * OKUDA — Pop-art geométrico estilo Okuda San Miguel
+ * Paleta: magenta, cian, amarillo, naranja eléctrico sobre negro
+ * Fuente: system-ui pero bold, con texto en mayúsculas en headings
+ * Radius: 0 (formas geométricas duras) con algún rectángulo rotado decorativo
+ * Sombras: coloreadas y duras, como capas offset
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+[data-aesthetic='okuda'][data-mode='light'] {
+  /* Surface — blanco con toque cálido */
+  --color-surface: #fafafa;
+  --color-surface-raised: #ffffff;
+  --color-surface-overlay: rgba(255, 0, 128, 0.04);
+
+  /* Text — negro total */
+  --color-text: #0a0a0a;
+  --color-text-muted: #4a4a4a;
+  --color-text-inverse: #ffffff;
+
+  /* Accent — magenta eléctrico */
+  --color-accent: #e8007a;
+  --color-accent-hover: #c60069;
+  --color-accent-subtle: #ffd6ea;
+
+  /* Feedback — colores pop */
+  --color-success: #00c853;
+  --color-warning: #ff6d00;
+  --color-error: #d50000;
+  --color-info: #00b0ff;
+
+  /* Border — negro fuerte con grosor insinuado */
+  --color-border: #0a0a0a;
+  --color-border-strong: #000000;
+
+  /* Radius — geométrico puro */
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-card: 0px;
+  --radius-full: 0px;
+
+  /* Fuente bold, titulares en caps */
+  --font-body: system-ui, 'Segoe UI', Arial, sans-serif;
+  --font-heading: system-ui, 'Segoe UI', Arial, sans-serif;
+  --font-mono: 'Courier New', monospace;
+
+  /* Sombras offset coloreadas — capas pop-art */
+  --shadow-sm: 3px 3px 0 #e8007a;
+  --shadow-md: 5px 5px 0 #e8007a;
+  --shadow-lg: 8px 8px 0 #e8007a;
+  --shadow-card: 5px 5px 0 #00b0ff;
+
+  --transition-fast: 80ms ease;
+  --transition-base: 160ms ease;
+  --transition-slow: 280ms ease;
+}
+
+[data-aesthetic='okuda'][data-mode='dark'] {
+  /* Surface — negro absoluto, el lienzo Okuda */
+  --color-surface: #060606;
+  --color-surface-raised: #111111;
+  --color-surface-overlay: rgba(255, 20, 147, 0.06);
+
+  /* Text — blanco puro */
+  --color-text: #ffffff;
+  --color-text-muted: #aaaaaa;
+  --color-text-inverse: #000000;
+
+  /* Accent — cian eléctrico */
+  --color-accent: #00e5ff;
+  --color-accent-hover: #80f0ff;
+  --color-accent-subtle: #001820;
+
+  /* Feedback — neon */
+  --color-success: #69ff47;
+  --color-warning: #ffd740;
+  --color-error: #ff1744;
+  --color-info: #40c4ff;
+
+  /* Border — neon visible */
+  --color-border: #00e5ff;
+  --color-border-strong: #ffffff;
+
+  /* Radius — geométrico puro */
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-card: 0px;
+  --radius-full: 0px;
+
+  /* Fuente bold */
+  --font-body: system-ui, 'Segoe UI', Arial, sans-serif;
+  --font-heading: system-ui, 'Segoe UI', Arial, sans-serif;
+  --font-mono: 'Courier New', monospace;
+
+  /* Sombras neon coloreadas */
+  --shadow-sm: 3px 3px 0 #ff1493;
+  --shadow-md: 5px 5px 0 #ff1493;
+  --shadow-lg: 8px 8px 0 #ff1493;
+  --shadow-card: 5px 5px 0 #ffd740;
+
+  --transition-fast: 80ms ease;
+  --transition-base: 160ms ease;
+  --transition-slow: 280ms ease;
+}
