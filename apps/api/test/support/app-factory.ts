@@ -115,6 +115,23 @@ import { DrizzleShoppingListRepository } from '../../src/contexts/shopping/infra
 import { DrizzleShoppingItemRepository } from '../../src/contexts/shopping/infrastructure/drizzle-shopping-item.repository';
 import { DrizzleItemCommentRepository } from '../../src/contexts/shopping/infrastructure/drizzle-item-comment.repository';
 
+// ── fridge ─────────────────────────────────────────────────────────────────
+import { FridgeController } from '../../src/contexts/fridge/interface/fridge.controller';
+import { FridgeItemScopeGuard } from '../../src/contexts/fridge/interface/fridge-item-scope.guard';
+import { FRIDGE_ITEM_REPOSITORY } from '../../src/contexts/fridge/domain/ports/fridge-item.repository';
+import { FRIDGE_CLOCK } from '../../src/contexts/fridge/application/ports/clock';
+import { FRIDGE_ID_GENERATOR } from '../../src/contexts/fridge/application/ports/id-generator';
+import { DrizzleFridgeItemRepository } from '../../src/contexts/fridge/infrastructure/drizzle-fridge-item.repository';
+import { AddFridgeItemUseCase } from '../../src/contexts/fridge/application/add-fridge-item.use-case';
+import { ListFridgeItemsUseCase } from '../../src/contexts/fridge/application/list-fridge-items.use-case';
+import { GetFridgeItemUseCase } from '../../src/contexts/fridge/application/get-fridge-item.use-case';
+import { UpdateFridgeItemUseCase } from '../../src/contexts/fridge/application/update-fridge-item.use-case';
+import { DeleteFridgeItemUseCase } from '../../src/contexts/fridge/application/delete-fridge-item.use-case';
+import { EatFridgeItemUseCase } from '../../src/contexts/fridge/application/eat-fridge-item.use-case';
+import { ThrowFridgeItemUseCase } from '../../src/contexts/fridge/application/throw-fridge-item.use-case';
+import { FreezeFridgeItemUseCase } from '../../src/contexts/fridge/application/freeze-fridge-item.use-case';
+import { GetExpiringSoonUseCase } from '../../src/contexts/fridge/application/get-expiring-soon.use-case';
+
 // ── tasks ──────────────────────────────────────────────────────────────────
 import { TasksController } from '../../src/contexts/tasks/interface/tasks.controller';
 import { TaskScopeGuard } from '../../src/contexts/tasks/interface/task-scope.guard';
@@ -164,7 +181,7 @@ export async function createTestApp(): Promise<TestApp> {
         ignoreEnvFile: true,
       }),
     ],
-    controllers: [FamilyController, AuthController, ShoppingListsController, ShoppingItemsController, AiController, TasksController],
+    controllers: [FamilyController, AuthController, ShoppingListsController, ShoppingItemsController, AiController, TasksController, FridgeController],
     providers: [
       // ── DB ─────────────────────────────────────────────────────────────
       {
@@ -408,6 +425,38 @@ export async function createTestApp(): Promise<TestApp> {
       AddTaskPhotoUseCase,
       RemoveTaskPhotoUseCase,
       GenerateListFromTaskUseCase,
+
+      // ── fridge: repositorio ────────────────────────────────────────────
+      {
+        provide: FRIDGE_ITEM_REPOSITORY,
+        inject: [DRIZZLE],
+        useFactory: (db: ReturnType<typeof drizzle>) =>
+          new DrizzleFridgeItemRepository(db as Parameters<typeof DrizzleFridgeItemRepository.prototype.constructor>[0]),
+      },
+
+      // ── fridge: puertos de infra (reutiliza los de family) ─────────────
+      {
+        provide: FRIDGE_CLOCK,
+        useExisting: SystemClock,
+      },
+      {
+        provide: FRIDGE_ID_GENERATOR,
+        useExisting: UuidIdGenerator,
+      },
+
+      // ── fridge: guards ─────────────────────────────────────────────────
+      FridgeItemScopeGuard,
+
+      // ── fridge: casos de uso ───────────────────────────────────────────
+      AddFridgeItemUseCase,
+      ListFridgeItemsUseCase,
+      GetFridgeItemUseCase,
+      UpdateFridgeItemUseCase,
+      DeleteFridgeItemUseCase,
+      EatFridgeItemUseCase,
+      ThrowFridgeItemUseCase,
+      FreezeFridgeItemUseCase,
+      GetExpiringSoonUseCase,
     ],
   }).compile();
 

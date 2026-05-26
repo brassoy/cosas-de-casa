@@ -278,6 +278,34 @@ export const taskPhotos = pgTable(
   ],
 );
 
+// ── fridge_location ───────────────────────────────────────────────────────────
+
+export const fridgeLocationEnum = pgEnum('fridge_location', ['FRIDGE', 'FREEZER', 'PANTRY']);
+
+// ── fridge_items ──────────────────────────────────────────────────────────────
+
+export const fridgeItems = pgTable(
+  'fridge_items',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    familyId: uuid('family_id')
+      .notNull()
+      .references(() => families.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    quantity: numeric('quantity', { precision: 10, scale: 3 }),
+    unit: text('unit'),
+    location: fridgeLocationEnum('location').notNull().default('FRIDGE'),
+    expiryDate: date('expiry_date'),
+    createdBy: uuid('created_by').references(() => appUsers.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('fridge_items_family_idx').on(table.familyId),
+    index('fridge_items_expiry_idx').on(table.expiryDate),
+  ],
+);
+
 // ── Tipos de fila inferidos (uso interno de infraestructura) ──────────────────
 
 export type AppUserRow = typeof appUsers.$inferSelect;
@@ -291,3 +319,4 @@ export type CatalogItemRow = typeof catalogItems.$inferSelect;
 export type TaskRow = typeof tasks.$inferSelect;
 export type TaskAssigneeRow = typeof taskAssignees.$inferSelect;
 export type TaskPhotoRow = typeof taskPhotos.$inferSelect;
+export type FridgeItemRow = typeof fridgeItems.$inferSelect;

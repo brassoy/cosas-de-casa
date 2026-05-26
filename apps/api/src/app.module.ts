@@ -8,6 +8,7 @@ import { FamilyModule } from './contexts/family/family.module';
 import { ShoppingModule } from './contexts/shopping/shopping.module';
 import { AiModule } from './contexts/ai/ai.module';
 import { TasksModule } from './contexts/tasks/tasks.module';
+import { FridgeModule } from './contexts/fridge/fridge.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { TasksModule } from './contexts/tasks/tasks.module';
     ShoppingModule,
     AiModule,
     TasksModule,
+    FridgeModule,
   ],
 })
 export class AppModule {}
