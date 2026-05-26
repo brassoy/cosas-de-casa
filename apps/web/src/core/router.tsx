@@ -18,6 +18,7 @@ import { TaskDetailPage } from '@/features/tasks/pages/TaskDetailPage';
 import { FridgePage } from '@/features/fridge/pages/FridgePage';
 import { StatsPage } from '@/features/stats/pages/StatsPage';
 import { CalendarPage } from '@/features/calendar/pages/CalendarPage';
+import { RomanticPage } from '@/features/romantic/pages/RomanticPage';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { useFamilyStore } from '@/features/family/store/family.store';
 import { api } from '@/shared/lib/api';
@@ -217,6 +218,15 @@ const calendarRoute = createRoute({
   component: CalendarPage,
 });
 
+// ── Romantic route ────────────────────────────────────────────────────────────
+
+const romanticRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/family/$familyId/romantic',
+  beforeLoad: requireAuth,
+  component: RomanticPage,
+});
+
 // ── Route tree ────────────────────────────────────────────────────────────────
 
 const routeTree = rootRoute.addChildren([
@@ -234,6 +244,7 @@ const routeTree = rootRoute.addChildren([
   fridgeRoute,
   statsRoute,
   calendarRoute,
+  romanticRoute,
 ]);
 
 export const router = createRouter({ routeTree });
