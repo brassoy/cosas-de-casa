@@ -239,6 +239,32 @@ import { ListChallengesUseCase } from '../../src/contexts/romantic/application/l
 import { MarkChallengeDoneUseCase } from '../../src/contexts/romantic/application/mark-challenge-done.use-case';
 import { DoMischiefUseCase } from '../../src/contexts/romantic/application/do-mischief.use-case';
 
+// ── budget ─────────────────────────────────────────────────────────────────
+import { BudgetController } from '../../src/contexts/budget/interface/budget.controller';
+import { ReceiptScopeGuard } from '../../src/contexts/budget/interface/receipt-scope.guard';
+import { RECEIPT_REPOSITORY } from '../../src/contexts/budget/domain/ports/receipt.repository';
+import { RECEIPT_OCR_PORT } from '../../src/contexts/budget/domain/ports/receipt-ocr.port';
+import { BUDGET_CLOCK } from '../../src/contexts/budget/application/ports/clock';
+import { BUDGET_ID_GENERATOR } from '../../src/contexts/budget/application/ports/id-generator';
+import { DrizzleReceiptRepository } from '../../src/contexts/budget/infrastructure/drizzle-receipt.repository';
+import { AiUnavailableError } from '../../src/contexts/budget/domain/budget.errors';
+import { ExtractReceiptUseCase } from '../../src/contexts/budget/application/extract-receipt.use-case';
+import { CreateReceiptUseCase } from '../../src/contexts/budget/application/create-receipt.use-case';
+import { ListReceiptsUseCase } from '../../src/contexts/budget/application/list-receipts.use-case';
+import { GetReceiptUseCase } from '../../src/contexts/budget/application/get-receipt.use-case';
+import { UpdateReceiptUseCase } from '../../src/contexts/budget/application/update-receipt.use-case';
+import { DeleteReceiptUseCase } from '../../src/contexts/budget/application/delete-receipt.use-case';
+import { GetSpendSummaryUseCase } from '../../src/contexts/budget/application/get-spend-summary.use-case';
+import { RateLimitGuard } from '../../src/common/rate-limit.guard';
+import { Reflector } from '@nestjs/core';
+
+// ── menu ────────────────────────────────────────────────────────────────────
+import { MenuController } from '../../src/contexts/menu/interface/menu.controller';
+import { MENU_SUGGESTION_PORT } from '../../src/contexts/menu/domain/ports/menu-suggestion.port';
+import { MenuAiUnavailableError } from '../../src/contexts/menu/domain/menu.errors';
+import { SuggestMenuUseCase } from '../../src/contexts/menu/application/suggest-menu.use-case';
+import { GenerateListFromMenuUseCase } from '../../src/contexts/menu/application/generate-list-from-menu.use-case';
+
 // ── tasks ──────────────────────────────────────────────────────────────────
 import { TasksController } from '../../src/contexts/tasks/interface/tasks.controller';
 import { TaskScopeGuard } from '../../src/contexts/tasks/interface/task-scope.guard';
@@ -289,7 +315,7 @@ export async function createTestApp(): Promise<TestApp> {
       }),
       ScheduleModule.forRoot(),
     ],
-    controllers: [FamilyController, AuthController, GroupsController, SocialController, PlansController, ShoppingListsController, ShoppingItemsController, AiController, TasksController, FridgeController, NotificationsController, StatsController, CalendarController, RomanticController],
+    controllers: [FamilyController, AuthController, GroupsController, SocialController, PlansController, ShoppingListsController, ShoppingItemsController, AiController, TasksController, FridgeController, NotificationsController, StatsController, CalendarController, RomanticController, BudgetController, MenuController],
     providers: [
       // ── DB ─────────────────────────────────────────────────────────────
       {
@@ -765,6 +791,62 @@ export async function createTestApp(): Promise<TestApp> {
       DeleteSavedPlaceUseCase,
       ListPlanMessagesUseCase,
       SendPlanMessageUseCase,
+
+      // ── budget: repositorio ────────────────────────────────────────────
+      {
+        provide: RECEIPT_REPOSITORY,
+        inject: [DRIZZLE],
+        useFactory: (db: ReturnType<typeof drizzle>) =>
+          new DrizzleReceiptRepository(db as Parameters<typeof DrizzleReceiptRepository.prototype.constructor>[0]),
+      },
+
+      // ── budget: OCR port (stub → AiUnavailableError) ───────────────────
+      {
+        provide: RECEIPT_OCR_PORT,
+        useValue: {
+          extract: async () => {
+            throw new AiUnavailableError('IA no configurada en tests.');
+          },
+        },
+      },
+
+      // ── budget: puertos de infra ──────────────────────────────────────
+      {
+        provide: BUDGET_CLOCK,
+        useExisting: SystemClock,
+      },
+      {
+        provide: BUDGET_ID_GENERATOR,
+        useExisting: UuidIdGenerator,
+      },
+
+      // ── budget: guards ────────────────────────────────────────────────
+      ReceiptScopeGuard,
+      Reflector,
+      RateLimitGuard,
+
+      // ── budget: casos de uso ──────────────────────────────────────────
+      ExtractReceiptUseCase,
+      CreateReceiptUseCase,
+      ListReceiptsUseCase,
+      GetReceiptUseCase,
+      UpdateReceiptUseCase,
+      DeleteReceiptUseCase,
+      GetSpendSummaryUseCase,
+
+      // ── menu: suggestion port (stub → MenuAiUnavailableError) ─────────
+      {
+        provide: MENU_SUGGESTION_PORT,
+        useValue: {
+          suggest: async () => {
+            throw new MenuAiUnavailableError('IA no configurada en tests.');
+          },
+        },
+      },
+
+      // ── menu: casos de uso ────────────────────────────────────────────
+      SuggestMenuUseCase,
+      GenerateListFromMenuUseCase,
     ],
   }).compile();
 

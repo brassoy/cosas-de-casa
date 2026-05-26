@@ -690,6 +690,66 @@ export const planMessages = pgTable(
   ],
 );
 
+// ── spend_category ───────────────────────────────────────────────────────────
+
+export const spendCategoryEnum = pgEnum('spend_category', [
+  'groceries',
+  'household',
+  'dining_out',
+  'leisure',
+  'other',
+]);
+
+export const receiptStatusEnum = pgEnum('receipt_status', ['draft', 'confirmed']);
+
+// ── receipts ─────────────────────────────────────────────────────────────────
+
+export const receipts = pgTable(
+  'receipts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    familyId: uuid('family_id')
+      .notNull()
+      .references(() => families.id, { onDelete: 'cascade' }),
+    merchant: text('merchant'),
+    purchasedAt: date('purchased_at').notNull(),
+    total: numeric('total', { precision: 12, scale: 2 }).notNull(),
+    currency: text('currency').notNull().default('EUR'),
+    status: receiptStatusEnum('status').notNull().default('draft'),
+    imagePath: text('image_path'),
+    createdBy: uuid('created_by')
+      .notNull()
+      .references(() => appUsers.id, { onDelete: 'restrict' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('receipts_family_idx').on(table.familyId),
+    index('receipts_purchased_at_idx').on(table.purchasedAt),
+  ],
+);
+
+// ── receipt_lines ─────────────────────────────────────────────────────────────
+
+export const receiptLines = pgTable(
+  'receipt_lines',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    receiptId: uuid('receipt_id')
+      .notNull()
+      .references(() => receipts.id, { onDelete: 'cascade' }),
+    description: text('description').notNull(),
+    quantity: numeric('quantity', { precision: 10, scale: 3 }),
+    unitPrice: numeric('unit_price', { precision: 12, scale: 2 }),
+    lineTotal: numeric('line_total', { precision: 12, scale: 2 }).notNull(),
+    category: spendCategoryEnum('category').notNull().default('other'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('receipt_lines_receipt_idx').on(table.receiptId),
+  ],
+);
+
 // ── Tipos de fila inferidos (uso interno de infraestructura) ──────────────────
 
 export type AppUserRow = typeof appUsers.$inferSelect;
@@ -720,3 +780,5 @@ export type PlanRow = typeof plans.$inferSelect;
 export type PlanShareRow = typeof planShares.$inferSelect;
 export type PlanParticipantRow = typeof planParticipants.$inferSelect;
 export type PlanMessageRow = typeof planMessages.$inferSelect;
+export type ReceiptRow = typeof receipts.$inferSelect;
+export type ReceiptLineRow = typeof receiptLines.$inferSelect;

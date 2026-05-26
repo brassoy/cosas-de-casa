@@ -17,6 +17,8 @@ import { RomanticModule } from './contexts/romantic/romantic.module';
 import { GroupsModule } from './contexts/groups/groups.module';
 import { SocialModule } from './contexts/social/social.module';
 import { PlansModule } from './contexts/plans/plans.module';
+import { BudgetModule } from './contexts/budget/budget.module';
+import { MenuModule } from './contexts/menu/menu.module';
 
 @Module({
   imports: [
@@ -37,6 +39,8 @@ import { PlansModule } from './contexts/plans/plans.module';
     StatsModule,
     CalendarModule,
     RomanticModule,
+    BudgetModule,
+    MenuModule,
   ],
 })
 export class AppModule {}
