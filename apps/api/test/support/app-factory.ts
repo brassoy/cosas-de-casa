@@ -115,6 +115,26 @@ import { DrizzleShoppingListRepository } from '../../src/contexts/shopping/infra
 import { DrizzleShoppingItemRepository } from '../../src/contexts/shopping/infrastructure/drizzle-shopping-item.repository';
 import { DrizzleItemCommentRepository } from '../../src/contexts/shopping/infrastructure/drizzle-item-comment.repository';
 
+// ── tasks ──────────────────────────────────────────────────────────────────
+import { TasksController } from '../../src/contexts/tasks/interface/tasks.controller';
+import { TaskScopeGuard } from '../../src/contexts/tasks/interface/task-scope.guard';
+import { TASK_REPOSITORY } from '../../src/contexts/tasks/domain/ports/task.repository';
+import { TASK_PHOTO_REPOSITORY } from '../../src/contexts/tasks/domain/ports/task-photo.repository';
+import { TASKS_CLOCK } from '../../src/contexts/tasks/application/ports/clock';
+import { TASKS_ID_GENERATOR } from '../../src/contexts/tasks/application/ports/id-generator';
+import { DrizzleTaskRepository } from '../../src/contexts/tasks/infrastructure/drizzle-task.repository';
+import { DrizzleTaskPhotoRepository } from '../../src/contexts/tasks/infrastructure/drizzle-task-photo.repository';
+import { TaskAssigneesReadModel } from '../../src/contexts/tasks/infrastructure/task-assignees-read-model';
+import { CreateTaskUseCase } from '../../src/contexts/tasks/application/create-task.use-case';
+import { GetTaskUseCase } from '../../src/contexts/tasks/application/get-task.use-case';
+import { ListTasksUseCase } from '../../src/contexts/tasks/application/list-tasks.use-case';
+import { UpdateTaskUseCase } from '../../src/contexts/tasks/application/update-task.use-case';
+import { DeleteTaskUseCase } from '../../src/contexts/tasks/application/delete-task.use-case';
+import { SetAssigneesUseCase } from '../../src/contexts/tasks/application/set-assignees.use-case';
+import { AddTaskPhotoUseCase } from '../../src/contexts/tasks/application/add-task-photo.use-case';
+import { RemoveTaskPhotoUseCase } from '../../src/contexts/tasks/application/remove-task-photo.use-case';
+import { GenerateListFromTaskUseCase } from '../../src/contexts/tasks/application/generate-list-from-task.use-case';
+
 export interface TestApp {
   app: INestApplication;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -144,7 +164,7 @@ export async function createTestApp(): Promise<TestApp> {
         ignoreEnvFile: true,
       }),
     ],
-    controllers: [FamilyController, AuthController, ShoppingListsController, ShoppingItemsController, AiController],
+    controllers: [FamilyController, AuthController, ShoppingListsController, ShoppingItemsController, AiController, TasksController],
     providers: [
       // ── DB ─────────────────────────────────────────────────────────────
       {
@@ -342,6 +362,52 @@ export async function createTestApp(): Promise<TestApp> {
       DedupCheckUseCase,
       UpsertCatalogItemUseCase,
       GetFrequentItemsUseCase,
+
+      // ── tasks: repositorios ────────────────────────────────────────────
+      {
+        provide: TASK_REPOSITORY,
+        inject: [DRIZZLE],
+        useFactory: (db: ReturnType<typeof drizzle>) =>
+          new DrizzleTaskRepository(db as Parameters<typeof DrizzleTaskRepository.prototype.constructor>[0]),
+      },
+      {
+        provide: TASK_PHOTO_REPOSITORY,
+        inject: [DRIZZLE],
+        useFactory: (db: ReturnType<typeof drizzle>) =>
+          new DrizzleTaskPhotoRepository(db as Parameters<typeof DrizzleTaskPhotoRepository.prototype.constructor>[0]),
+      },
+
+      // ── tasks: read-model ──────────────────────────────────────────────
+      {
+        provide: TaskAssigneesReadModel,
+        inject: [DRIZZLE],
+        useFactory: (db: ReturnType<typeof drizzle>) =>
+          new TaskAssigneesReadModel(db as Parameters<typeof TaskAssigneesReadModel.prototype.constructor>[0]),
+      },
+
+      // ── tasks: puertos de infra (reutiliza los de family) ─────────────
+      {
+        provide: TASKS_CLOCK,
+        useExisting: SystemClock,
+      },
+      {
+        provide: TASKS_ID_GENERATOR,
+        useExisting: UuidIdGenerator,
+      },
+
+      // ── tasks: guards ──────────────────────────────────────────────────
+      TaskScopeGuard,
+
+      // ── tasks: casos de uso ────────────────────────────────────────────
+      CreateTaskUseCase,
+      GetTaskUseCase,
+      ListTasksUseCase,
+      UpdateTaskUseCase,
+      DeleteTaskUseCase,
+      SetAssigneesUseCase,
+      AddTaskPhotoUseCase,
+      RemoveTaskPhotoUseCase,
+      GenerateListFromTaskUseCase,
     ],
   }).compile();
 

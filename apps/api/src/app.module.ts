@@ -7,6 +7,7 @@ import { IdentityAccessModule } from './contexts/identity-access/identity-access
 import { FamilyModule } from './contexts/family/family.module';
 import { ShoppingModule } from './contexts/shopping/shopping.module';
 import { AiModule } from './contexts/ai/ai.module';
+import { TasksModule } from './contexts/tasks/tasks.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { AiModule } from './contexts/ai/ai.module';
     FamilyModule,
     ShoppingModule,
     AiModule,
+    TasksModule,
   ],
 })
 export class AppModule {}

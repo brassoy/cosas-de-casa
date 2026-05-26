@@ -46,6 +46,7 @@ import { UuidIdGenerator } from '../family/infrastructure/uuid-id-generator';
 @Module({
   imports: [IdentityAccessModule, AiModule],
   controllers: [ShoppingListsController, ShoppingItemsController],
+  exports: [CreateCustomListUseCase],
   providers: [
     // ── Infrastructure: repositorios ──────────────────────────────────────
     {

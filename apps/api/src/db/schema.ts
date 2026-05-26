@@ -1,12 +1,14 @@
 import { sql } from 'drizzle-orm';
 import {
   boolean,
+  date,
   index,
   integer,
   jsonb,
   numeric,
   pgEnum,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   unique,
@@ -213,6 +215,69 @@ export const catalogItems = pgTable(
   ],
 );
 
+// ── task_status ──────────────────────────────────────────────────────────────
+
+export const taskStatusEnum = pgEnum('task_status', ['OPEN', 'IN_PROGRESS', 'DONE']);
+
+// ── tasks ─────────────────────────────────────────────────────────────────────
+
+export const tasks = pgTable(
+  'tasks',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    familyId: uuid('family_id')
+      .notNull()
+      .references(() => families.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    description: text('description'),
+    status: taskStatusEnum('status').notNull().default('OPEN'),
+    recommendedDate: date('recommended_date'),
+    deadlineDate: date('deadline_date'),
+    createdBy: uuid('created_by').references(() => appUsers.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('tasks_family_idx').on(table.familyId),
+    index('tasks_status_idx').on(table.status),
+  ],
+);
+
+// ── task_assignees ────────────────────────────────────────────────────────────
+
+export const taskAssignees = pgTable(
+  'task_assignees',
+  {
+    taskId: uuid('task_id')
+      .notNull()
+      .references(() => tasks.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => appUsers.id, { onDelete: 'cascade' }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.taskId, table.userId] }),
+    index('task_assignees_user_idx').on(table.userId),
+  ],
+);
+
+// ── task_photos ───────────────────────────────────────────────────────────────
+
+export const taskPhotos = pgTable(
+  'task_photos',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    taskId: uuid('task_id')
+      .notNull()
+      .references(() => tasks.id, { onDelete: 'cascade' }),
+    storagePath: text('storage_path').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('task_photos_task_idx').on(table.taskId),
+  ],
+);
+
 // ── Tipos de fila inferidos (uso interno de infraestructura) ──────────────────
 
 export type AppUserRow = typeof appUsers.$inferSelect;
@@ -223,3 +288,6 @@ export type ShoppingListRow = typeof shoppingLists.$inferSelect;
 export type ShoppingItemRow = typeof shoppingItems.$inferSelect;
 export type ItemCommentRow = typeof itemComments.$inferSelect;
 export type CatalogItemRow = typeof catalogItems.$inferSelect;
+export type TaskRow = typeof tasks.$inferSelect;
+export type TaskAssigneeRow = typeof taskAssignees.$inferSelect;
+export type TaskPhotoRow = typeof taskPhotos.$inferSelect;

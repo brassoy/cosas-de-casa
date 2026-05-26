@@ -22,6 +22,20 @@
       "when": 1779780900401,
       "tag": "0002_stiff_lila_cheney",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1779784088106,
+      "tag": "0003_reflective_falcon",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1779784836466,
+      "tag": "0004_realtime_publication",
+      "breakpoints": true
     }
   ]
 }
