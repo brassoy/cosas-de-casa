@@ -133,14 +133,20 @@ export class BudgetController {
   @UseGuards(FamilyScopeGuard)
   @ApiOperation({ summary: 'Resumen de gasto por categoría y mes en un rango de fechas.' })
   @ApiOkResponse({ description: 'Resumen de gasto.' })
-  @ApiQuery({ name: 'from', required: true, example: '2026-01-01' })
-  @ApiQuery({ name: 'to', required: true, example: '2026-12-31' })
+  @ApiQuery({ name: 'from', required: false, example: '2026-01-01' })
+  @ApiQuery({ name: 'to', required: false, example: '2026-12-31' })
   async getSpendSummaryHandler(
     @Param('familyId', ParseUUIDPipe) familyId: string,
-    @Query('from') from: string,
-    @Query('to') to: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
   ): Promise<SpendSummaryDto> {
-    const summary = await this.getSpendSummary.execute({ familyId, from, to });
+    // `from`/`to` son opcionales: sin rango => todo el histórico. Así evitamos
+    // el SQL malformado (`>= ::date`) cuando el cliente no envía las fechas.
+    const summary = await this.getSpendSummary.execute({
+      familyId,
+      from: from || '0001-01-01',
+      to: to || '9999-12-31',
+    });
     return BudgetPresenter.toSpendSummaryDto(summary);
   }
 
