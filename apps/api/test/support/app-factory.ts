@@ -181,6 +181,44 @@ import { ListGroupMembersUseCase } from '../../src/contexts/groups/application/l
 import { LeaveGroupUseCase } from '../../src/contexts/groups/application/leave-group.use-case';
 import { RevokeActiveGroupPinUseCase } from '../../src/contexts/groups/application/revoke-active-group-pin.use-case';
 
+// ── social ─────────────────────────────────────────────────────────────────
+import { SocialController } from '../../src/contexts/social/interface/social.controller';
+import { FRIEND_INVITE_PIN_REPOSITORY } from '../../src/contexts/social/domain/ports/friend-invite-pin.repository';
+import { FRIEND_LINK_REPOSITORY } from '../../src/contexts/social/domain/ports/friend-link.repository';
+import { SOCIAL_UNIT_OF_WORK } from '../../src/contexts/social/application/ports/unit-of-work';
+import { SOCIAL_READ_MODEL } from '../../src/contexts/social/application/ports/social-read-model';
+import { DrizzleFriendInvitePinRepository } from '../../src/contexts/social/infrastructure/drizzle-friend-invite-pin.repository';
+import { DrizzleFriendLinkRepository } from '../../src/contexts/social/infrastructure/drizzle-friend-link.repository';
+import { DrizzleSocialReadModel } from '../../src/contexts/social/infrastructure/drizzle-social-read-model';
+import { DrizzleSocialUnitOfWork } from '../../src/contexts/social/infrastructure/drizzle-social-unit-of-work';
+import { GenerateFriendInviteUseCase } from '../../src/contexts/social/application/generate-friend-invite.use-case';
+import { RedeemFriendInviteUseCase } from '../../src/contexts/social/application/redeem-friend-invite.use-case';
+import { ListFriendFamiliesUseCase } from '../../src/contexts/social/application/list-friend-families.use-case';
+import { RemoveFriendFamilyUseCase } from '../../src/contexts/social/application/remove-friend-family.use-case';
+
+// ── plans ──────────────────────────────────────────────────────────────────
+import { PlansController } from '../../src/contexts/plans/interface/plans.controller';
+import { PLAN_REPOSITORY } from '../../src/contexts/plans/domain/ports/plan.repository';
+import { SAVED_PLACE_REPOSITORY } from '../../src/contexts/plans/domain/ports/saved-place.repository';
+import { PLAN_MESSAGE_REPOSITORY } from '../../src/contexts/plans/domain/ports/plan-message.repository';
+import { PLANS_READ_MODEL } from '../../src/contexts/plans/application/ports/plans-read-model';
+import { DrizzlePlanRepository } from '../../src/contexts/plans/infrastructure/drizzle-plan.repository';
+import { DrizzleSavedPlaceRepository } from '../../src/contexts/plans/infrastructure/drizzle-saved-place.repository';
+import { DrizzlePlanMessageRepository } from '../../src/contexts/plans/infrastructure/drizzle-plan-message.repository';
+import { DrizzlePlansReadModel } from '../../src/contexts/plans/infrastructure/drizzle-plans-read-model';
+import { CreatePlanUseCase } from '../../src/contexts/plans/application/create-plan.use-case';
+import { ListPlansUseCase } from '../../src/contexts/plans/application/list-plans.use-case';
+import { GetPlanUseCase } from '../../src/contexts/plans/application/get-plan.use-case';
+import { UpdatePlanUseCase } from '../../src/contexts/plans/application/update-plan.use-case';
+import { DeletePlanUseCase } from '../../src/contexts/plans/application/delete-plan.use-case';
+import { SharePlanUseCase } from '../../src/contexts/plans/application/share-plan.use-case';
+import { SetRsvpUseCase } from '../../src/contexts/plans/application/set-rsvp.use-case';
+import { CreateSavedPlaceUseCase } from '../../src/contexts/plans/application/create-saved-place.use-case';
+import { ListSavedPlacesUseCase } from '../../src/contexts/plans/application/list-saved-places.use-case';
+import { DeleteSavedPlaceUseCase } from '../../src/contexts/plans/application/delete-saved-place.use-case';
+import { ListPlanMessagesUseCase } from '../../src/contexts/plans/application/list-plan-messages.use-case';
+import { SendPlanMessageUseCase } from '../../src/contexts/plans/application/send-plan-message.use-case';
+
 // ── romantic ───────────────────────────────────────────────────────────────
 import { RomanticController } from '../../src/contexts/romantic/interface/romantic.controller';
 import { CoupleScopeGuard } from '../../src/contexts/romantic/interface/couple-scope.guard';
@@ -251,7 +289,7 @@ export async function createTestApp(): Promise<TestApp> {
       }),
       ScheduleModule.forRoot(),
     ],
-    controllers: [FamilyController, AuthController, GroupsController, ShoppingListsController, ShoppingItemsController, AiController, TasksController, FridgeController, NotificationsController, StatsController, CalendarController, RomanticController],
+    controllers: [FamilyController, AuthController, GroupsController, SocialController, PlansController, ShoppingListsController, ShoppingItemsController, AiController, TasksController, FridgeController, NotificationsController, StatsController, CalendarController, RomanticController],
     providers: [
       // ── DB ─────────────────────────────────────────────────────────────
       {
@@ -667,6 +705,66 @@ export async function createTestApp(): Promise<TestApp> {
       ListChallengesUseCase,
       MarkChallengeDoneUseCase,
       DoMischiefUseCase,
+
+      // ── social: infraestructura ────────────────────────────────────────
+      DrizzleSocialUnitOfWork,
+      { provide: SOCIAL_UNIT_OF_WORK, useExisting: DrizzleSocialUnitOfWork },
+      DrizzleSocialReadModel,
+      { provide: SOCIAL_READ_MODEL, useExisting: DrizzleSocialReadModel },
+      {
+        provide: FRIEND_INVITE_PIN_REPOSITORY,
+        inject: [DRIZZLE],
+        useFactory: (db: ReturnType<typeof drizzle>) =>
+          new DrizzleFriendInvitePinRepository(db as Parameters<typeof DrizzleFriendInvitePinRepository.prototype.constructor>[0]),
+      },
+      {
+        provide: FRIEND_LINK_REPOSITORY,
+        inject: [DRIZZLE],
+        useFactory: (db: ReturnType<typeof drizzle>) =>
+          new DrizzleFriendLinkRepository(db as Parameters<typeof DrizzleFriendLinkRepository.prototype.constructor>[0]),
+      },
+
+      // ── social: casos de uso ────────────────────────────────────────────
+      GenerateFriendInviteUseCase,
+      RedeemFriendInviteUseCase,
+      ListFriendFamiliesUseCase,
+      RemoveFriendFamilyUseCase,
+
+      // ── plans: infraestructura ─────────────────────────────────────────
+      {
+        provide: PLAN_REPOSITORY,
+        inject: [DRIZZLE],
+        useFactory: (db: ReturnType<typeof drizzle>) =>
+          new DrizzlePlanRepository(db as Parameters<typeof DrizzlePlanRepository.prototype.constructor>[0]),
+      },
+      {
+        provide: SAVED_PLACE_REPOSITORY,
+        inject: [DRIZZLE],
+        useFactory: (db: ReturnType<typeof drizzle>) =>
+          new DrizzleSavedPlaceRepository(db as Parameters<typeof DrizzleSavedPlaceRepository.prototype.constructor>[0]),
+      },
+      {
+        provide: PLAN_MESSAGE_REPOSITORY,
+        inject: [DRIZZLE],
+        useFactory: (db: ReturnType<typeof drizzle>) =>
+          new DrizzlePlanMessageRepository(db as Parameters<typeof DrizzlePlanMessageRepository.prototype.constructor>[0]),
+      },
+      DrizzlePlansReadModel,
+      { provide: PLANS_READ_MODEL, useExisting: DrizzlePlansReadModel },
+
+      // ── plans: casos de uso ────────────────────────────────────────────
+      CreatePlanUseCase,
+      ListPlansUseCase,
+      GetPlanUseCase,
+      UpdatePlanUseCase,
+      DeletePlanUseCase,
+      SharePlanUseCase,
+      SetRsvpUseCase,
+      CreateSavedPlaceUseCase,
+      ListSavedPlacesUseCase,
+      DeleteSavedPlaceUseCase,
+      ListPlanMessagesUseCase,
+      SendPlanMessageUseCase,
     ],
   }).compile();
 

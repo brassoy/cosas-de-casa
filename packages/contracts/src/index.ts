@@ -9,3 +9,5 @@ export * from './notifications';
 export * from './stats';
 export * from './calendar';
 export * from './romantic';
+export * from './social';
+export * from './plans';

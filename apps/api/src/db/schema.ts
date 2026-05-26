@@ -511,6 +511,185 @@ export const groupJoinPins = pgTable(
   ],
 );
 
+// ── friend_invite_pins ────────────────────────────────────────────────────────
+// PINs de invitación de amistad entre familias (un solo uso, mismo mecanismo
+// que join_pins). Solo se persiste el hash del código.
+
+export const friendInvitePinStatusEnum = pgEnum('friend_invite_pin_status', ['ACTIVE', 'CONSUMED', 'REVOKED']);
+
+export const friendInvitePins = pgTable(
+  'friend_invite_pins',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    fromFamilyId: uuid('from_family_id')
+      .notNull()
+      .references(() => families.id, { onDelete: 'cascade' }),
+    codeHash: text('code_hash').notNull(),
+    status: friendInvitePinStatusEnum('status').notNull().default('ACTIVE'),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    createdBy: uuid('created_by')
+      .notNull()
+      .references(() => appUsers.id, { onDelete: 'restrict' }),
+    consumedBy: uuid('consumed_by').references(() => appUsers.id, { onDelete: 'set null' }),
+    consumedByFamilyId: uuid('consumed_by_family_id').references(() => families.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    consumedAt: timestamp('consumed_at', { withTimezone: true }),
+  },
+  (table) => [
+    // Máximo un PIN ACTIVE por familia emisora.
+    uniqueIndex('friend_invite_pins_one_active_per_family')
+      .on(table.fromFamilyId)
+      .where(sql`${table.status} = 'ACTIVE'`),
+    index('friend_invite_pins_active_hash_idx')
+      .on(table.codeHash)
+      .where(sql`${table.status} = 'ACTIVE'`),
+  ],
+);
+
+// ── friend_links ──────────────────────────────────────────────────────────────
+// Vínculo bidireccional entre DOS familias. Un solo registro representa la
+// relación; la dirección se infiere comparando familyA/familyB con la familia
+// del usuario actuante.
+
+export const friendLinks = pgTable(
+  'friend_links',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    familyAId: uuid('family_a_id')
+      .notNull()
+      .references(() => families.id, { onDelete: 'cascade' }),
+    familyBId: uuid('family_b_id')
+      .notNull()
+      .references(() => families.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    // Un par de familias solo puede estar vinculado una vez.
+    // La restricción cubre (A,B) pero NO (B,A): la lógica de app garantiza
+    // que siempre se guarda con familyAId < familyBId (lexicográfico UUID).
+    unique('friend_links_pair_unique').on(table.familyAId, table.familyBId),
+    index('friend_links_family_a_idx').on(table.familyAId),
+    index('friend_links_family_b_idx').on(table.familyBId),
+  ],
+);
+
+// ── plan_status ───────────────────────────────────────────────────────────────
+
+export const planStatusEnum = pgEnum('plan_status', ['proposed', 'confirmed', 'cancelled']);
+export const planRsvpStatusEnum = pgEnum('plan_rsvp_status', ['going', 'maybe', 'declined']);
+
+// ── saved_places ──────────────────────────────────────────────────────────────
+
+export const savedPlaces = pgTable(
+  'saved_places',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    familyId: uuid('family_id')
+      .notNull()
+      .references(() => families.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    address: text('address'),
+    lat: numeric('lat', { precision: 10, scale: 7 }),
+    lng: numeric('lng', { precision: 10, scale: 7 }),
+    createdBy: uuid('created_by').references(() => appUsers.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('saved_places_family_idx').on(table.familyId),
+  ],
+);
+
+// ── plans ─────────────────────────────────────────────────────────────────────
+
+export const plans = pgTable(
+  'plans',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    ownerFamilyId: uuid('owner_family_id')
+      .notNull()
+      .references(() => families.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    description: text('description'),
+    // Lugar del plan (datos cacheados, sin geocoding activo)
+    placeName: text('place_name'),
+    placeAddress: text('place_address'),
+    placeLat: numeric('place_lat', { precision: 10, scale: 7 }),
+    placeLng: numeric('place_lng', { precision: 10, scale: 7 }),
+    scheduledAt: timestamp('scheduled_at', { withTimezone: true }),
+    status: planStatusEnum('status').notNull().default('proposed'),
+    createdBy: uuid('created_by')
+      .notNull()
+      .references(() => appUsers.id, { onDelete: 'restrict' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('plans_owner_family_idx').on(table.ownerFamilyId),
+    index('plans_scheduled_at_idx').on(table.scheduledAt),
+    index('plans_status_idx').on(table.status),
+  ],
+);
+
+// ── plan_shares ───────────────────────────────────────────────────────────────
+
+export const planShares = pgTable(
+  'plan_shares',
+  {
+    planId: uuid('plan_id')
+      .notNull()
+      .references(() => plans.id, { onDelete: 'cascade' }),
+    familyId: uuid('family_id')
+      .notNull()
+      .references(() => families.id, { onDelete: 'cascade' }),
+    sharedAt: timestamp('shared_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.planId, table.familyId] }),
+    index('plan_shares_family_idx').on(table.familyId),
+  ],
+);
+
+// ── plan_participants ─────────────────────────────────────────────────────────
+
+export const planParticipants = pgTable(
+  'plan_participants',
+  {
+    planId: uuid('plan_id')
+      .notNull()
+      .references(() => plans.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => appUsers.id, { onDelete: 'cascade' }),
+    status: planRsvpStatusEnum('status').notNull().default('going'),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.planId, table.userId] }),
+    index('plan_participants_user_idx').on(table.userId),
+  ],
+);
+
+// ── plan_messages ─────────────────────────────────────────────────────────────
+
+export const planMessages = pgTable(
+  'plan_messages',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    planId: uuid('plan_id')
+      .notNull()
+      .references(() => plans.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => appUsers.id, { onDelete: 'restrict' }),
+    body: text('body').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('plan_messages_plan_idx').on(table.planId),
+    index('plan_messages_created_at_idx').on(table.createdAt),
+  ],
+);
+
 // ── Tipos de fila inferidos (uso interno de infraestructura) ──────────────────
 
 export type AppUserRow = typeof appUsers.$inferSelect;
@@ -534,3 +713,10 @@ export type CoupleChallengeRow = typeof coupleChallenges.$inferSelect;
 export type GroupRow = typeof groups.$inferSelect;
 export type GroupMembershipRow = typeof groupMemberships.$inferSelect;
 export type GroupJoinPinRow = typeof groupJoinPins.$inferSelect;
+export type FriendInvitePinRow = typeof friendInvitePins.$inferSelect;
+export type FriendLinkRow = typeof friendLinks.$inferSelect;
+export type SavedPlaceRow = typeof savedPlaces.$inferSelect;
+export type PlanRow = typeof plans.$inferSelect;
+export type PlanShareRow = typeof planShares.$inferSelect;
+export type PlanParticipantRow = typeof planParticipants.$inferSelect;
+export type PlanMessageRow = typeof planMessages.$inferSelect;
