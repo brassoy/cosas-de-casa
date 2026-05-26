@@ -1,8 +1,12 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from '@tanstack/react-router';
-import { useShoppingListDetail, useAddItem, useToggleItem, useDeleteItem } from '../hooks/useShopping';
+import { useShoppingListDetail, useToggleItem, useDeleteItem, useAddItemWithDedup } from '../hooks/useShopping';
+import { useFrequentItems } from '../hooks/useFrequentItems';
 import { useShoppingStore } from '../store/shopping.store';
 import { ItemSheet } from '../components/ItemSheet';
+import { VoiceAddButton } from '../components/VoiceAddButton';
+import { FrequentItemsBar } from '../components/FrequentItemsBar';
+import { DedupConfirmDialog } from '../components/DedupConfirmDialog';
 import type { LocalItem } from '../offline/db';
 
 // ── Presentational: fila de ítem ─────────────────────────────────────────────
@@ -136,6 +140,33 @@ function AddItemForm({ onAdd }: AddItemFormProps) {
   );
 }
 
+// ── Sección de acciones de añadir (texto + voz + frecuentes) ─────────────────
+
+interface AddSectionProps {
+  listId: string;
+  familyId: string;
+  onAdd: (data: { name: string; unit?: string }) => Promise<void>;
+  onAddByVoice: (names: string[]) => Promise<void>;
+}
+
+function AddSection({ listId, familyId, onAdd, onAddByVoice }: AddSectionProps) {
+  const { items: frequentItems, loading: loadingFrequent } = useFrequentItems(familyId);
+
+  return (
+    <div style={styles.addSection}>
+      <AddItemForm listId={listId} onAdd={onAdd} />
+      <div style={styles.addSectionRow}>
+        <VoiceAddButton onAddItems={onAddByVoice} />
+      </div>
+      <FrequentItemsBar
+        items={frequentItems}
+        loading={loadingFrequent}
+        onAdd={(name) => onAdd({ name })}
+      />
+    </div>
+  );
+}
+
 // ── Container ─────────────────────────────────────────────────────────────────
 
 export function ListDetailPage() {
@@ -145,9 +176,15 @@ export function ListDetailPage() {
   };
   const navigate = useNavigate();
   const { list, items, loading } = useShoppingListDetail(listId);
-  const { addItem } = useAddItem();
   const { toggleItem } = useToggleItem();
   const { deleteItem } = useDeleteItem();
+  const {
+    addItemWithDedup,
+    dedupState,
+    confirmDedup,
+    cancelDedup,
+    autoMergeMessage,
+  } = useAddItemWithDedup();
   const openItemId = useShoppingStore((s) => s.openItemId);
   const openItem = useShoppingStore((s) => s.openItem);
   const closeItem = useShoppingStore((s) => s.closeItem);
@@ -158,7 +195,13 @@ export function ListDetailPage() {
   const checked = items.filter((i) => i.checked);
 
   async function handleAdd(data: { name: string; unit?: string }) {
-    await addItem(listId, data);
+    await addItemWithDedup(listId, data);
+  }
+
+  async function handleAddByVoice(names: string[]) {
+    for (const name of names) {
+      await addItemWithDedup(listId, { name });
+    }
   }
 
   if (!list && !loading) {
@@ -184,8 +227,20 @@ export function ListDetailPage() {
         <h2 style={styles.pageTitle}>{list?.name ?? '…'}</h2>
       </header>
 
-      {/* Formulario añadir */}
-      <AddItemForm listId={listId} onAdd={handleAdd} />
+      {/* Sección de añadir: texto + voz + frecuentes */}
+      <AddSection
+        listId={listId}
+        familyId={familyId}
+        onAdd={handleAdd}
+        onAddByVoice={handleAddByVoice}
+      />
+
+      {/* Feedback de fusión automática */}
+      {autoMergeMessage && (
+        <p style={styles.autoMergeToast} role="status" aria-live="polite">
+          {autoMergeMessage}
+        </p>
+      )}
 
       {/* Estado cargando */}
       {loading && <p style={styles.muted}>Cargando artículos…</p>}
@@ -237,6 +292,16 @@ export function ListDetailPage() {
       {openItemData && (
         <ItemSheet item={openItemData} onClose={closeItem} />
       )}
+
+      {/* Diálogo de confirmación de dedup */}
+      {dedupState && (
+        <DedupConfirmDialog
+          existingName={dedupState.existingName}
+          newItemName={dedupState.itemData.name}
+          onConfirm={confirmDedup}
+          onCancel={cancelDedup}
+        />
+      )}
     </div>
   );
 }
@@ -270,6 +335,24 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 'var(--font-size-2xl)',
     fontWeight: 'var(--font-weight-bold)',
     color: 'var(--color-text)',
+  },
+  addSection: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 'var(--space-3)',
+  },
+  addSectionRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 'var(--space-2)',
+  },
+  autoMergeToast: {
+    fontSize: 'var(--font-size-sm)',
+    color: 'var(--color-text-muted)',
+    backgroundColor: 'var(--color-surface-raised)',
+    border: '1px solid var(--color-border)',
+    borderRadius: 'var(--radius-md)',
+    padding: 'var(--space-3) var(--space-4)',
   },
   addForm: {
     display: 'flex',

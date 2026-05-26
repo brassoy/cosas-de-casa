@@ -164,6 +164,13 @@ vi.mock('@/features/shopping/hooks/useShopping', () => ({
   useItemComments: vi.fn(() => ({ comments: [] })),
   useAddComment: vi.fn(() => ({ addComment: vi.fn(async () => {}) })),
   useCreateList: vi.fn(() => ({ createList: vi.fn(async () => {}) })),
+  useAddItemWithDedup: vi.fn(() => ({
+    addItemWithDedup: mockAddItem,
+    dedupState: null,
+    confirmDedup: vi.fn(async () => {}),
+    cancelDedup: vi.fn(),
+    autoMergeMessage: null,
+  })),
 }));
 
 vi.mock('@/features/shopping/store/shopping.store', () => ({

@@ -7,8 +7,13 @@
  */
 
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useEffect } from 'react';
-import type { ItemCommentDto } from '@cosasdecasa/contracts';
+import { useEffect, useCallback, useState } from 'react';
+import type {
+  AddItemResultDto,
+  DedupCandidateDto,
+  ItemCommentDto,
+} from '@cosasdecasa/contracts';
+import { api } from '@/shared/lib/api';
 import { db } from '../offline/db';
 import { seedFromApi, seedListDetail, enqueue } from '../offline/sync';
 
@@ -166,4 +171,164 @@ export function useAddComment(itemId: string) {
   }
 
   return { addComment };
+}
+
+// ── Añadir ítem con gestión de deduplicación ──────────────────────────────────
+
+/**
+ * El endpoint POST /lists/:listId/items devuelve AddItemResultDto del contrato:
+ *   { decision: AddItemDecision; item: ShoppingItemDto; candidates?: DedupCandidateDto[] }
+ *
+ * - ADD_NEW: ítem creado sin conflicto.
+ * - AUTO_MERGE: backend fusionó automáticamente; item contiene el ítem actualizado.
+ * - SUGGEST: hay candidatos similares; el frontend debe confirmar con el usuario.
+ *
+ * Cuando el backend devuelve SUGGEST, la respuesta queda en `pendingDedup` hasta
+ * que el usuario confirma o cancela. Si confirma, se vuelve a llamar al endpoint
+ * con `{ ...data, forceAdd: true }` para forzar la inserción.
+ */
+
+/** Re-exportamos el tipo del contrato para consumidores del hook. */
+export type { AddItemResultDto, DedupCandidateDto };
+
+export interface DedupState {
+  listId: string;
+  itemData: {
+    name: string;
+    quantity?: number;
+    unit?: string;
+    description?: string;
+    purchaseLink?: string;
+  };
+  existingName: string;
+}
+
+export function useAddItemWithDedup() {
+  const [dedupState, setDedupState] = useState<DedupState | null>(null);
+  const [autoMergeMessage, setAutoMergeMessage] = useState<string | null>(null);
+
+  const addItemWithDedup = useCallback(
+    async (
+      listId: string,
+      data: {
+        name: string;
+        quantity?: number;
+        unit?: string;
+        description?: string;
+        purchaseLink?: string;
+      },
+      opts: { forceAdd?: boolean } = {},
+    ): Promise<{ needsConfirmation: boolean }> => {
+      // Escritura optimista en Dexie (sólo si vamos a añadir de verdad)
+      const localId = crypto.randomUUID();
+      const ts = new Date().toISOString();
+
+      if (!navigator.onLine || opts.forceAdd) {
+        // Offline o force: escritura local directa, sin esperar decisión de la API.
+        await db.items.put({
+          id: localId,
+          listId,
+          name: data.name,
+          quantity: data.quantity,
+          unit: data.unit,
+          description: data.description,
+          purchaseLink: data.purchaseLink,
+          checked: false,
+          updatedAt: ts,
+          createdAt: ts,
+        });
+        await enqueue('addItem', { listId, ...data, localId });
+        return { needsConfirmation: false };
+      }
+
+      // Online: llamamos al endpoint y gestionamos la decisión de dedup.
+      try {
+        const response = await api.post<AddItemResultDto>(
+          `/lists/${listId}/items`,
+          opts.forceAdd ? { ...data, forceAdd: true } : data,
+        );
+
+        if (response.decision === 'SUGGEST' && response.candidates && response.candidates.length > 0) {
+          // No escribimos en Dexie todavía; esperamos confirmación del usuario.
+          setDedupState({
+            listId,
+            itemData: data,
+            existingName: response.candidates[0]!.displayName,
+          });
+          return { needsConfirmation: true };
+        }
+
+        if (response.decision === 'AUTO_MERGE') {
+          // El backend fusionó; actualizamos Dexie con el ítem resultante.
+          await db.items.put({
+            id: response.item.id,
+            listId,
+            name: response.item.name,
+            quantity: response.item.quantity,
+            unit: response.item.unit,
+            description: response.item.description,
+            purchaseLink: response.item.purchaseLink,
+            checked: response.item.checked,
+            updatedAt: response.item.updatedAt,
+            createdAt: response.item.createdAt,
+          });
+          setAutoMergeMessage(`"${data.name}" se ha fusionado con un artículo existente.`);
+          setTimeout(() => setAutoMergeMessage(null), 3000);
+          return { needsConfirmation: false };
+        }
+
+        // ADD_NEW: escribimos el ítem del servidor en Dexie.
+        await db.items.put({
+          id: response.item.id,
+          listId,
+          name: response.item.name,
+          quantity: response.item.quantity,
+          unit: response.item.unit,
+          description: response.item.description,
+          purchaseLink: response.item.purchaseLink,
+          checked: response.item.checked,
+          updatedAt: response.item.updatedAt,
+          createdAt: response.item.createdAt,
+        });
+
+        return { needsConfirmation: false };
+      } catch {
+        // Error de red: caemos al path offline (optimistic write + outbox).
+        await db.items.put({
+          id: localId,
+          listId,
+          name: data.name,
+          quantity: data.quantity,
+          unit: data.unit,
+          description: data.description,
+          purchaseLink: data.purchaseLink,
+          checked: false,
+          updatedAt: ts,
+          createdAt: ts,
+        });
+        await enqueue('addItem', { listId, ...data, localId });
+        return { needsConfirmation: false };
+      }
+    },
+    [],
+  );
+
+  async function confirmDedup() {
+    if (!dedupState) return;
+    const { listId, itemData } = dedupState;
+    setDedupState(null);
+    await addItemWithDedup(listId, itemData, { forceAdd: true });
+  }
+
+  function cancelDedup() {
+    setDedupState(null);
+  }
+
+  return {
+    addItemWithDedup,
+    dedupState,
+    confirmDedup,
+    cancelDedup,
+    autoMergeMessage,
+  };
 }
