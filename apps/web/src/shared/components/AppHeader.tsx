@@ -14,6 +14,10 @@ export function AppHeader() {
   async function handleLogout() {
     clearFamily();
     await signOut();
+    // Los guards de ruta (beforeLoad) solo corren al navegar, no reaccionan al
+    // cambio de sesión en la misma página. Sin esto, tras cerrar sesión te
+    // quedabas en la ruta protegida ("No hay ninguna familia activa").
+    void navigate({ to: '/login' });
   }
 
   function goHome() {
