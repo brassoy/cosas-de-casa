@@ -93,6 +93,7 @@ import { EnsureAndListListsUseCase } from '../../src/contexts/shopping/applicati
 import { CreateCustomListUseCase } from '../../src/contexts/shopping/application/create-custom-list.use-case';
 import { GetListWithItemsUseCase } from '../../src/contexts/shopping/application/get-list-with-items.use-case';
 import { AddItemUseCase } from '../../src/contexts/shopping/application/add-item.use-case';
+import { AddItemToListUseCase } from '../../src/contexts/shopping/application/add-item-to-list.use-case';
 import { ToggleItemCheckedUseCase } from '../../src/contexts/shopping/application/toggle-item-checked.use-case';
 import { UpdateItemUseCase } from '../../src/contexts/shopping/application/update-item.use-case';
 import { DeleteItemUseCase } from '../../src/contexts/shopping/application/delete-item.use-case';
@@ -486,6 +487,7 @@ export async function createTestApp(): Promise<TestApp> {
       CreateCustomListUseCase,
       GetListWithItemsUseCase,
       AddItemUseCase,
+      AddItemToListUseCase,
       ToggleItemCheckedUseCase,
       UpdateItemUseCase,
       DeleteItemUseCase,

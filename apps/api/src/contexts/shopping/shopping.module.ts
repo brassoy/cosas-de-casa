@@ -18,6 +18,7 @@ import { EnsureAndListListsUseCase } from './application/ensure-and-list-lists.u
 import { CreateCustomListUseCase } from './application/create-custom-list.use-case';
 import { GetListWithItemsUseCase } from './application/get-list-with-items.use-case';
 import { AddItemUseCase } from './application/add-item.use-case';
+import { AddItemToListUseCase } from './application/add-item-to-list.use-case';
 import { ToggleItemCheckedUseCase } from './application/toggle-item-checked.use-case';
 import { UpdateItemUseCase } from './application/update-item.use-case';
 import { DeleteItemUseCase } from './application/delete-item.use-case';
@@ -94,6 +95,7 @@ import { UuidIdGenerator } from '../family/infrastructure/uuid-id-generator';
     CreateCustomListUseCase,
     GetListWithItemsUseCase,
     AddItemUseCase,
+    AddItemToListUseCase,
     ToggleItemCheckedUseCase,
     UpdateItemUseCase,
     DeleteItemUseCase,

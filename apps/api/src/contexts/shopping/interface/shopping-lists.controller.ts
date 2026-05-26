@@ -33,14 +33,12 @@ import { FamilyScopeGuard } from '../../family/interface/family-scope.guard';
 import { EnsureAndListListsUseCase } from '../application/ensure-and-list-lists.use-case';
 import { CreateCustomListUseCase } from '../application/create-custom-list.use-case';
 import { GetListWithItemsUseCase } from '../application/get-list-with-items.use-case';
-import { AddItemUseCase } from '../application/add-item.use-case';
+import { AddItemToListUseCase } from '../application/add-item-to-list.use-case';
 import { DeleteCustomListUseCase } from '../application/delete-custom-list.use-case';
 import {
   SHOPPING_LIST_REPOSITORY,
   type ShoppingListRepository,
 } from '../domain/ports/shopping-list.repository';
-import { DedupCheckUseCase } from '../../ai/application/dedup-check.use-case';
-import { UpsertCatalogItemUseCase } from '../../ai/application/upsert-catalog-item.use-case';
 import { CreateListDto } from './dto/create-list.dto';
 import { AddItemDto } from './dto/add-item.dto';
 import { ShoppingErrorFilter } from './shopping-error.filter';
@@ -63,12 +61,10 @@ export class ShoppingListsController {
     private readonly ensureAndListLists: EnsureAndListListsUseCase,
     private readonly createCustomList: CreateCustomListUseCase,
     private readonly getListWithItems: GetListWithItemsUseCase,
-    private readonly addItem: AddItemUseCase,
+    private readonly addItemToListUseCase: AddItemToListUseCase,
     private readonly deleteCustomList: DeleteCustomListUseCase,
     @Inject(SHOPPING_LIST_REPOSITORY)
     private readonly lists: ShoppingListRepository,
-    private readonly dedupCheck: DedupCheckUseCase,
-    private readonly upsertCatalog: UpsertCatalogItemUseCase,
   ) {}
 
   // ── Rutas con familyId (guard de familia) ─────────────────────────────────
@@ -127,53 +123,27 @@ export class ShoppingListsController {
     @Param('listId', ParseUUIDPipe) listId: string,
     @Body() body: AddItemDto,
   ): Promise<AddItemResultDto> {
-    // Obtenemos el familyId de la lista para acotar el catálogo de dedup.
+    // Resolvemos el familyId de la lista para acotar el catálogo de dedup.
     const list = await this.lists.findById(listId);
     if (!list) {
       throw new NotFoundException('La lista no existe.');
     }
 
-    // Dedup semántico (no lanza; solo decide).
-    const dedupResult = await this.dedupCheck.execute({
-      familyId: list.familyId,
-      name: body.name,
-    });
-
-    // Si el sistema sugiere posible duplicado y el cliente no ha confirmado
-    // explícitamente la adición, devolvemos SUGGEST sin crear el ítem.
-    if (dedupResult.decision === 'SUGGEST' && !body.forceAdd) {
-      return {
-        decision: 'SUGGEST' as const,
-        candidates: dedupResult.candidates.length > 0 ? dedupResult.candidates : undefined,
-      };
-    }
-
-    // ADD_NEW, AUTO_MERGE o forceAdd=true → creamos el ítem.
-    const item = await this.addItem.execute({
+    // Toda la orquestación (dedup → decisión → creación → catálogo) vive en
+    // el caso de uso de aplicación; el controller solo traduce DTO ↔ dominio.
+    const result = await this.addItemToListUseCase.execute({
       listId,
+      familyId: list.familyId,
       actingUserId: user.id,
       name: body.name,
       quantity: body.quantity,
       unit: body.unit,
       description: body.description,
       purchaseLink: body.purchaseLink,
+      forceAdd: body.forceAdd,
     });
 
-    // Actualizamos el catálogo de la familia (incrementa frecuencia o crea).
-    // Se hace de forma fire-and-forget para no bloquear la respuesta; si falla
-    // no queremos impedir que el ítem se haya añadido a la lista.
-    void this.upsertCatalog.execute({ familyId: list.familyId, displayName: body.name }).catch(
-      (err: unknown) => {
-        // Log silencioso: el ítem ya fue añadido; solo el catálogo queda desactualizado.
-        console.error('[shopping] upsertCatalog falló (no bloqueante):', err);
-      },
-    );
-
-    return {
-      decision: dedupResult.decision,
-      item: ShoppingPresenter.toItemDto(item),
-      candidates: dedupResult.candidates.length > 0 ? dedupResult.candidates : undefined,
-    };
+    return ShoppingPresenter.toAddItemResultDto(result);
   }
 
   @Delete('lists/:listId')

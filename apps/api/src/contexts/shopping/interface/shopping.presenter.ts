@@ -3,8 +3,10 @@ import type {
   ListWithItemsDto,
   ShoppingItemDto,
   ItemCommentDto,
+  AddItemResultDto,
 } from '@cosasdecasa/contracts';
 import type { ItemComment, ShoppingItem, ShoppingList } from '../domain/shopping-list';
+import type { AddItemToListResult } from '../application/add-item-to-list.use-case';
 
 /** Presenters: traducen entidades de dominio a DTOs del contrato público. */
 export const ShoppingPresenter = {
@@ -39,6 +41,14 @@ export const ShoppingPresenter = {
     return {
       ...ShoppingPresenter.toListSummaryDto(list),
       items: items.map((i) => ShoppingPresenter.toItemDto(i)),
+    };
+  },
+
+  toAddItemResultDto(result: AddItemToListResult): AddItemResultDto {
+    return {
+      decision: result.decision,
+      item: result.item ? ShoppingPresenter.toItemDto(result.item) : undefined,
+      candidates: result.candidates,
     };
   },
 
