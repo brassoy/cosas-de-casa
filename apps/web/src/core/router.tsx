@@ -15,6 +15,7 @@ import { ListsPage } from '@/features/shopping/pages/ListsPage';
 import { ListDetailPage } from '@/features/shopping/pages/ListDetailPage';
 import { TasksPage } from '@/features/tasks/pages/TasksPage';
 import { TaskDetailPage } from '@/features/tasks/pages/TaskDetailPage';
+import { FridgePage } from '@/features/fridge/pages/FridgePage';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { useFamilyStore } from '@/features/family/store/family.store';
 import { api } from '@/shared/lib/api';
@@ -187,6 +188,15 @@ const taskDetailRoute = createRoute({
   component: TaskDetailPage,
 });
 
+// ── Fridge routes ─────────────────────────────────────────────────────────────
+
+const fridgeRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/family/$familyId/fridge',
+  beforeLoad: requireAuth,
+  component: FridgePage,
+});
+
 // ── Route tree ────────────────────────────────────────────────────────────────
 
 const routeTree = rootRoute.addChildren([
@@ -201,6 +211,7 @@ const routeTree = rootRoute.addChildren([
   shoppingListDetailRoute,
   tasksRoute,
   taskDetailRoute,
+  fridgeRoute,
 ]);
 
 export const router = createRouter({ routeTree });

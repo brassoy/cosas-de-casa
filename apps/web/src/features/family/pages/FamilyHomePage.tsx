@@ -131,6 +131,19 @@ export function FamilyHomePage() {
             <span style={styles.quickLinkIcon}>✅</span>
             <span style={styles.quickLinkLabel}>Tareas</span>
           </button>
+          <button
+            type="button"
+            onClick={() =>
+              void navigate({
+                to: '/family/$familyId/fridge',
+                params: { familyId: activeFamily.id },
+              })
+            }
+            style={styles.quickLinkCard}
+          >
+            <span style={styles.quickLinkIcon}>🧊</span>
+            <span style={styles.quickLinkLabel}>Nevera</span>
+          </button>
         </div>
       </section>
 
