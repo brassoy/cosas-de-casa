@@ -1,7 +1,7 @@
 import './config/load-dotenv';
 import 'reflect-metadata';
 import helmet from 'helmet';
-import { HybridValidationPipe } from './common/hybrid-validation.pipe';
+import { AppZodValidationPipe } from './common/zod-validation.pipe';
 import { cleanupOpenApiDoc } from 'nestjs-zod';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -15,7 +15,7 @@ async function bootstrap(): Promise<void> {
   app.use(helmet());
   app.enableCors({ origin: env.API_CORS_ORIGINS, credentials: true });
   app.setGlobalPrefix('api/v1');
-  app.useGlobalPipes(new HybridValidationPipe());
+  app.useGlobalPipes(new AppZodValidationPipe());
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Cosas de Casa API')

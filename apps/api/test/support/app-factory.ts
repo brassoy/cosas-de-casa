@@ -11,7 +11,7 @@
  * módulo de test a mano registrando todos los providers necesarios.
  */
 import 'reflect-metadata';
-import { HybridValidationPipe } from '../../src/common/hybrid-validation.pipe';
+import { AppZodValidationPipe } from '../../src/common/zod-validation.pipe';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { Test } from '@nestjs/testing';
@@ -856,7 +856,7 @@ export async function createTestApp(): Promise<TestApp> {
 
   // Replica exacta de los globales de main.ts (sin Swagger, no lo necesitamos)
   app.setGlobalPrefix('api/v1');
-  app.useGlobalPipes(new HybridValidationPipe());
+  app.useGlobalPipes(new AppZodValidationPipe());
 
   await app.init();
 
