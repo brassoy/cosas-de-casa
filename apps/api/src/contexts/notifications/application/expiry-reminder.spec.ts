@@ -112,8 +112,10 @@ const fakeTasks: TaskRepository = {
 
 describe('ExpiryReminderService', () => {
   let service: ExpiryReminderService;
-  const TODAY = '2026-05-26';
-  const TOMORROW = '2026-05-27';
+  // Calculadas con la misma fórmula que el service (`new Date()`) para que el
+  // test sea determinista cualquier día, en vez de depender de una fecha fija.
+  const TODAY = new Date().toISOString().slice(0, 10);
+  const TOMORROW = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
 
   beforeEach(() => {
     familyIds = [];
