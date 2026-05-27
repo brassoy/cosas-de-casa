@@ -1,7 +1,8 @@
 import './config/load-dotenv';
 import 'reflect-metadata';
 import helmet from 'helmet';
-import { ValidationPipe } from '@nestjs/common';
+import { HybridValidationPipe } from './common/hybrid-validation.pipe';
+import { cleanupOpenApiDoc } from 'nestjs-zod';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
@@ -14,9 +15,7 @@ async function bootstrap(): Promise<void> {
   app.use(helmet());
   app.enableCors({ origin: env.API_CORS_ORIGINS, credentials: true });
   app.setGlobalPrefix('api/v1');
-  app.useGlobalPipes(
-    new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
-  );
+  app.useGlobalPipes(new HybridValidationPipe());
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Cosas de Casa API')
@@ -25,7 +24,7 @@ async function bootstrap(): Promise<void> {
     .addBearerAuth()
     .build();
   const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('api/docs', app, document);
+  SwaggerModule.setup('api/docs', app, cleanupOpenApiDoc(document));
 
   await app.listen(env.API_PORT);
 }
