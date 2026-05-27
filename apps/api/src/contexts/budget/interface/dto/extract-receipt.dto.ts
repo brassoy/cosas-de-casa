@@ -1,12 +1,9 @@
-import { IsString, IsNotEmpty, MaxLength } from 'class-validator';
+import { createZodDto } from 'nestjs-zod';
+import { ExtractReceiptInputSchema } from '@cosasdecasa/contracts';
 
-export class ExtractReceiptDto {
-  /**
-   * Imagen del ticket en base64 (JPEG o PNG).
-   * Limitado a ~4 MB de base64 (≈3 MB en binario).
-   */
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(4_000_000) // ~4 MB base64
-  imageBase64!: string;
-}
+/**
+ * Body de `POST /families/:familyId/receipts/extract`. Derivado del contrato
+ * Zod compartido (`ExtractReceiptInputSchema`): valida imageBase64 como string
+ * no vacío de hasta ~4 MB. `.strict()` rechaza propiedades desconocidas.
+ */
+export class ExtractReceiptDto extends createZodDto(ExtractReceiptInputSchema.strict()) {}

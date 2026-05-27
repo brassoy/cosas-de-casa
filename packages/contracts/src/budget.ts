@@ -64,7 +64,7 @@ export const CreateReceiptLineInputSchema = z.object({
   description: z.string().min(1).max(300),
   quantity: z.number().positive().optional(),
   unitPrice: z.number().nonnegative().optional(),
-  lineTotal: z.number(),
+  lineTotal: z.number().nonnegative(),
   category: SpendCategorySchema.default('other'),
 });
 
@@ -72,8 +72,8 @@ export type CreateReceiptLineInput = z.infer<typeof CreateReceiptLineInputSchema
 
 export const CreateReceiptInputSchema = z.object({
   merchant: z.string().max(200).optional(),
-  purchasedAt: z.string(), // YYYY-MM-DD
-  total: z.number(),
+  purchasedAt: z.string().min(1), // YYYY-MM-DD
+  total: z.number().nonnegative(),
   currency: z.string().max(3).default('EUR'),
   imagePath: z.string().optional(),
   lines: z.array(CreateReceiptLineInputSchema).default([]),
@@ -86,7 +86,7 @@ export const UpdateReceiptLineInputSchema = z.object({
   description: z.string().min(1).max(300).optional(),
   quantity: z.number().positive().nullable().optional(),
   unitPrice: z.number().nonnegative().nullable().optional(),
-  lineTotal: z.number().optional(),
+  lineTotal: z.number().nonnegative().optional(),
   category: SpendCategorySchema.optional(),
 });
 
@@ -95,7 +95,7 @@ export type UpdateReceiptLineInput = z.infer<typeof UpdateReceiptLineInputSchema
 export const UpdateReceiptInputSchema = z.object({
   merchant: z.string().max(200).optional(),
   purchasedAt: z.string().optional(),
-  total: z.number().optional(),
+  total: z.number().nonnegative().optional(),
   currency: z.string().max(3).optional(),
   status: ReceiptStatusSchema.optional(),
   imagePath: z.string().optional(),
@@ -105,6 +105,15 @@ export const UpdateReceiptInputSchema = z.object({
 export type UpdateReceiptInput = z.infer<typeof UpdateReceiptInputSchema>;
 
 // ── OCR extract ───────────────────────────────────────────────────────────────
+
+/**
+ * Payload para extraer datos de un ticket mediante OCR.
+ * imageBase64 acepta hasta ~4 MB de base64 (≈3 MB en binario).
+ */
+export const ExtractReceiptInputSchema = z.object({
+  imageBase64: z.string().min(1).max(4_000_000),
+});
+export type ExtractReceiptInput = z.infer<typeof ExtractReceiptInputSchema>;
 
 export const ExtractReceiptLineSchema = z.object({
   description: z.string(),

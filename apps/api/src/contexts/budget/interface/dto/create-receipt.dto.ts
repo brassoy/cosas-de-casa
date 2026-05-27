@@ -1,75 +1,15 @@
-import {
-  IsString,
-  IsOptional,
-  IsNumber,
-  IsArray,
-  IsEnum,
-  MaxLength,
-  Min,
-  ValidateNested,
-  IsNotEmpty,
-} from 'class-validator';
-import { Type } from 'class-transformer';
+import { createZodDto } from 'nestjs-zod';
+import { CreateReceiptInputSchema, CreateReceiptLineInputSchema } from '@cosasdecasa/contracts';
 
-export enum SpendCategoryEnum {
-  Groceries = 'groceries',
-  Household = 'household',
-  DiningOut = 'dining_out',
-  Leisure = 'leisure',
-  Other = 'other',
-}
+/**
+ * Body anidado de línea de ticket en `POST /families/:familyId/receipts`.
+ * Derivado de `CreateReceiptLineInputSchema`. `.strict()` rechaza propiedades
+ * desconocidas.
+ */
+export class CreateReceiptLineDto extends createZodDto(CreateReceiptLineInputSchema.strict()) {}
 
-export class CreateReceiptLineDto {
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(300)
-  description!: string;
-
-  @IsOptional()
-  @IsNumber()
-  @Min(0.001)
-  quantity?: number;
-
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  unitPrice?: number;
-
-  @IsNumber()
-  @Min(0)
-  lineTotal!: number;
-
-  @IsOptional()
-  @IsEnum(SpendCategoryEnum)
-  category?: SpendCategoryEnum;
-}
-
-export class CreateReceiptDto {
-  @IsOptional()
-  @IsString()
-  @MaxLength(200)
-  merchant?: string;
-
-  @IsString()
-  @IsNotEmpty()
-  purchasedAt!: string;
-
-  @IsNumber()
-  @Min(0)
-  total!: number;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(3)
-  currency?: string;
-
-  @IsOptional()
-  @IsString()
-  imagePath?: string;
-
-  @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => CreateReceiptLineDto)
-  lines?: CreateReceiptLineDto[];
-}
+/**
+ * Body de `POST /families/:familyId/receipts`. Derivado del contrato Zod compartido
+ * (`CreateReceiptInputSchema`). `.strict()` rechaza propiedades desconocidas.
+ */
+export class CreateReceiptDto extends createZodDto(CreateReceiptInputSchema.strict()) {}

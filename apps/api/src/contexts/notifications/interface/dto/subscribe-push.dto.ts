@@ -1,6 +1,5 @@
 import { createZodDto } from 'nestjs-zod';
-import { PushSubscriptionInputSchema } from '@cosasdecasa/contracts';
-import { IsUrl } from 'class-validator';
+import { PushSubscriptionInputSchema, UnsubscribePushInputSchema } from '@cosasdecasa/contracts';
 
 /**
  * Body de `POST /families/:familyId/notifications/subscribe`. Derivado de
@@ -11,12 +10,8 @@ import { IsUrl } from 'class-validator';
 export class SubscribePushDto extends createZodDto(PushSubscriptionInputSchema.strict()) {}
 
 /**
- * Body de `DELETE /families/:familyId/notifications/subscribe`.
- *
- * NO migrado a nestjs-zod: no existe `UnsubscribePushInputSchema` en
- * `@cosasdecasa/contracts`. Migrar en cuanto se añada el schema al contrato.
+ * Body de `DELETE /families/:familyId/notifications/subscribe`. Derivado de
+ * `UnsubscribePushInputSchema`: valida endpoint como URL válida. `.strict()`
+ * rechaza propiedades desconocidas.
  */
-export class UnsubscribePushDto {
-  @IsUrl()
-  endpoint!: string;
-}
+export class UnsubscribePushDto extends createZodDto(UnsubscribePushInputSchema.strict()) {}

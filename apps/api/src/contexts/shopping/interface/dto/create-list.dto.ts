@@ -1,11 +1,9 @@
-import { IsString, MaxLength, MinLength } from 'class-validator';
-import { Transform } from 'class-transformer';
+import { createZodDto } from 'nestjs-zod';
+import { CreateListInputSchema } from '@cosasdecasa/contracts';
 
-/** Body de `POST /families/:familyId/lists`. */
-export class CreateListDto {
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
-  @IsString({ message: 'El nombre es obligatorio.' })
-  @MinLength(1, { message: 'El nombre es obligatorio.' })
-  @MaxLength(100, { message: 'El nombre no puede superar los 100 caracteres.' })
-  name!: string;
-}
+/**
+ * Body de `POST /families/:familyId/lists`. Derivado del contrato Zod compartido
+ * (`CreateListInputSchema`): el schema hace el trim del nombre, así que no
+ * necesitamos decoradores duplicados. `.strict()` rechaza propiedades desconocidas.
+ */
+export class CreateListDto extends createZodDto(CreateListInputSchema.strict()) {}

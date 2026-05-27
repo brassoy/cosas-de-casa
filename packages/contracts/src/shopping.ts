@@ -95,7 +95,7 @@ export type ShoppingListDto = z.infer<typeof ShoppingListDtoSchema>;
 
 /** Payload para crear una nueva lista personalizada. */
 export const CreateListInputSchema = z.object({
-  name: z.string().min(1).max(100),
+  name: z.string().trim().min(1).max(100),
 });
 export type CreateListInput = z.infer<typeof CreateListInputSchema>;
 
@@ -115,7 +115,7 @@ export type AddItemResultDto = z.infer<typeof AddItemResultDtoSchema>;
 
 /** Payload para añadir un artículo a una lista. */
 export const AddItemInputSchema = z.object({
-  name: z.string().min(1).max(200),
+  name: z.string().trim().min(1).max(200),
   quantity: z.number().positive().optional(),
   unit: z.string().max(50).optional(),
   description: z.string().max(500).optional(),
@@ -126,7 +126,7 @@ export type AddItemInput = z.infer<typeof AddItemInputSchema>;
 
 /** Payload para editar un artículo (patch parcial). */
 export const UpdateItemInputSchema = z.object({
-  name: z.string().min(1).max(200).optional(),
+  name: z.string().trim().min(1).max(200).optional(),
   quantity: z.number().positive().nullable().optional(),
   unit: z.string().max(50).nullable().optional(),
   description: z.string().max(500).nullable().optional(),
@@ -138,7 +138,7 @@ export type UpdateItemInput = z.infer<typeof UpdateItemInputSchema>;
 
 /** Payload para añadir un comentario. */
 export const AddCommentInputSchema = z.object({
-  body: z.string().min(1).max(1000),
+  body: z.string().trim().min(1).max(1000),
 });
 export type AddCommentInput = z.infer<typeof AddCommentInputSchema>;
 

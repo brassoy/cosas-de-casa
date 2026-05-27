@@ -24,6 +24,14 @@ export const PushSubscriptionDtoSchema = z.object({
 });
 export type PushSubscriptionDto = z.infer<typeof PushSubscriptionDtoSchema>;
 
+// ── Cancelar suscripción push ─────────────────────────────────────────────────
+
+/** Payload para eliminar una suscripción push por endpoint. */
+export const UnsubscribePushInputSchema = z.object({
+  endpoint: z.string().url(),
+});
+export type UnsubscribePushInput = z.infer<typeof UnsubscribePushInputSchema>;
+
 // ── Respuesta de suscripción ──────────────────────────────────────────────────
 
 /**
