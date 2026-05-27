@@ -1,43 +1,10 @@
-import {
-  IsEnum,
-  IsISO8601,
-  IsOptional,
-  IsString,
-  MaxLength,
-  MinLength,
-  ValidateNested,
-} from 'class-validator';
-import { Type } from 'class-transformer';
-import { ApiPropertyOptional } from '@nestjs/swagger';
-import { PlaceDto } from './create-plan.dto';
+import { createZodDto } from 'nestjs-zod';
+import { UpdatePlanInputSchema } from '@cosasdecasa/contracts';
 
-export class UpdatePlanDto {
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  @MinLength(1)
-  @MaxLength(200)
-  title?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  @MaxLength(2000)
-  description?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => PlaceDto)
-  place?: PlaceDto;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsISO8601()
-  scheduledAt?: string;
-
-  @ApiPropertyOptional({ enum: ['proposed', 'confirmed', 'cancelled'] })
-  @IsOptional()
-  @IsEnum(['proposed', 'confirmed', 'cancelled'])
-  status?: 'proposed' | 'confirmed' | 'cancelled';
-}
+/**
+ * Body de `PATCH /plans/:planId`. Derivado del contrato Zod compartido
+ * (`UpdatePlanInputSchema`): todos los campos son opcionales, incluido `place`
+ * (objeto anidado con la forma de `PlaceDtoSchema`). El `.strict()` rechaza
+ * propiedades desconocidas.
+ */
+export class UpdatePlanDto extends createZodDto(UpdatePlanInputSchema.strict()) {}

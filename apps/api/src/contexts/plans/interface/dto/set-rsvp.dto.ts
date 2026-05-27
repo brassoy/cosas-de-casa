@@ -1,8 +1,10 @@
-import { IsEnum } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { createZodDto } from 'nestjs-zod';
+import { SetRsvpInputSchema } from '@cosasdecasa/contracts';
 
-export class SetRsvpDto {
-  @ApiProperty({ enum: ['going', 'maybe', 'declined'] })
-  @IsEnum(['going', 'maybe', 'declined'])
-  status!: 'going' | 'maybe' | 'declined';
-}
+/**
+ * Body de `POST /plans/:planId/rsvp`. Derivado del contrato Zod compartido
+ * (`SetRsvpInputSchema`). `status` acepta exactamente los valores del enum
+ * `PlanRsvpStatusSchema`: 'going' | 'maybe' | 'declined'. El `.strict()`
+ * rechaza propiedades desconocidas.
+ */
+export class SetRsvpDto extends createZodDto(SetRsvpInputSchema.strict()) {}
