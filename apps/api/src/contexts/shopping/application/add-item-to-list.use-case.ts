@@ -67,16 +67,20 @@ export class AddItemToListUseCase {
     const candidates =
       dedupResult.candidates.length > 0 ? dedupResult.candidates : undefined;
 
-    // Si el sistema sugiere posible duplicado y el cliente no ha confirmado
-    // explícitamente la adición, devolvemos SUGGEST sin crear el ítem.
-    if (dedupResult.decision === 'SUGGEST' && !command.forceAdd) {
+    // SUGGEST y AUTO_MERGE indican un duplicado (probable o claro). La fusión
+    // automática NO está implementada, así que AMBOS piden confirmación al
+    // usuario en vez de crear una línea duplicada en silencio. Solo se añade si
+    // el cliente confirma explícitamente con `forceAdd`.
+    const isPossibleDuplicate =
+      dedupResult.decision === 'SUGGEST' || dedupResult.decision === 'AUTO_MERGE';
+    if (isPossibleDuplicate && !command.forceAdd) {
       return {
         decision: 'SUGGEST',
         candidates,
       };
     }
 
-    // ADD_NEW, AUTO_MERGE o forceAdd=true → creamos el ítem.
+    // ADD_NEW, o adición confirmada por el cliente (forceAdd=true) → creamos el ítem.
     const item = await this.addItem.execute({
       listId: command.listId,
       actingUserId: command.actingUserId,
@@ -98,8 +102,10 @@ export class AddItemToListUseCase {
         console.error('[shopping] upsertCatalog falló (no bloqueante):', err);
       });
 
+    // El ítem se añade como nuevo (ADD_NEW directo, o adición confirmada tras una
+    // sugerencia). Nunca devolvemos AUTO_MERGE: la fusión automática no se realiza.
     return {
-      decision: dedupResult.decision,
+      decision: 'ADD_NEW',
       item,
       candidates,
     };

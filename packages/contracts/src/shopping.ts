@@ -13,12 +13,15 @@ export const ListTypeSchema = z.enum(['MAIN', 'CUSTOM']);
 export type ListType = z.infer<typeof ListTypeSchema>;
 
 /**
- * Decisión que el sistema toma cuando el usuario añade un artículo que
- * ya existe o es muy similar a otro en la lista.
+ * Decisión de deduplicación al añadir un artículo. El enum se mantiene por
+ * compatibilidad, pero la RESPUESTA del endpoint de añadir solo devuelve
+ * `ADD_NEW` o `SUGGEST` (ver `AddItemResultDtoSchema`).
  *
- * - ADD_NEW: añade como artículo independiente.
- * - AUTO_MERGE: fusiona automáticamente con el existente.
- * - SUGGEST: propone al usuario si desea fusionar o añadir por separado.
+ * - ADD_NEW: se añade como artículo independiente.
+ * - SUGGEST: hay un posible duplicado; el frontend debe pedir confirmación.
+ * - AUTO_MERGE: la política interna marca un duplicado claro, pero la fusión
+ *   automática NO está implementada; el flujo de añadir lo trata como `SUGGEST`
+ *   (pide confirmación) en vez de fusionar en silencio.
  */
 export const AddItemDecisionSchema = z.enum(['ADD_NEW', 'AUTO_MERGE', 'SUGGEST']);
 export type AddItemDecision = z.infer<typeof AddItemDecisionSchema>;
@@ -102,9 +105,11 @@ export type CreateListInput = z.infer<typeof CreateListInputSchema>;
 /**
  * Respuesta de añadir un artículo a una lista (incluye decisión de dedup).
  *
- * - ADD_NEW: ítem creado sin conflicto.
- * - AUTO_MERGE: fusión automática; `item` contiene el ítem resultante.
- * - SUGGEST: hay candidatos similares; el frontend debe pedir confirmación.
+ * - ADD_NEW: ítem creado (`item` presente). Es también la respuesta cuando el
+ *   cliente confirma la adición con `forceAdd` tras una sugerencia.
+ * - SUGGEST: hay candidatos similares (`candidates` presente, sin `item`); el
+ *   frontend debe pedir confirmación. Incluye los duplicados claros, ya que la
+ *   fusión automática no se realiza.
  */
 export const AddItemResultDtoSchema = z.object({
   decision: AddItemDecisionSchema,
