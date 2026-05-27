@@ -1,7 +1,9 @@
-import { ArrayMinSize, IsUUID } from 'class-validator';
+import { createZodDto } from 'nestjs-zod';
+import { SetAttendeesInputSchema } from '@cosasdecasa/contracts';
 
-export class SetAttendeesDto {
-  @IsUUID('4', { each: true })
-  @ArrayMinSize(0)
-  attendeeIds!: string[];
-}
+/**
+ * Body de `PATCH /calendar/events/:eventId/attendees`. Derivado del contrato Zod compartido
+ * (`SetAttendeesInputSchema`): reemplaza la lista completa de asistentes (puede ser vacía).
+ * `.strict()` rechaza propiedades desconocidas (equivale a `forbidNonWhitelisted`).
+ */
+export class SetAttendeesDto extends createZodDto(SetAttendeesInputSchema.strict()) {}

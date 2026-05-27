@@ -1,26 +1,21 @@
-import { IsNotEmpty, IsObject, IsString, IsUrl, ValidateNested } from 'class-validator';
-import { Type } from 'class-transformer';
+import { createZodDto } from 'nestjs-zod';
+import { PushSubscriptionInputSchema } from '@cosasdecasa/contracts';
+import { IsUrl } from 'class-validator';
 
-class PushKeysDto {
-  @IsString()
-  @IsNotEmpty()
-  p256dh!: string;
+/**
+ * Body de `POST /families/:familyId/notifications/subscribe`. Derivado de
+ * `PushSubscriptionInputSchema`: el schema cubre endpoint (URL) y las claves
+ * de cifrado p256dh y auth (strings no vacíos). `.strict()` rechaza propiedades
+ * desconocidas.
+ */
+export class SubscribePushDto extends createZodDto(PushSubscriptionInputSchema.strict()) {}
 
-  @IsString()
-  @IsNotEmpty()
-  auth!: string;
-}
-
-export class SubscribePushDto {
-  @IsUrl()
-  endpoint!: string;
-
-  @IsObject()
-  @ValidateNested()
-  @Type(() => PushKeysDto)
-  keys!: PushKeysDto;
-}
-
+/**
+ * Body de `DELETE /families/:familyId/notifications/subscribe`.
+ *
+ * NO migrado a nestjs-zod: no existe `UnsubscribePushInputSchema` en
+ * `@cosasdecasa/contracts`. Migrar en cuanto se añada el schema al contrato.
+ */
 export class UnsubscribePushDto {
   @IsUrl()
   endpoint!: string;

@@ -1,46 +1,11 @@
-import {
-  IsBoolean,
-  IsISO8601,
-  IsOptional,
-  IsString,
-  IsUUID,
-  MaxLength,
-  MinLength,
-} from 'class-validator';
+import { createZodDto } from 'nestjs-zod';
+import { CreateEventInputSchema } from '@cosasdecasa/contracts';
 
-export class CreateEventDto {
-  @IsString()
-  @MinLength(1)
-  @MaxLength(200)
-  title!: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(2000)
-  description?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(500)
-  location?: string;
-
-  @IsISO8601({ strict: true })
-  startsAt!: string;
-
-  @IsOptional()
-  @IsISO8601({ strict: true })
-  endsAt?: string;
-
-  @IsOptional()
-  @IsBoolean()
-  allDay?: boolean;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(500)
-  recurrenceRule?: string;
-
-  @IsOptional()
-  @IsUUID('4', { each: true })
-  attendeeIds?: string[];
-}
+/**
+ * Body de `POST /families/:familyId/calendar/events`. Derivado del contrato Zod compartido
+ * (`CreateEventInputSchema`): el schema es la única fuente de verdad.
+ * Nota: `startsAt`/`endsAt` usan `datetime({offset:true})`, más estricto que el anterior
+ * `@IsISO8601({strict:true})` que no exigía zona horaria.
+ * `.strict()` rechaza propiedades desconocidas (equivale a `forbidNonWhitelisted`).
+ */
+export class CreateEventDto extends createZodDto(CreateEventInputSchema.strict()) {}

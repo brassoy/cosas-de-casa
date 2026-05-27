@@ -1,43 +1,11 @@
-import {
-  IsBoolean,
-  IsISO8601,
-  IsOptional,
-  IsString,
-  MaxLength,
-  MinLength,
-} from 'class-validator';
+import { createZodDto } from 'nestjs-zod';
+import { UpdateEventInputSchema } from '@cosasdecasa/contracts';
 
-export class UpdateEventDto {
-  @IsOptional()
-  @IsString()
-  @MinLength(1)
-  @MaxLength(200)
-  title?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(2000)
-  description?: string | null;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(500)
-  location?: string | null;
-
-  @IsOptional()
-  @IsISO8601({ strict: true })
-  startsAt?: string;
-
-  @IsOptional()
-  @IsISO8601({ strict: true })
-  endsAt?: string | null;
-
-  @IsOptional()
-  @IsBoolean()
-  allDay?: boolean;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(500)
-  recurrenceRule?: string | null;
-}
+/**
+ * Body de `PATCH /calendar/events/:eventId`. Derivado del contrato Zod compartido
+ * (`UpdateEventInputSchema`): patch parcial, todos los campos son opcionales.
+ * Nota: `startsAt`/`endsAt` usan `datetime({offset:true})`, más estricto que el anterior
+ * `@IsISO8601({strict:true})` que no exigía zona horaria.
+ * `.strict()` rechaza propiedades desconocidas (equivale a `forbidNonWhitelisted`).
+ */
+export class UpdateEventDto extends createZodDto(UpdateEventInputSchema.strict()) {}

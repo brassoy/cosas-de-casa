@@ -1,8 +1,9 @@
-import { IsString, MaxLength, MinLength } from 'class-validator';
+import { createZodDto } from 'nestjs-zod';
+import { AddTaskPhotoInputSchema } from '@cosasdecasa/contracts';
 
-export class AddPhotoDto {
-  @IsString()
-  @MinLength(1)
-  @MaxLength(500)
-  storagePath!: string;
-}
+/**
+ * Body de `POST /tasks/:taskId/photos`. Derivado del contrato Zod compartido
+ * (`AddTaskPhotoInputSchema`): registra la ruta de una foto en Supabase Storage.
+ * `.strict()` rechaza propiedades desconocidas (equivale a `forbidNonWhitelisted`).
+ */
+export class AddPhotoDto extends createZodDto(AddTaskPhotoInputSchema.strict()) {}

@@ -1,11 +1,9 @@
-import { IsEnum, IsOptional, IsUUID } from 'class-validator';
+import { createZodDto } from 'nestjs-zod';
+import { ListTasksQuerySchema } from '@cosasdecasa/contracts';
 
-export class ListTasksQueryDto {
-  @IsOptional()
-  @IsEnum(['OPEN', 'IN_PROGRESS', 'DONE'])
-  status?: 'OPEN' | 'IN_PROGRESS' | 'DONE';
-
-  @IsOptional()
-  @IsUUID(4)
-  assigneeId?: string;
-}
+/**
+ * Query params de `GET /families/:familyId/tasks`. Derivado del contrato Zod compartido
+ * (`ListTasksQuerySchema`): filtra por estado y/o asignado.
+ * `.strict()` rechaza parámetros desconocidos (equivale a `forbidNonWhitelisted`).
+ */
+export class ListTasksQueryDto extends createZodDto(ListTasksQuerySchema.strict()) {}

@@ -1,14 +1,12 @@
-import { IsString, IsUUID, Length, Matches } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { createZodDto } from 'nestjs-zod';
+import { RedeemFriendInviteInputSchema } from '@cosasdecasa/contracts';
 
-export class RedeemFriendInviteDto {
-  @ApiProperty({ description: 'Código de invitación de amistad (8 caracteres Crockford Base32).' })
-  @IsString()
-  @Length(8, 8)
-  @Matches(/^[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}$/)
-  code!: string;
-
-  @ApiProperty({ description: 'Id de la familia del usuario que canjea.' })
-  @IsUUID()
-  familyId!: string;
-}
+/**
+ * Body de `POST /friends/redeem`. Derivado de `RedeemFriendInviteInputSchema`:
+ * el schema cubre el código Crockford Base32 (con trim y toUpperCase) y el UUID
+ * de la familia que acepta la amistad. `.strict()` rechaza propiedades desconocidas.
+ *
+ * Nota: el schema Zod es MÁS estricto que el DTO anterior — añade trim y
+ * toUpperCase al `code`, y valida `familyId` como UUID completo (no solo string).
+ */
+export class RedeemFriendInviteDto extends createZodDto(RedeemFriendInviteInputSchema.strict()) {}

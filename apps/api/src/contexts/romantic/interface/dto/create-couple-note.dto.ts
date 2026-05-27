@@ -1,8 +1,10 @@
-import { IsString, MaxLength, MinLength } from 'class-validator';
+import { createZodDto } from 'nestjs-zod';
+import { CreateCoupleNoteInputSchema } from '@cosasdecasa/contracts';
 
-export class CreateCoupleNoteDto {
-  @IsString()
-  @MinLength(1)
-  @MaxLength(2000)
-  body!: string;
-}
+/**
+ * Body de `POST /couples/:coupleId/notes`. Derivado del contrato Zod compartido
+ * (`CreateCoupleNoteInputSchema`): valida `body` con `trim()`, `min(1)` y `max(2000)`.
+ * El `.trim()` del schema es un beneficio respecto al DTO anterior (no hacía trim).
+ * `.strict()` rechaza propiedades desconocidas.
+ */
+export class CreateCoupleNoteDto extends createZodDto(CreateCoupleNoteInputSchema.strict()) {}

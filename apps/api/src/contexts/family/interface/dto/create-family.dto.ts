@@ -1,21 +1,10 @@
-import { IsOptional, IsString, IsUrl, MaxLength, MinLength } from 'class-validator';
-import { Transform } from 'class-transformer';
+import { createZodDto } from 'nestjs-zod';
+import { CreateFamilyInputSchema } from '@cosasdecasa/contracts';
 
-/** Body de `POST /families`. */
-export class CreateFamilyDto {
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
-  @IsString({ message: 'El nombre es obligatorio.' })
-  @MinLength(1, { message: 'El nombre es obligatorio.' })
-  @MaxLength(100, { message: 'El nombre no puede superar los 100 caracteres.' })
-  name!: string;
-
-  @IsOptional()
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
-  @IsString()
-  @MaxLength(500, { message: 'La descripción no puede superar los 500 caracteres.' })
-  description?: string;
-
-  @IsOptional()
-  @IsUrl({}, { message: 'La imagen debe ser una URL válida.' })
-  imageUrl?: string;
-}
+/**
+ * Body de `POST /families`. Derivado del contrato Zod compartido
+ * (`CreateFamilyInputSchema`): el schema es la única fuente de verdad, así que el
+ * trim del nombre y la descripción vienen de él, no de decoradores duplicados.
+ * `.strict()` rechaza propiedades desconocidas (equivale a `forbidNonWhitelisted`).
+ */
+export class CreateFamilyDto extends createZodDto(CreateFamilyInputSchema.strict()) {}

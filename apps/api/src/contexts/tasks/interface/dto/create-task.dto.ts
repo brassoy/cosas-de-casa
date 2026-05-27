@@ -1,28 +1,9 @@
-import { IsArray, IsOptional, IsString, IsUUID, Matches, MaxLength, MinLength } from 'class-validator';
+import { createZodDto } from 'nestjs-zod';
+import { CreateTaskInputSchema } from '@cosasdecasa/contracts';
 
-export class CreateTaskDto {
-  @IsString()
-  @MinLength(1)
-  @MaxLength(200)
-  title!: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(2000)
-  description?: string;
-
-  @IsOptional()
-  @IsString()
-  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'Formato esperado: YYYY-MM-DD.' })
-  recommendedDate?: string;
-
-  @IsOptional()
-  @IsString()
-  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'Formato esperado: YYYY-MM-DD.' })
-  deadlineDate?: string;
-
-  @IsOptional()
-  @IsArray()
-  @IsUUID(4, { each: true })
-  assigneeIds?: string[];
-}
+/**
+ * Body de `POST /families/:familyId/tasks`. Derivado del contrato Zod compartido
+ * (`CreateTaskInputSchema`): el schema es la única fuente de verdad.
+ * `.strict()` rechaza propiedades desconocidas (equivale a `forbidNonWhitelisted`).
+ */
+export class CreateTaskDto extends createZodDto(CreateTaskInputSchema.strict()) {}

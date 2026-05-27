@@ -1,37 +1,11 @@
-import {
-  IsEnum,
-  IsNumberString,
-  IsOptional,
-  IsString,
-  Matches,
-  MaxLength,
-  MinLength,
-} from 'class-validator';
-import type { FridgeLocation } from '../../domain/fridge-item';
+import { createZodDto } from 'nestjs-zod';
+import { UpdateFridgeItemInputSchema } from '@cosasdecasa/contracts';
 
-export class UpdateFridgeItemDto {
-  @IsOptional()
-  @IsString()
-  @MinLength(1)
-  @MaxLength(200)
-  name?: string;
-
-  @IsOptional()
-  @IsNumberString()
-  @Matches(/^\d+(\.\d+)?$/, { message: 'La cantidad debe ser un número positivo.' })
-  quantity?: string | null;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(50)
-  unit?: string | null;
-
-  @IsOptional()
-  @IsEnum(['FRIDGE', 'FREEZER', 'PANTRY'])
-  location?: FridgeLocation;
-
-  @IsOptional()
-  @IsString()
-  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'Formato esperado: YYYY-MM-DD.' })
-  expiryDate?: string | null;
-}
+/**
+ * Body de `PATCH /fridge-items/:itemId`. Derivado del contrato Zod compartido
+ * (`UpdateFridgeItemInputSchema`): patch parcial, todos los campos son opcionales.
+ * Nota: `quantity` usa `regex(/^\d+(\.\d+)?$/)` — rechaza negativos, a diferencia
+ * del anterior `@IsNumberString()` que los aceptaba (corrección de la divergencia M4).
+ * `.strict()` rechaza propiedades desconocidas (equivale a `forbidNonWhitelisted`).
+ */
+export class UpdateFridgeItemDto extends createZodDto(UpdateFridgeItemInputSchema.strict()) {}

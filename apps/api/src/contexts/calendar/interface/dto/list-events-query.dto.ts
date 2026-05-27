@@ -1,9 +1,9 @@
-import { IsISO8601 } from 'class-validator';
+import { createZodDto } from 'nestjs-zod';
+import { ListEventsQuerySchema } from '@cosasdecasa/contracts';
 
-export class ListEventsQueryDto {
-  @IsISO8601({ strict: true })
-  from!: string;
-
-  @IsISO8601({ strict: true })
-  to!: string;
-}
+/**
+ * Query params de `GET /families/:familyId/calendar/events`. Derivado del contrato Zod compartido
+ * (`ListEventsQuerySchema`): rango de fechas obligatorio (`from` y `to`), ISO 8601 con offset.
+ * `.strict()` rechaza parámetros desconocidos (equivale a `forbidNonWhitelisted`).
+ */
+export class ListEventsQueryDto extends createZodDto(ListEventsQuerySchema.strict()) {}
