@@ -1,22 +1,10 @@
-import {
-  IsArray,
-  IsString,
-  IsNotEmpty,
-  IsOptional,
-  IsUUID,
-  ArrayMinSize,
-  ArrayMaxSize,
-} from 'class-validator';
+import { createZodDto } from 'nestjs-zod';
+import { MenuToListInputSchema } from '@cosasdecasa/contracts';
 
-export class MenuToListDto {
-  @IsArray()
-  @ArrayMinSize(1)
-  @ArrayMaxSize(100)
-  @IsString({ each: true })
-  @IsNotEmpty({ each: true })
-  ingredients!: string[];
-
-  @IsOptional()
-  @IsUUID()
-  listId?: string;
-}
+/**
+ * Body de `POST /families/:familyId/menu/to-list`. Derivado del contrato
+ * Zod compartido (`MenuToListInputSchema`): el schema valida el array de
+ * ingredientes (mín. 1 elemento, máx. 100, cada uno no vacío) y el
+ * `listId` UUID opcional. `.strict()` rechaza propiedades desconocidas.
+ */
+export class MenuToListDto extends createZodDto(MenuToListInputSchema.strict()) {}

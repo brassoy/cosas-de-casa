@@ -1,8 +1,9 @@
-import { IsString, MinLength, MaxLength } from 'class-validator';
+import { createZodDto } from 'nestjs-zod';
+import { DedupCheckInputSchema } from '@cosasdecasa/contracts';
 
-export class DedupCheckDto {
-  @IsString()
-  @MinLength(1)
-  @MaxLength(200)
-  name!: string;
-}
+/**
+ * Body de `POST /families/:familyId/catalog/dedup-check`. Derivado del contrato
+ * Zod compartido (`DedupCheckInputSchema`): valida que `name` sea una cadena
+ * de entre 1 y 200 caracteres. `.strict()` rechaza propiedades desconocidas.
+ */
+export class DedupCheckDto extends createZodDto(DedupCheckInputSchema.strict()) {}
