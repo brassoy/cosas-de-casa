@@ -26,6 +26,7 @@ import type {
 import type { AuthenticatedUser } from '../../identity-access/domain/authenticated-user';
 import { CurrentUser } from '../../identity-access/interface/current-user.decorator';
 import { JwtAuthGuard } from '../../identity-access/interface/jwt-auth.guard';
+import { RateLimit, RateLimitGuard } from '../../../common/rate-limit.guard';
 import { CreateFamilyUseCase } from '../application/create-family.use-case';
 import { GenerateJoinPinUseCase } from '../application/generate-join-pin.use-case';
 import { JoinFamilyByPinUseCase } from '../application/join-family-by-pin.use-case';
@@ -89,6 +90,8 @@ export class FamilyController {
   }
 
   @Post('join')
+  @UseGuards(RateLimitGuard)
+  @RateLimit({ limit: 5, ttl: 300_000 }) // 5 intentos/5min — anti brute-force del PIN
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Unirse a una familia con un código de invitación.' })
   @ApiOkResponse({ description: 'Te has unido a la familia.' })

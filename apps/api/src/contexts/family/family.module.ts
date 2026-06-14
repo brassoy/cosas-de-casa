@@ -39,6 +39,9 @@ import { FamilyController } from './interface/family.controller';
 import { FamilyScopeGuard } from './interface/family-scope.guard';
 import { AuthController } from '../identity-access/interface/auth.controller';
 
+// ── Common (rate-limit) ───────────────────────────────────────────────────────
+import { RateLimitGuard } from '../../common/rate-limit.guard';
+
 @Module({
   imports: [IdentityAccessModule],
   controllers: [FamilyController, AuthController],
@@ -75,6 +78,7 @@ import { AuthController } from '../identity-access/interface/auth.controller';
     },
 
     FamilyScopeGuard,
+    RateLimitGuard,
 
     // ── Use cases ─────────────────────────────────────────────────────────
     CreateFamilyUseCase,

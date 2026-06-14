@@ -17,14 +17,17 @@ async function bootstrap(): Promise<void> {
   app.setGlobalPrefix('api/v1');
   app.useGlobalPipes(new AppZodValidationPipe());
 
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle('Cosas de Casa API')
-    .setDescription('API de gestión del hogar en familia')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .build();
-  const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('api/docs', app, cleanupOpenApiDoc(document));
+  // Swagger solo fuera de producción: no exponemos /api/docs en prod.
+  if (env.NODE_ENV !== 'production') {
+    const swaggerConfig = new DocumentBuilder()
+      .setTitle('Cosas de Casa API')
+      .setDescription('API de gestión del hogar en familia')
+      .setVersion('1.0')
+      .addBearerAuth()
+      .build();
+    const document = SwaggerModule.createDocument(app, swaggerConfig);
+    SwaggerModule.setup('api/docs', app, cleanupOpenApiDoc(document));
+  }
 
   await app.listen(env.API_PORT);
 }

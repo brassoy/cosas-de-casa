@@ -40,6 +40,9 @@ import { DrizzleGroupMembersReadModel } from './infrastructure/drizzle-group-mem
 import { GroupsController } from './interface/groups.controller';
 import { GroupScopeGuard } from './interface/group-scope.guard';
 
+// ── Common (rate-limit) ───────────────────────────────────────────────────────
+import { RateLimitGuard } from '../../common/rate-limit.guard';
+
 @Module({
   imports: [IdentityAccessModule],
   controllers: [GroupsController],
@@ -77,6 +80,7 @@ import { GroupScopeGuard } from './interface/group-scope.guard';
     },
 
     GroupScopeGuard,
+    RateLimitGuard,
 
     // ── Use cases ─────────────────────────────────────────────────────────
     CreateGroupUseCase,

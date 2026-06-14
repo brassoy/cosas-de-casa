@@ -29,6 +29,9 @@ import { FAMILY_REPOSITORY } from '../family/domain/ports/family.repository';
 import { DrizzleFamilyRepository } from '../family/infrastructure/drizzle-family.repository';
 import { FamilyScopeGuard } from '../family/interface/family-scope.guard';
 
+// ── Common (rate-limit) ────────────────────────────────────────────────────────
+import { RateLimitGuard } from '../../common/rate-limit.guard';
+
 @Module({
   imports: [IdentityAccessModule],
   controllers: [AiController],
@@ -40,6 +43,9 @@ import { FamilyScopeGuard } from '../family/interface/family-scope.guard';
       useFactory: (db: Database) => new DrizzleFamilyRepository(db),
     },
     FamilyScopeGuard,
+
+    // ── Guards ────────────────────────────────────────────────────────────
+    RateLimitGuard,
 
     // ── Embedding (fastembed, singleton perezoso) ─────────────────────────
     {

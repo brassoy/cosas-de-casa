@@ -25,6 +25,7 @@ import type {
 } from '@cosasdecasa/contracts';
 import { JwtAuthGuard } from '../../identity-access/interface/jwt-auth.guard';
 import { FamilyScopeGuard } from '../../family/interface/family-scope.guard';
+import { RateLimit, RateLimitGuard } from '../../../common/rate-limit.guard';
 import { ExtractItemsUseCase } from '../application/extract-items.use-case';
 import { DedupCheckUseCase } from '../application/dedup-check.use-case';
 import { GetFrequentItemsUseCase } from '../application/get-frequent-items.use-case';
@@ -48,6 +49,8 @@ export class AiController {
    * POST /api/v1/ai/extract-items
    */
   @Post('ai/extract-items')
+  @UseGuards(RateLimitGuard)
+  @RateLimit({ limit: 5, ttl: 60_000 }) // 5 req/min — costoso (LLM)
   @ApiOperation({ summary: 'Extraer artículos de la compra de una frase (IA).' })
   @ApiCreatedResponse({ description: 'Artículos extraídos.' })
   async extract(@Body() body: ExtractItemsDto): Promise<ExtractItemsResponse> {

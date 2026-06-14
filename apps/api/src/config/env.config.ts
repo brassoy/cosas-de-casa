@@ -46,6 +46,40 @@ const EnvSchema = z.object({
   VAPID_PRIVATE_KEY: z.string().optional(),
   /** Sujeto VAPID: mailto: o URL. */
   VAPID_SUBJECT: z.string().optional(),
+}).superRefine((env, ctx) => {
+  // En dev/test mantenemos todo opcional + defaults para no romper el flujo
+  // local ni el app-factory de integración. Las exigencias de seguridad de
+  // abajo SOLO aplican en producción (fail-fast en bootstrap).
+  if (env.NODE_ENV !== 'production') {
+    return;
+  }
+
+  const requireNonEmpty = (
+    key: 'JWT_JWKS_URL' | 'JWT_ISSUER' | 'JWT_AUDIENCE' | 'DATABASE_URL',
+  ): void => {
+    const value = env[key];
+    if (value == null || value.trim() === '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [key],
+        message: `${key} es obligatorio en producción y no puede estar vacío`,
+      });
+    }
+  };
+
+  requireNonEmpty('JWT_JWKS_URL');
+  requireNonEmpty('JWT_ISSUER');
+  requireNonEmpty('JWT_AUDIENCE');
+  requireNonEmpty('DATABASE_URL');
+
+  if (env.JOIN_PIN_PEPPER === 'dev-only-join-pin-pepper-change-me') {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['JOIN_PIN_PEPPER'],
+      message:
+        'JOIN_PIN_PEPPER debe definirse con un secreto propio en producción (no puede ser el valor por defecto de dev)',
+    });
+  }
 });
 
 export type Env = z.infer<typeof EnvSchema>;

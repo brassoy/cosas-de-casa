@@ -52,7 +52,7 @@ export class JoseTokenVerifier implements TokenVerifier {
         issuer: this.issuer,
         audience: this.audience,
       });
-      const sub = payload.sub;
+      const sub = typeof payload.sub === 'string' ? payload.sub : undefined;
       const email = typeof payload.email === 'string' ? payload.email : undefined;
       if (!sub || !email) {
         throw new InvalidTokenError();
