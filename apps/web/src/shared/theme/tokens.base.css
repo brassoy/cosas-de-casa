@@ -1,8 +1,12 @@
 /* ─── Design Tokens — Cosas de Casa ───────────────────────────────────────── */
-/* Semantic CSS custom properties. Values are resolved per theme via data-theme. */
+/* Semantic CSS custom properties.
+ *
+ * Modelo: el theme BASE define sus tokens semánticos por defecto en :root (light),
+ * y su variante oscura en [data-mode='dark'] (independiente del theme activo).
+ * Los themes alternativos (cozy/cozysitcom/springfield) sobrescriben estos tokens
+ * en tokens.themes.css vía [data-theme='X']. */
 
-:root,
-[data-theme='light'] {
+:root {
   /* Surface */
   --color-surface: #ffffff;
   --color-surface-raised: #f5f5f5;
@@ -86,7 +90,7 @@
   --z-toast: 300;
 }
 
-[data-theme='dark'] {
+[data-mode='dark'] {
   --color-surface: #0f172a;
   --color-surface-raised: #1e293b;
   --color-surface-overlay: rgba(255, 255, 255, 0.05);

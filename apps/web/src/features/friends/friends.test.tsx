@@ -1,66 +1,29 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+/**
+ * Tests de la feature friends (vistas presentacionales `base`).
+ *
+ * Tras la migración a themes, el render vive en las vistas presentacionales
+ * `views/base/FriendsView` y `views/base/FriendRedeemView` (props in / callbacks
+ * out). Los containers (`FriendsPage` / `RedeemFriendPage`) solo cablean la
+ * lógica real (familyId del store, mutaciones, clipboard, navegación) y delegan
+ * en `ThemeView`, cuyo registry se compone en otra fase. Por eso los tests de UI
+ * apuntan directamente a las vistas.
+ *
+ * Cubre:
+ *  - FriendsView: encabezado, generar invitación, código + compartir, lista,
+ *    estado vacío, error de carga, confirmación al quitar, navegar a canjear.
+ *  - FriendRedeemView: formulario, callbacks de cambio/envío.
+ */
+
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-// ── Mocks ─────────────────────────────────────────────────────────────────────
-
-vi.mock('@/shared/lib/supabase', () => ({
-  supabase: {
-    auth: {
-      onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: vi.fn() } } })),
-      getSession: vi.fn().mockResolvedValue({ data: { session: null } }),
-    },
-  },
-}));
-
-vi.mock('@/shared/lib/api', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/shared/lib/api')>();
-  return {
-    ...actual,
-    api: {
-      get: vi.fn(),
-      post: vi.fn(),
-      delete: vi.fn(),
-    },
-  };
-});
-
-const mockNavigate = vi.fn().mockResolvedValue(undefined);
-vi.mock('@tanstack/react-router', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@tanstack/react-router')>();
-  return {
-    ...actual,
-    useNavigate: () => mockNavigate,
-  };
-});
-
-vi.mock('@/features/family/store/family.store', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/features/family/store/family.store')>();
-  return {
-    ...actual,
-    useFamilyStore: (selector: (s: { activeFamily: { id: string; name: string } | null }) => unknown) =>
-      selector({ activeFamily: { id: 'fam-1', name: 'Familia Pérez' } }),
-  };
-});
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function makeQueryClient() {
-  return new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
-}
-
-function renderWithQuery(ui: React.ReactElement) {
-  const client = makeQueryClient();
-  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
-}
-
-// ── Tests: FriendsPage ────────────────────────────────────────────────────────
-
-import { FriendsPage } from './pages/FriendsPage';
 import type { FriendFamilyDto } from './contracts';
+import type { FriendsViewProps, FriendRedeemViewProps } from './views/types';
+import FriendsView from './views/base/FriendsView';
+import FriendRedeemView from './views/base/FriendRedeemView';
+
+// ── Datos de prueba ───────────────────────────────────────────────────────────
 
 const MOCK_FRIENDS: FriendFamilyDto[] = [
   {
@@ -78,188 +41,172 @@ const MOCK_FRIENDS: FriendFamilyDto[] = [
   },
 ];
 
-describe('FriendsPage', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
+// ── Helpers de render ─────────────────────────────────────────────────────────
+
+function renderFriends(overrides: Partial<FriendsViewProps> = {}) {
+  const props: FriendsViewProps = {
+    friends: [],
+    isLoading: false,
+    error: false,
+    generatedCode: null,
+    isGenerating: false,
+    inviteError: null,
+    removeError: null,
+    removingLinkId: null,
+    onGenerateInvite: vi.fn(),
+    onCopy: vi.fn(),
+    onRemove: vi.fn(),
+    onGoRedeem: vi.fn(),
+    onBack: vi.fn(),
+    ...overrides,
+  };
+  return { props, ...render(<FriendsView {...props} />) };
+}
+
+function renderRedeem(overrides: Partial<FriendRedeemViewProps> = {}) {
+  const props: FriendRedeemViewProps = {
+    code: '',
+    familyName: 'Familia Pérez',
+    error: null,
+    isSubmitting: false,
+    onCodeChange: vi.fn(),
+    onSubmit: vi.fn(),
+    onBack: vi.fn(),
+    ...overrides,
+  };
+  return { props, ...render(<FriendRedeemView {...props} />) };
+}
+
+// ── Tests: FriendsView ──────────────────────────────────────────────────────
+
+describe('FriendsView', () => {
+  it('muestra el encabezado', () => {
+    renderFriends();
+    // h2 explícito para no colisionar con el h3 "Tus familias amigas"
+    expect(
+      screen.getByRole('heading', { name: /familias amigas/i, level: 2 }),
+    ).toBeInTheDocument();
   });
 
-  it('muestra el encabezado', async () => {
-    const { api } = await import('@/shared/lib/api');
-    vi.mocked(api.get).mockResolvedValueOnce([]);
-
-    renderWithQuery(<FriendsPage />);
-
-    // Usamos h2 explícito para no colisionar con el h3 "Tus familias amigas"
-    expect(screen.getByRole('heading', { name: 'Familias amigas', level: 2 })).toBeInTheDocument();
-  });
-
-  it('muestra el botón de generar código de invitación', async () => {
-    const { api } = await import('@/shared/lib/api');
-    vi.mocked(api.get).mockResolvedValueOnce([]);
-
-    renderWithQuery(<FriendsPage />);
-
+  it('muestra el botón de generar código de invitación', () => {
+    renderFriends();
     expect(
       screen.getByRole('button', { name: /generar código de invitación/i }),
     ).toBeInTheDocument();
   });
 
-  it('muestra el estado vacío cuando no hay familias amigas', async () => {
-    const { api } = await import('@/shared/lib/api');
-    vi.mocked(api.get).mockResolvedValueOnce([]);
-
-    renderWithQuery(<FriendsPage />);
-
-    await waitFor(() => {
-      expect(screen.getByText(/aún no tienes familias amigas/i)).toBeInTheDocument();
-    });
-  });
-
-  it('lista las familias amigas', async () => {
-    const { api } = await import('@/shared/lib/api');
-    vi.mocked(api.get).mockResolvedValueOnce(MOCK_FRIENDS);
-
-    renderWithQuery(<FriendsPage />);
-
-    await waitFor(() => {
-      expect(screen.getByText('Familia García')).toBeInTheDocument();
-      expect(screen.getByText('Familia Martínez')).toBeInTheDocument();
-    });
-  });
-
-  it('genera y muestra el código de invitación con opciones de compartir', async () => {
-    const { api } = await import('@/shared/lib/api');
-    vi.mocked(api.get).mockResolvedValueOnce([]);
-    vi.mocked(api.post).mockResolvedValueOnce({
-      code: 'INVITEX1',
-      expiresAt: '2026-05-27T00:00:00Z',
-    });
-
+  it('invoca onGenerateInvite al pulsar el botón', async () => {
     const user = userEvent.setup();
-    renderWithQuery(<FriendsPage />);
-
+    const { props } = renderFriends();
     await user.click(screen.getByRole('button', { name: /generar código de invitación/i }));
-
-    await waitFor(() => {
-      expect(screen.getByText('INVITEX1')).toBeInTheDocument();
-      expect(screen.getByText(/compartir por whatsapp/i)).toBeInTheDocument();
-      expect(screen.getByText(/compartir por telegram/i)).toBeInTheDocument();
-    });
+    expect(props.onGenerateInvite).toHaveBeenCalledOnce();
   });
 
-  it('muestra error cuando la API de invitación falla', async () => {
-    const { api, ApiRequestError } = await import('@/shared/lib/api');
-    vi.mocked(api.get).mockResolvedValueOnce([]);
-    vi.mocked(api.post).mockRejectedValueOnce(
-      new ApiRequestError(500, {
-        statusCode: 500,
-        error: 'InternalServerError',
-        message: 'Error del servidor al generar invitación',
-      }),
+  it('muestra el estado vacío cuando no hay familias amigas', () => {
+    renderFriends({ friends: [] });
+    expect(screen.getByText(/aún no tienes familias amigas/i)).toBeInTheDocument();
+  });
+
+  it('lista las familias amigas', () => {
+    renderFriends({ friends: MOCK_FRIENDS });
+    expect(screen.getByText('Familia García')).toBeInTheDocument();
+    expect(screen.getByText('Familia Martínez')).toBeInTheDocument();
+  });
+
+  it('muestra el código de invitación con opciones de compartir', () => {
+    renderFriends({ generatedCode: 'INVITEX1' });
+    expect(screen.getByText('INVITEX1')).toBeInTheDocument();
+    expect(screen.getByText(/compartir por whatsapp/i)).toBeInTheDocument();
+    expect(screen.getByText(/compartir por telegram/i)).toBeInTheDocument();
+  });
+
+  it('invoca onCopy con el código al pulsar Copiar', async () => {
+    const user = userEvent.setup();
+    const { props } = renderFriends({ generatedCode: 'INVITEX1' });
+    await user.click(screen.getByRole('button', { name: /copiar/i }));
+    expect(props.onCopy).toHaveBeenCalledWith('INVITEX1');
+  });
+
+  it('muestra el error de invitación', () => {
+    renderFriends({ inviteError: 'Error del servidor al generar invitación' });
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      /error del servidor al generar invitación/i,
     );
-
-    const user = userEvent.setup();
-    renderWithQuery(<FriendsPage />);
-
-    await user.click(screen.getByRole('button', { name: /generar código de invitación/i }));
-
-    await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent(
-        /error del servidor al generar invitación/i,
-      );
-    });
   });
 
-  it('muestra error cuando la API de listado falla', async () => {
-    const { api } = await import('@/shared/lib/api');
-    vi.mocked(api.get).mockRejectedValueOnce(new Error('Network error'));
-
-    renderWithQuery(<FriendsPage />);
-
-    await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent(
-        /no se han podido cargar las familias amigas/i,
-      );
-    });
+  it('muestra el error de carga de la lista', () => {
+    renderFriends({ error: true });
+    expect(
+      screen.getByText(/no se han podido cargar las familias amigas/i),
+    ).toBeInTheDocument();
   });
 
   it('pide confirmación antes de quitar una amistad', async () => {
-    const { api } = await import('@/shared/lib/api');
-    vi.mocked(api.get).mockResolvedValueOnce(MOCK_FRIENDS);
-
     const user = userEvent.setup();
-    renderWithQuery(<FriendsPage />);
+    const { props } = renderFriends({ friends: MOCK_FRIENDS });
 
-    // Esperamos a que aparezca la lista
-    await waitFor(() => screen.getByText('Familia García'));
-
-    // Click en "Quitar" del primer amigo
     const quitarButtons = screen.getAllByRole('button', { name: /quitar/i });
     const firstQuitarBtn = quitarButtons[0];
     expect(firstQuitarBtn).toBeDefined();
     await user.click(firstQuitarBtn!);
 
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /confirmar/i })).toBeInTheDocument();
-    });
+    expect(screen.getByRole('button', { name: /confirmar/i })).toBeInTheDocument();
+    // No debe quitar hasta confirmar
+    expect(props.onRemove).not.toHaveBeenCalled();
   });
 
-  it('navega a /friends/redeem al pulsar "Canjear código"', async () => {
-    const { api } = await import('@/shared/lib/api');
-    vi.mocked(api.get).mockResolvedValueOnce([]);
-
+  it('invoca onRemove con el linkId tras confirmar', async () => {
     const user = userEvent.setup();
-    renderWithQuery(<FriendsPage />);
+    const { props } = renderFriends({ friends: MOCK_FRIENDS });
 
+    const quitarButtons = screen.getAllByRole('button', { name: /quitar/i });
+    await user.click(quitarButtons[0]!);
+    await user.click(screen.getByRole('button', { name: /confirmar/i }));
+
+    expect(props.onRemove).toHaveBeenCalledWith('link-1');
+  });
+
+  it('invoca onGoRedeem al pulsar "Canjear código de amistad"', async () => {
+    const user = userEvent.setup();
+    const { props } = renderFriends();
     await user.click(screen.getByRole('button', { name: /canjear código de amistad/i }));
-
-    expect(mockNavigate).toHaveBeenCalledWith({ to: '/friends/redeem' });
+    expect(props.onGoRedeem).toHaveBeenCalledOnce();
   });
 });
 
-// ── Tests: RedeemFriendPage ───────────────────────────────────────────────────
+// ── Tests: FriendRedeemView ─────────────────────────────────────────────────
 
-import { RedeemFriendPage } from './pages/RedeemFriendPage';
-
-describe('RedeemFriendPage', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
+describe('FriendRedeemView', () => {
   it('muestra el formulario de canje', () => {
-    renderWithQuery(<RedeemFriendPage />);
-
-    expect(screen.getByRole('heading', { name: /canjear código de amistad/i })).toBeInTheDocument();
+    renderRedeem();
+    expect(
+      screen.getByRole('heading', { name: /canjear código de amistad/i }),
+    ).toBeInTheDocument();
     expect(screen.getByLabelText(/código de invitación/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /canjear código/i })).toBeInTheDocument();
   });
 
-  it('muestra error de validación si se envía vacío', async () => {
-    const user = userEvent.setup();
-    renderWithQuery(<RedeemFriendPage />);
-
-    await user.click(screen.getByRole('button', { name: /canjear código/i }));
-
-    expect(screen.getByRole('alert')).toHaveTextContent(/código de invitación/i);
+  it('muestra el nombre de la familia activa en la descripción', () => {
+    renderRedeem({ familyName: 'Familia Pérez' });
+    expect(screen.getByText('Familia Pérez')).toBeInTheDocument();
   });
 
-  it('navega a /friends tras un canje exitoso', async () => {
-    const { api } = await import('@/shared/lib/api');
-    vi.mocked(api.post).mockResolvedValueOnce({
-      linkId: 'link-new',
-      familyId: 'fam-1',
-      familyName: 'Familia Nueva',
-      since: '2026-05-26T00:00:00Z',
-    });
-
+  it('invoca onCodeChange al escribir en el campo', async () => {
     const user = userEvent.setup();
-    renderWithQuery(<RedeemFriendPage />);
+    const { props } = renderRedeem();
+    await user.type(screen.getByLabelText(/código de invitación/i), 'A');
+    expect(props.onCodeChange).toHaveBeenCalledWith('A');
+  });
 
-    await user.type(screen.getByLabelText(/código de invitación/i), 'INVITEX1');
+  it('invoca onSubmit al enviar el formulario', async () => {
+    const user = userEvent.setup();
+    const { props } = renderRedeem({ code: 'INVITEX1' });
     await user.click(screen.getByRole('button', { name: /canjear código/i }));
+    expect(props.onSubmit).toHaveBeenCalledOnce();
+  });
 
-    await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith({ to: '/friends', search: {} });
-    });
+  it('muestra el mensaje de error', () => {
+    renderRedeem({ error: 'Introduce el código de invitación.' });
+    expect(screen.getByRole('alert')).toHaveTextContent(/introduce el código de invitación/i);
   });
 });

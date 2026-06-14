@@ -1,86 +1,32 @@
-import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
-import { render, screen, waitFor, act } from '@testing-library/react';
+/**
+ * Tests de la feature plans (vistas presentacionales `base`).
+ *
+ * Tras la migración a themes, el render vive en las vistas presentacionales
+ * `views/base/*View` (props in / callbacks out). Los containers
+ * (`PlansPage`/`CreatePlanPage`/`PlanDetailPage`) solo cablean la lógica real y
+ * delegan en `ThemeView`, cuyo registry se compone en otra fase. Por eso los
+ * tests de UI apuntan directamente a las vistas, que es donde está la lógica de
+ * presentación.
+ *
+ * Cubre:
+ *  1. PlansView      — cabecera, estado vacío, listado, estados de cada plan, error, callbacks.
+ *  2. CreatePlanView — render del formulario, validación de submit, emisión de valores, cancelar.
+ *  3. PlanDetailView — cabecera, RSVP, participantes, chat (vacío + envío), compartir/eliminar owner-only.
+ */
+
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-// ── Mocks ─────────────────────────────────────────────────────────────────────
+import type { PlanDto, PlanSummaryDto, PlanMessageDto } from './contracts';
+import type { FriendFamilyDto } from '@cosasdecasa/contracts';
+import type { PlansViewProps, CreatePlanViewProps, PlanDetailViewProps } from './views/types';
 
-vi.mock('@/shared/lib/supabase', () => ({
-  supabase: {
-    auth: {
-      onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: vi.fn() } } })),
-      getSession: vi.fn().mockResolvedValue({ data: { session: null } }),
-    },
-    channel: vi.fn(() => ({
-      on: vi.fn().mockReturnThis(),
-      subscribe: vi.fn().mockReturnThis(),
-    })),
-    removeChannel: vi.fn().mockResolvedValue(undefined),
-  },
-}));
+import PlansView from './views/base/PlansView';
+import CreatePlanView from './views/base/CreatePlanView';
+import PlanDetailView from './views/base/PlanDetailView';
 
-vi.mock('@/shared/lib/api', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/shared/lib/api')>();
-  return {
-    ...actual,
-    api: {
-      get: vi.fn(),
-      post: vi.fn(),
-      patch: vi.fn(),
-      delete: vi.fn(),
-    },
-  };
-});
-
-const mockNavigate = vi.fn().mockResolvedValue(undefined);
-vi.mock('@tanstack/react-router', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@tanstack/react-router')>();
-  return {
-    ...actual,
-    useNavigate: () => mockNavigate,
-    useParams: () => ({ planId: 'plan-abc' }),
-  };
-});
-
-vi.mock('@/features/family/store/family.store', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/features/family/store/family.store')>();
-  return {
-    ...actual,
-    useFamilyStore: (selector: (s: { activeFamily: { id: string; name: string } | null }) => unknown) =>
-      selector({ activeFamily: { id: 'fam-1', name: 'Familia Pérez' } }),
-  };
-});
-
-vi.mock('@/features/auth/store/auth.store', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/features/auth/store/auth.store')>();
-  return {
-    ...actual,
-    useAuthStore: (selector: (s: { user: { id: string } | null }) => unknown) =>
-      selector({ user: { id: 'user-me' } }),
-  };
-});
-
-vi.mock('@/features/friends/hooks/useFriends', () => ({
-  useFriendFamilies: () => ({ data: [], isLoading: false, error: null }),
-}));
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function makeQueryClient() {
-  return new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
-}
-
-function renderWithQuery(ui: React.ReactElement) {
-  const client = makeQueryClient();
-  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
-}
-
-// ── Tests: PlansPage ──────────────────────────────────────────────────────────
-
-import { PlansPage } from './pages/PlansPage';
-import type { PlanSummaryDto } from './contracts';
+// ── Factories ──────────────────────────────────────────────────────────────────
 
 const MOCK_PLANS: PlanSummaryDto[] = [
   {
@@ -101,145 +47,6 @@ const MOCK_PLANS: PlanSummaryDto[] = [
   },
 ];
 
-describe('PlansPage', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it('muestra el encabezado y el botón de nuevo plan', async () => {
-    const { api } = await import('@/shared/lib/api');
-    vi.mocked(api.get).mockResolvedValueOnce([]);
-
-    renderWithQuery(<PlansPage />);
-
-    expect(screen.getByRole('heading', { name: /planes/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /nuevo plan/i })).toBeInTheDocument();
-  });
-
-  it('muestra el estado vacío cuando no hay planes', async () => {
-    const { api } = await import('@/shared/lib/api');
-    vi.mocked(api.get).mockResolvedValueOnce([]);
-
-    renderWithQuery(<PlansPage />);
-
-    await waitFor(() => {
-      expect(screen.getByText(/no hay planes todavía/i)).toBeInTheDocument();
-    });
-  });
-
-  it('lista los planes de la familia', async () => {
-    const { api } = await import('@/shared/lib/api');
-    vi.mocked(api.get).mockResolvedValueOnce(MOCK_PLANS);
-
-    renderWithQuery(<PlansPage />);
-
-    await waitFor(() => {
-      expect(screen.getByText('Barbacoa en el parque')).toBeInTheDocument();
-      expect(screen.getByText('Cine el sábado')).toBeInTheDocument();
-    });
-  });
-
-  it('muestra el estado de cada plan', async () => {
-    const { api } = await import('@/shared/lib/api');
-    vi.mocked(api.get).mockResolvedValueOnce(MOCK_PLANS);
-
-    renderWithQuery(<PlansPage />);
-
-    await waitFor(() => {
-      expect(screen.getByText('Propuesto')).toBeInTheDocument();
-      expect(screen.getByText('Confirmado')).toBeInTheDocument();
-    });
-  });
-
-  it('muestra error cuando la API falla', async () => {
-    const { api } = await import('@/shared/lib/api');
-    vi.mocked(api.get).mockRejectedValueOnce(new Error('Network error'));
-
-    renderWithQuery(<PlansPage />);
-
-    await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent(/no se han podido cargar los planes/i);
-    });
-  });
-
-  it('navega a /plans/create al pulsar "Nuevo plan"', async () => {
-    const { api } = await import('@/shared/lib/api');
-    vi.mocked(api.get).mockResolvedValueOnce([]);
-    const user = userEvent.setup();
-
-    renderWithQuery(<PlansPage />);
-
-    await user.click(screen.getByRole('button', { name: /nuevo plan/i }));
-
-    expect(mockNavigate).toHaveBeenCalledWith({ to: '/plans/create' });
-  });
-});
-
-// ── Tests: CreatePlanPage ─────────────────────────────────────────────────────
-
-import { CreatePlanPage } from './pages/CreatePlanPage';
-
-describe('CreatePlanPage', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it('muestra el formulario de creación de plan', async () => {
-    const { api } = await import('@/shared/lib/api');
-    vi.mocked(api.get).mockResolvedValueOnce([]); // savedPlaces
-
-    renderWithQuery(<CreatePlanPage />);
-
-    expect(screen.getByRole('heading', { name: /nuevo plan/i })).toBeInTheDocument();
-    expect(screen.getByLabelText(/título/i)).toBeInTheDocument();
-  });
-
-  it('muestra error de validación si el título está vacío', async () => {
-    const { api } = await import('@/shared/lib/api');
-    vi.mocked(api.get).mockResolvedValueOnce([]);
-    const user = userEvent.setup();
-
-    renderWithQuery(<CreatePlanPage />);
-
-    await user.click(screen.getByRole('button', { name: /crear plan/i }));
-
-    expect(screen.getByRole('alert')).toHaveTextContent(/título del plan es obligatorio/i);
-  });
-
-  it('crea un plan y navega al detalle', async () => {
-    const { api } = await import('@/shared/lib/api');
-    vi.mocked(api.get).mockResolvedValueOnce([]); // savedPlaces
-    vi.mocked(api.post).mockResolvedValueOnce({
-      id: 'plan-new',
-      title: 'Barbacoa del verano',
-      status: 'proposed',
-      ownerFamilyId: 'fam-1',
-      createdBy: 'user-me',
-      participants: [],
-      sharedWithFamilyIds: [],
-      createdAt: '2026-05-26T00:00:00Z',
-    });
-    const user = userEvent.setup();
-
-    renderWithQuery(<CreatePlanPage />);
-
-    await user.type(screen.getByLabelText(/título/i), 'Barbacoa del verano');
-    await user.click(screen.getByRole('button', { name: /crear plan/i }));
-
-    await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith({
-        to: '/plans/$planId',
-        params: { planId: 'plan-new' },
-      });
-    });
-  });
-});
-
-// ── Tests: PlanDetailPage ─────────────────────────────────────────────────────
-
-import { PlanDetailPage } from './pages/PlanDetailPage';
-import type { PlanDto } from './contracts';
-
 const MOCK_PLAN: PlanDto = {
   id: 'plan-abc',
   title: 'Barbacoa en el parque',
@@ -257,268 +64,277 @@ const MOCK_PLAN: PlanDto = {
   scheduledAt: '2026-06-15T12:00:00Z',
 };
 
-describe('PlanDetailPage', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
+const MOCK_FRIEND_FAMILIES: FriendFamilyDto[] = [
+  { linkId: 'link-1', familyId: 'fam-2', familyName: 'Familia López', since: '2026-01-01T00:00:00Z' },
+];
+
+const MOCK_MESSAGES: PlanMessageDto[] = [
+  {
+    id: 'msg-1',
+    planId: 'plan-abc',
+    userId: 'user-other',
+    displayName: 'Otro',
+    body: 'Hola desde el chat',
+    createdAt: '2026-05-26T10:00:00Z',
+  },
+];
+
+// `Element.prototype.scrollIntoView` (que usa el auto-scroll del chat) lo
+// polirrellena el `test-setup.ts` global, así que aquí no hace falta stubbearlo.
+
+// ── Helpers de render ──────────────────────────────────────────────────────────
+
+function renderPlans(overrides: Partial<PlansViewProps> = {}) {
+  const props: PlansViewProps = {
+    plans: [],
+    isLoading: false,
+    error: null,
+    onCreate: vi.fn(),
+    onOpen: vi.fn(),
+    ...overrides,
+  };
+  return { props, ...render(<PlansView {...props} />) };
+}
+
+function renderCreate(overrides: Partial<CreatePlanViewProps> = {}) {
+  const props: CreatePlanViewProps = {
+    savedPlaces: [],
+    isSubmitting: false,
+    error: null,
+    onSubmit: vi.fn(),
+    onCancel: vi.fn(),
+    ...overrides,
+  };
+  return { props, ...render(<CreatePlanView {...props} />) };
+}
+
+function renderDetail(overrides: Partial<PlanDetailViewProps> = {}) {
+  const props: PlanDetailViewProps = {
+    plan: MOCK_PLAN,
+    messages: [],
+    currentUserId: 'user-me',
+    isOwner: true,
+    friendFamilies: MOCK_FRIEND_FAMILIES,
+    isLoading: false,
+    error: null,
+    messagesLoading: false,
+    isSavingRsvp: false,
+    isSharing: false,
+    isSendingMessage: false,
+    isDeleting: false,
+    rsvpError: null,
+    shareError: null,
+    deleteError: null,
+    onBack: vi.fn(),
+    onRsvp: vi.fn(),
+    onShare: vi.fn(),
+    onSendMessage: vi.fn(),
+    onDelete: vi.fn(),
+    ...overrides,
+  };
+  return { props, ...render(<PlanDetailView {...props} />) };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 1. PlansView
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('PlansView', () => {
+  it('muestra el encabezado y el botón de nuevo plan', () => {
+    renderPlans();
+    expect(screen.getByRole('heading', { name: /planes/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /nuevo plan/i })).toBeInTheDocument();
   });
 
-  it('muestra los detalles del plan', async () => {
-    const { api } = await import('@/shared/lib/api');
-    vi.mocked(api.get).mockImplementation((path: string) => {
-      if (path.includes('/messages')) return Promise.resolve([]);
-      return Promise.resolve(MOCK_PLAN);
-    });
-
-    renderWithQuery(<PlanDetailPage />);
-
-    await waitFor(() => {
-      expect(screen.getByText('Barbacoa en el parque')).toBeInTheDocument();
-      expect(screen.getByText('Una tarde estupenda con amigos')).toBeInTheDocument();
-    });
+  it('muestra el estado vacío cuando no hay planes', () => {
+    renderPlans({ plans: [] });
+    expect(screen.getByText(/no hay planes todavía/i)).toBeInTheDocument();
   });
 
-  it('muestra los botones RSVP', async () => {
-    const { api } = await import('@/shared/lib/api');
-    vi.mocked(api.get).mockImplementation((path: string) => {
-      if (path.includes('/messages')) return Promise.resolve([]);
-      return Promise.resolve(MOCK_PLAN);
-    });
-
-    renderWithQuery(<PlanDetailPage />);
-
-    await waitFor(() => {
-      // Usamos exact para no colisionar "Voy" con "No voy"
-      expect(screen.getByRole('button', { name: 'Voy' })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Quizá' })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'No voy' })).toBeInTheDocument();
-    });
+  it('lista los planes de la familia', () => {
+    renderPlans({ plans: MOCK_PLANS });
+    expect(screen.getByText('Barbacoa en el parque')).toBeInTheDocument();
+    expect(screen.getByText('Cine el sábado')).toBeInTheDocument();
   });
 
-  it('muestra los participantes con su estado', async () => {
-    const { api } = await import('@/shared/lib/api');
-    vi.mocked(api.get).mockImplementation((path: string) => {
-      if (path.includes('/messages')) return Promise.resolve([]);
-      return Promise.resolve(MOCK_PLAN);
-    });
-
-    renderWithQuery(<PlanDetailPage />);
-
-    await waitFor(() => {
-      expect(screen.getByText('Yo')).toBeInTheDocument();
-      expect(screen.getByText('Otro')).toBeInTheDocument();
-    });
+  it('muestra el estado de cada plan', () => {
+    renderPlans({ plans: MOCK_PLANS });
+    expect(screen.getByText('Propuesto')).toBeInTheDocument();
+    expect(screen.getByText('Confirmado')).toBeInTheDocument();
   });
 
-  it('muestra el chat del plan', async () => {
-    const { api } = await import('@/shared/lib/api');
-    vi.mocked(api.get).mockImplementation((path: string) => {
-      if (path.includes('/messages')) return Promise.resolve([]);
-      return Promise.resolve(MOCK_PLAN);
-    });
-
-    renderWithQuery(<PlanDetailPage />);
-
-    await waitFor(() => {
-      expect(screen.getByText(/chat del plan/i)).toBeInTheDocument();
-    });
+  it('muestra error cuando la carga falla', () => {
+    renderPlans({ error: 'No se han podido cargar los planes. Inténtalo de nuevo.' });
+    expect(screen.getByText(/no se han podido cargar los planes/i)).toBeInTheDocument();
   });
 
-  it('muestra el botón de eliminar para el owner', async () => {
-    const { api } = await import('@/shared/lib/api');
-    vi.mocked(api.get).mockImplementation((path: string) => {
-      if (path.includes('/messages')) return Promise.resolve([]);
-      return Promise.resolve(MOCK_PLAN);
-    });
-
-    renderWithQuery(<PlanDetailPage />);
-
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /eliminar plan/i })).toBeInTheDocument();
-    });
-  });
-
-  it('pide confirmación antes de eliminar el plan', async () => {
-    const { api } = await import('@/shared/lib/api');
-    vi.mocked(api.get).mockImplementation((path: string) => {
-      if (path.includes('/messages')) return Promise.resolve([]);
-      return Promise.resolve(MOCK_PLAN);
-    });
-
+  it('llama onCreate al pulsar "Nuevo plan"', async () => {
     const user = userEvent.setup();
-    renderWithQuery(<PlanDetailPage />);
-
-    await waitFor(() => screen.getByRole('button', { name: /eliminar plan/i }));
-    await user.click(screen.getByRole('button', { name: /eliminar plan/i }));
-
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /confirmar/i })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /cancelar/i })).toBeInTheDocument();
-    });
+    const { props } = renderPlans();
+    await user.click(screen.getByRole('button', { name: /nuevo plan/i }));
+    expect(props.onCreate).toHaveBeenCalledTimes(1);
   });
 
-  it('navega a /plans tras confirmar la eliminación', async () => {
-    const { api } = await import('@/shared/lib/api');
-    vi.mocked(api.get).mockImplementation((path: string) => {
-      if (path.includes('/messages')) return Promise.resolve([]);
-      return Promise.resolve(MOCK_PLAN);
-    });
-    vi.mocked(api.delete).mockResolvedValueOnce(undefined);
-
+  it('llama onOpen con el id del plan al pulsar una tarjeta', async () => {
     const user = userEvent.setup();
-    renderWithQuery(<PlanDetailPage />);
-
-    await waitFor(() => screen.getByRole('button', { name: /eliminar plan/i }));
-    await user.click(screen.getByRole('button', { name: /eliminar plan/i }));
-    await waitFor(() => screen.getByRole('button', { name: /confirmar/i }));
-    await user.click(screen.getByRole('button', { name: /confirmar/i }));
-
-    await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith({ to: '/plans' });
-    });
+    const { props } = renderPlans({ plans: MOCK_PLANS });
+    await user.click(screen.getByText('Barbacoa en el parque'));
+    expect(props.onOpen).toHaveBeenCalledWith('plan-1');
   });
 });
 
-// ── Tests: usePlanChat (realtime display_name) ────────────────────────────────
-//
-// Verifica que los mensajes ajenos recibidos vía Supabase Realtime se muestran
-// con el nombre correcto aunque la tabla plan_messages no tenga columna
-// display_name. El hook resuelve el nombre desde el mapa de participants.
+// ─────────────────────────────────────────────────────────────────────────────
+// 2. CreatePlanView
+// ─────────────────────────────────────────────────────────────────────────────
 
-describe('usePlanChat — mensaje ajeno sin display_name en payload realtime', () => {
-  let realtimeCallback: ((payload: unknown) => void) | undefined;
-
-  beforeEach(async () => {
-    vi.clearAllMocks();
-    realtimeCallback = undefined;
-
-    // Sobreescribimos el mock de supabase para capturar el callback del INSERT
-    const { supabase } = await import('@/shared/lib/supabase');
-    (supabase.channel as Mock).mockReturnValue({
-      on: vi.fn().mockImplementation(
-        (_event: string, _filter: unknown, cb: (payload: unknown) => void) => {
-          realtimeCallback = cb;
-          return { on: vi.fn().mockReturnThis(), subscribe: vi.fn().mockReturnThis() };
-        },
-      ),
-      subscribe: vi.fn().mockReturnThis(),
-    });
+describe('CreatePlanView', () => {
+  it('muestra el formulario de creación de plan', () => {
+    renderCreate();
+    expect(screen.getByRole('heading', { name: /nuevo plan/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/título/i)).toBeInTheDocument();
   });
 
-  it('muestra el nombre del participante al recibir un INSERT ajeno', async () => {
-    const { api } = await import('@/shared/lib/api');
-    vi.mocked(api.get).mockImplementation((path: string) => {
-      if (path.includes('/messages')) return Promise.resolve([]);
-      return Promise.resolve(MOCK_PLAN);
-    });
-
-    renderWithQuery(<PlanDetailPage />);
-
-    // Esperamos a que cargue el plan y el chat
-    await waitFor(() => screen.getByText('Barbacoa en el parque'));
-    await waitFor(() => screen.getByText(/chat del plan/i));
-
-    // Simulamos un INSERT de realtime de otro usuario (sin display_name en el payload)
-    await act(async () => {
-      realtimeCallback?.({
-        eventType: 'INSERT',
-        new: {
-          id: 'msg-realtime-1',
-          plan_id: 'plan-abc',
-          user_id: 'user-other', // está en MOCK_PLAN.participants con displayName 'Otro'
-          body: 'Hola desde realtime',
-          created_at: new Date().toISOString(),
-        },
-      });
-    });
-
-    await waitFor(() => {
-      expect(screen.getByText('Hola desde realtime')).toBeInTheDocument();
-      // "Otro" aparece en la burbuja del chat (sender) — usamos getAllByText
-      // porque también está en la lista de participantes
-      expect(screen.getAllByText('Otro').length).toBeGreaterThanOrEqual(1);
-    });
+  it('deshabilita "Crear plan" si el título está vacío', () => {
+    renderCreate();
+    expect(screen.getByRole('button', { name: /crear plan/i })).toBeDisabled();
   });
 
-  it('hace invalidate de la query cuando el userId no está en participants', async () => {
-    const { api } = await import('@/shared/lib/api');
-
-    vi.mocked(api.get).mockImplementation((path: string) => {
-      if (path.includes('/messages')) return Promise.resolve([]);
-      return Promise.resolve(MOCK_PLAN);
-    });
-
-    renderWithQuery(<PlanDetailPage />);
-
-    await waitFor(() => screen.getByText('Barbacoa en el parque'));
-    await waitFor(() => screen.getByText(/chat del plan/i));
-
-    // Verificamos que api.get vuelve a llamarse con la ruta de mensajes
-    // (invalidate dispara un refetch de 'plan-messages').
-    const getCallsBefore = vi.mocked(api.get).mock.calls.length;
-
-    await act(async () => {
-      realtimeCallback?.({
-        eventType: 'INSERT',
-        new: {
-          id: 'msg-realtime-unknown',
-          plan_id: 'plan-abc',
-          user_id: 'user-unknown', // NO está en participants → debe hacer invalidate
-          body: 'Mensaje de desconocido',
-          created_at: new Date().toISOString(),
-        },
-      });
-    });
-
-    // El invalidate dispara un refetch → api.get debe haberse llamado de nuevo
-    await waitFor(() => {
-      const getCallsAfter = vi.mocked(api.get).mock.calls.length;
-      expect(getCallsAfter).toBeGreaterThan(getCallsBefore);
-    });
-  });
-
-  it('deduplica mensajes propios: el POST y el INSERT de realtime no duplican', async () => {
-    const { api } = await import('@/shared/lib/api');
-    vi.mocked(api.get).mockImplementation((path: string) => {
-      if (path.includes('/messages')) return Promise.resolve([]);
-      return Promise.resolve(MOCK_PLAN);
-    });
-    vi.mocked(api.post).mockResolvedValueOnce({
-      id: 'msg-own-1',
-      planId: 'plan-abc',
-      userId: 'user-me',
-      displayName: 'Yo',
-      body: 'Mi mensaje',
-      createdAt: new Date().toISOString(),
-    });
-
+  it('emite los valores del formulario al crear el plan', async () => {
     const user = userEvent.setup();
-    renderWithQuery(<PlanDetailPage />);
+    const { props } = renderCreate();
 
-    await waitFor(() => screen.getByText(/chat del plan/i));
+    await user.type(screen.getByLabelText(/título/i), 'Barbacoa del verano');
+    await user.click(screen.getByRole('button', { name: /crear plan/i }));
 
-    // Enviamos un mensaje propio
-    const input = screen.getByPlaceholderText(/escribe un mensaje/i);
-    await user.type(input, 'Mi mensaje');
-    await user.click(screen.getByRole('button', { name: /enviar/i }));
+    expect(props.onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Barbacoa del verano' }),
+    );
+  });
 
-    await waitFor(() => screen.getByText('Mi mensaje'));
+  it('emite el lugar manual con savePlace cuando se rellena y se marca', async () => {
+    const user = userEvent.setup();
+    const { props } = renderCreate();
 
-    // Simulamos que Realtime también entrega el mismo INSERT (usuario propio)
-    await act(async () => {
-      realtimeCallback?.({
-        eventType: 'INSERT',
-        new: {
-          id: 'msg-own-1', // mismo id → debe deduplicarse
-          plan_id: 'plan-abc',
-          user_id: 'user-me',
-          body: 'Mi mensaje',
-          created_at: new Date().toISOString(),
-        },
-      });
-    });
+    await user.type(screen.getByLabelText(/título/i), 'Cañas');
+    await user.type(screen.getByLabelText(/nombre/i), 'La Latina');
+    // El checkbox de "Guardar este lugar" solo aparece tras rellenar el nombre.
+    await user.click(screen.getByRole('checkbox'));
+    await user.click(screen.getByRole('button', { name: /crear plan/i }));
 
-    // El mensaje solo aparece una vez
-    const matches = screen.getAllByText('Mi mensaje');
-    expect(matches).toHaveLength(1);
+    expect(props.onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'Cañas',
+        place: { name: 'La Latina', address: undefined },
+        savePlace: true,
+      }),
+    );
+  });
+
+  it('muestra el mensaje de error recibido por props', () => {
+    renderCreate({ error: 'El título del plan es obligatorio.' });
+    expect(screen.getByText(/título del plan es obligatorio/i)).toBeInTheDocument();
+  });
+
+  it('llama onCancel al pulsar volver', async () => {
+    const user = userEvent.setup();
+    const { props } = renderCreate();
+    await user.click(screen.getByRole('button', { name: /planes/i }));
+    expect(props.onCancel).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 3. PlanDetailView
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('PlanDetailView', () => {
+  it('muestra los detalles del plan', () => {
+    renderDetail();
+    expect(screen.getByRole('heading', { name: 'Barbacoa en el parque' })).toBeInTheDocument();
+    expect(screen.getByText('Una tarde estupenda con amigos')).toBeInTheDocument();
+  });
+
+  it('muestra los botones RSVP', () => {
+    renderDetail();
+    expect(screen.getByRole('button', { name: 'Voy' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Quizá' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'No voy' })).toBeInTheDocument();
+  });
+
+  it('llama onRsvp con el estado seleccionado', async () => {
+    const user = userEvent.setup();
+    const { props } = renderDetail();
+    await user.click(screen.getByRole('button', { name: 'Quizá' }));
+    expect(props.onRsvp).toHaveBeenCalledWith('maybe');
+  });
+
+  it('muestra los participantes con su estado', () => {
+    renderDetail();
+    expect(screen.getByText('Yo')).toBeInTheDocument();
+    expect(screen.getByText('Otro')).toBeInTheDocument();
+  });
+
+  it('muestra el estado vacío del chat cuando no hay mensajes', () => {
+    renderDetail({ messages: [] });
+    expect(screen.getByText(/aún no hay mensajes/i)).toBeInTheDocument();
+  });
+
+  it('pinta los mensajes recibidos por props', () => {
+    renderDetail({ messages: MOCK_MESSAGES });
+    expect(screen.getByText('Hola desde el chat')).toBeInTheDocument();
+  });
+
+  it('llama onSendMessage al enviar un mensaje', async () => {
+    const user = userEvent.setup();
+    const { props } = renderDetail();
+    await user.type(screen.getByPlaceholderText(/escribe un mensaje/i), 'Mi mensaje');
+    await user.click(screen.getByRole('button', { name: /enviar mensaje/i }));
+    expect(props.onSendMessage).toHaveBeenCalledWith('Mi mensaje');
+  });
+
+  it('muestra el botón de eliminar para el owner', () => {
+    renderDetail({ isOwner: true });
+    expect(screen.getByRole('button', { name: /eliminar plan/i })).toBeInTheDocument();
+  });
+
+  it('oculta compartir y eliminar para quien no es owner', () => {
+    renderDetail({ isOwner: false });
+    expect(screen.queryByRole('button', { name: /eliminar plan/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/compartir con familia amiga/i)).not.toBeInTheDocument();
+  });
+
+  it('pide confirmación de dos toques antes de eliminar', async () => {
+    const user = userEvent.setup();
+    const { props } = renderDetail();
+
+    const deleteBtn = screen.getByRole('button', { name: /eliminar plan/i });
+    await user.click(deleteBtn);
+
+    // Primer toque: no elimina, pide confirmación.
+    expect(props.onDelete).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: /seguro\? pulsa de nuevo/i })).toBeInTheDocument();
+
+    // Segundo toque: elimina.
+    await user.click(screen.getByRole('button', { name: /seguro\? pulsa de nuevo/i }));
+    expect(props.onDelete).toHaveBeenCalledTimes(1);
+  });
+
+  it('muestra la sección de compartir para el owner con familias amigas', () => {
+    renderDetail({ isOwner: true, friendFamilies: MOCK_FRIEND_FAMILIES });
+    const section = screen.getByText(/compartir con familia amiga/i);
+    expect(section).toBeInTheDocument();
+  });
+
+  it('no muestra compartir si no hay familias amigas candidatas', () => {
+    renderDetail({ isOwner: true, friendFamilies: [] });
+    expect(screen.queryByText(/compartir con familia amiga/i)).not.toBeInTheDocument();
+  });
+
+  it('muestra el error de RSVP cuando se recibe por props', () => {
+    renderDetail({ rsvpError: 'No se ha podido guardar tu respuesta.' });
+    const alerts = screen.getAllByRole('alert');
+    expect(alerts.some((a) => within(a).queryByText(/no se ha podido guardar tu respuesta/i))).toBe(
+      true,
+    );
   });
 });

@@ -1,377 +1,314 @@
 /**
- * Tests de la feature fridge (Fase 2B).
+ * Tests de la vista presentacional `base` de la feature fridge (Fase 2, theme base).
+ *
+ * Se testea la VISTA pura `FridgeListView` (import default + render con props),
+ * NO el container: el container delega en `ThemeView` y su registry se compone en
+ * otra fase. Los tests del antiguo container/modales se reubican aquí contra la
+ * vista presentacional.
  *
  * Cubre:
- *  1. FridgePage — render básico, orden por caducidad, urgencia por color
- *  2. AddFridgeItemModal — validación de nombre obligatorio, envío del formulario
- *  3. Acciones de ítem — comer / tirar / congelar llaman al endpoint correcto
+ *  1. Render básico — título, botón de añadir, listado, vacío.
+ *  2. Orden por caducidad — la vista respeta el orden recibido (precalculado en
+ *     el container) y pinta `data-urgency` con la urgencia precalculada.
+ *  3. Sección "Consumir primero" — visible solo con filter=ALL.
+ *  4. Diálogo de añadir — abrir, validación de nombre, payload de `onAdd`.
+ *  5. Acciones de ítem — comer / tirar / congelar / eliminar / editar.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-// ── Mocks de infraestructura ──────────────────────────────────────────────────
-
-vi.mock('@/shared/lib/supabase', () => ({
-  supabase: {
-    auth: {
-      onAuthStateChange: vi.fn(() => ({
-        data: { subscription: { unsubscribe: vi.fn() } },
-      })),
-      getSession: vi
-        .fn()
-        .mockResolvedValue({ data: { session: { access_token: 'tok' } } }),
-    },
-  },
-}));
-
-vi.mock('@/features/auth/store/auth.store', () => ({
-  useAuthStore: vi.fn(
-    (selector: (s: { user: { id: string } }) => unknown) =>
-      selector({ user: { id: 'user-1' } }),
-  ),
-}));
-
-vi.mock('@/features/family/store/family.store', () => ({
-  useFamilyStore: vi.fn(
-    (selector: (s: { activeFamily: { id: string; name: string } | null }) => unknown) =>
-      selector({ activeFamily: { id: 'family-1', name: 'Mi familia' } }),
-  ),
-}));
-
-vi.mock('@tanstack/react-router', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@tanstack/react-router')>();
-  return {
-    ...actual,
-    useNavigate: () => vi.fn(),
-    useParams: () => ({ familyId: 'family-1' }),
-  };
-});
+import FridgeListView from './views/base/FridgeListView';
+import { getExpiryUrgency, urgencyLabel } from './types';
+import type { FridgeListItem, FridgeListViewProps } from './views/types';
 
 // ── Helpers de datos ──────────────────────────────────────────────────────────
 
-/** Devuelve una fecha ISO relativa a hoy en días (0 = hoy, -1 = ayer, +3 = pasado mañana). */
+/** Fecha ISO (YYYY-MM-DD) relativa a hoy en días. */
 function relativeDate(offsetDays: number): string {
   const d = new Date();
   d.setDate(d.getDate() + offsetDays);
   return d.toISOString().split('T')[0]!;
 }
 
-const makeFridgeItem = (overrides: Partial<{
-  id: string;
-  name: string;
-  location: 'FRIDGE' | 'FREEZER' | 'PANTRY';
-  expiryDate: string | null;
-}> = {}) => ({
-  id: overrides.id ?? 'item-1',
-  familyId: 'family-1',
-  name: overrides.name ?? 'Leche',
-  quantity: '1.000',
-  unit: 'l',
-  location: overrides.location ?? 'FRIDGE',
-  expiryDate: overrides.expiryDate !== undefined ? overrides.expiryDate : null,
-  createdBy: null,
-  createdAt: new Date().toISOString(),
-  updatedAt: new Date().toISOString(),
-});
+/** Construye un FridgeListItem con la urgencia precalculada (como hace el container). */
+function makeItem(
+  overrides: Partial<{
+    id: string;
+    name: string;
+    location: 'FRIDGE' | 'FREEZER' | 'PANTRY';
+    expiryDate: string | null;
+    quantity: string | null;
+    unit: string | null;
+  }> = {},
+): FridgeListItem {
+  const expiryDate = overrides.expiryDate !== undefined ? overrides.expiryDate : null;
+  const urgency = getExpiryUrgency(expiryDate);
+  return {
+    id: overrides.id ?? 'item-1',
+    familyId: 'family-1',
+    name: overrides.name ?? 'Leche',
+    quantity: overrides.quantity !== undefined ? overrides.quantity : '1',
+    unit: overrides.unit !== undefined ? overrides.unit : 'l',
+    location: overrides.location ?? 'FRIDGE',
+    expiryDate,
+    createdBy: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    urgency,
+    urgencyLabel: urgencyLabel(urgency, expiryDate),
+  };
+}
 
-// ── Spies de las mutaciones ───────────────────────────────────────────────────
+// ── Spies de callbacks ────────────────────────────────────────────────────────
 
-const mockCreateItem = vi.fn();
-const mockEat = vi.fn();
-const mockThrow = vi.fn();
-const mockFreeze = vi.fn();
-const mockDelete = vi.fn();
-const mockUpdate = vi.fn();
+const onChangeFilter = vi.fn();
+const onOpenAdd = vi.fn();
+const onOpenEdit = vi.fn();
+const onCloseDialogs = vi.fn();
+const onAdd = vi.fn();
+const onUpdate = vi.fn();
+const onDelete = vi.fn();
+const onEat = vi.fn();
+const onThrow = vi.fn();
+const onFreeze = vi.fn();
 
-// ── Mock de useFridge ─────────────────────────────────────────────────────────
-
-let mockFridgeItems: ReturnType<typeof makeFridgeItem>[] = [];
-
-vi.mock('@/features/fridge/hooks/useFridge', () => ({
-  useFamilyFridge: vi.fn(() => ({
-    data: mockFridgeItems,
+function baseProps(overrides: Partial<FridgeListViewProps> = {}): FridgeListViewProps {
+  return {
+    items: [],
     isLoading: false,
     error: null,
-  })),
-  useCreateFridgeItem: vi.fn(() => ({
-    mutate: mockCreateItem,
-    isPending: false,
-  })),
-  useUpdateFridgeItem: vi.fn(() => ({
-    mutate: mockUpdate,
-    isPending: false,
-  })),
-  useDeleteFridgeItem: vi.fn(() => ({
-    mutate: mockDelete,
-    isPending: false,
-  })),
-  useEatFridgeItem: vi.fn(() => ({
-    mutate: mockEat,
-    isPending: false,
-  })),
-  useThrowFridgeItem: vi.fn(() => ({
-    mutate: mockThrow,
-    isPending: false,
-  })),
-  useFreezeFridgeItem: vi.fn(() => ({
-    mutate: mockFreeze,
-    isPending: false,
-  })),
-  fridgeKeys: {
-    all: ['fridge'],
-    byFamily: (id: string) => ['fridge', 'family', id],
-  },
-  ApiRequestError: class extends Error {
-    constructor(
-      public readonly status: number,
-      public readonly body: { message: string },
-    ) {
-      super(body.message);
-    }
-  },
-}));
-
-// ── Helpers de render ─────────────────────────────────────────────────────────
-
-function makeQC() {
-  return new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
+    locationFilter: 'ALL',
+    isAddOpen: false,
+    editingItem: null,
+    isSubmitting: false,
+    submitError: null,
+    onChangeFilter,
+    onOpenAdd,
+    onOpenEdit,
+    onCloseDialogs,
+    onAdd,
+    onUpdate,
+    onDelete,
+    onEat,
+    onThrow,
+    onFreeze,
+    ...overrides,
+  };
 }
 
-function wrap(ui: React.ReactElement) {
-  return render(<QueryClientProvider client={makeQC()}>{ui}</QueryClientProvider>);
+function renderView(overrides: Partial<FridgeListViewProps> = {}) {
+  return render(<FridgeListView {...baseProps(overrides)} />);
 }
-
-// ── Importaciones bajo test ───────────────────────────────────────────────────
-
-import { FridgePage } from './pages/FridgePage';
-import { AddFridgeItemModal } from './components/AddFridgeItemModal';
-
-// ── Limpieza ──────────────────────────────────────────────────────────────────
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockFridgeItems = [];
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 1. FridgePage — render y orden por caducidad
+// 1. Render básico
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('FridgePage', () => {
+describe('FridgeListView — render', () => {
   it('renderiza el título y el botón de añadir', () => {
-    wrap(<FridgePage />);
+    renderView();
     expect(screen.getByRole('heading', { level: 2 })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /añadir producto/i })).toBeInTheDocument();
   });
 
   it('muestra el mensaje vacío cuando no hay productos', () => {
-    mockFridgeItems = [];
-    wrap(<FridgePage />);
+    renderView({ items: [] });
     expect(screen.getByText(/despensa está vacía/i)).toBeInTheDocument();
   });
 
   it('muestra los productos de la familia', () => {
-    mockFridgeItems = [
-      makeFridgeItem({ id: 'i1', name: 'Leche', expiryDate: null }),
-      makeFridgeItem({ id: 'i2', name: 'Yogur', expiryDate: null }),
-    ];
-    wrap(<FridgePage />);
+    renderView({
+      items: [
+        makeItem({ id: 'i1', name: 'Leche', expiryDate: null }),
+        makeItem({ id: 'i2', name: 'Yogur', expiryDate: null }),
+      ],
+    });
     expect(screen.getAllByText('Leche').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Yogur').length).toBeGreaterThan(0);
   });
 
-  it('ordena los ítems: el que caduca antes aparece primero', () => {
-    mockFridgeItems = [
-      makeFridgeItem({ id: 'i1', name: 'Queso', expiryDate: relativeDate(10) }),
-      makeFridgeItem({ id: 'i2', name: 'Leche', expiryDate: relativeDate(1) }),
-      makeFridgeItem({ id: 'i3', name: 'Pasta', expiryDate: null }),
-    ];
-    wrap(<FridgePage />);
-
+  it('respeta el orden recibido: el que caduca antes aparece primero', () => {
+    // El container ordena; la vista pinta en ese orden.
+    renderView({
+      items: [
+        makeItem({ id: 'i2', name: 'Leche', expiryDate: relativeDate(1) }),
+        makeItem({ id: 'i1', name: 'Queso', expiryDate: relativeDate(10) }),
+        makeItem({ id: 'i3', name: 'Pasta', expiryDate: null }),
+      ],
+    });
     const cards = screen.getAllByRole('listitem');
-    // "Leche" (caduca mañana) debe aparecer antes que "Queso" (caduca en 10 días)
     const lecheIdx = cards.findIndex((c) => c.textContent?.includes('Leche'));
     const quesoIdx = cards.findIndex((c) => c.textContent?.includes('Queso'));
     expect(lecheIdx).toBeLessThan(quesoIdx);
   });
+});
 
-  it('muestra la sección "Consumir primero" con ítems caducados/urgentes', () => {
-    mockFridgeItems = [
-      makeFridgeItem({ id: 'expired', name: 'Mantequilla', expiryDate: relativeDate(-1) }),
-      makeFridgeItem({ id: 'ok', name: 'Pasta', expiryDate: relativeDate(30) }),
-    ];
-    wrap(<FridgePage />);
-    expect(screen.getByText(/consumir primero/i)).toBeInTheDocument();
-    // La mantequilla caducada debe aparecer en la sección urgente
-    const urgentSection = screen.getByRole('region', { name: /consumir primero/i });
-    expect(within(urgentSection).getByText('Mantequilla')).toBeInTheDocument();
-  });
+// ─────────────────────────────────────────────────────────────────────────────
+// 2. Urgencia precalculada → data-urgency
+// ─────────────────────────────────────────────────────────────────────────────
 
-  it('ítem caducado tiene color de error (data-urgency=expired)', () => {
-    mockFridgeItems = [
-      makeFridgeItem({ id: 'exp', name: 'Yogur caducado', expiryDate: relativeDate(-2) }),
-    ];
-    wrap(<FridgePage />);
-    const expired = screen.getAllByRole('listitem').find((el) =>
-      el.getAttribute('data-urgency') === 'expired',
-    );
+describe('FridgeListView — urgencia', () => {
+  it('ítem caducado tiene data-urgency=expired', () => {
+    renderView({ items: [makeItem({ id: 'exp', name: 'Yogur', expiryDate: relativeDate(-2) })] });
+    const expired = screen
+      .getAllByRole('listitem')
+      .find((el) => el.querySelector('[data-urgency="expired"]'));
     expect(expired).toBeTruthy();
   });
 
-  it('ítem que caduca en ≤2 días tiene urgency=warning', () => {
-    mockFridgeItems = [
-      makeFridgeItem({ id: 'warn', name: 'Leche próxima', expiryDate: relativeDate(1) }),
-    ];
-    wrap(<FridgePage />);
-    const warning = screen.getAllByRole('listitem').find((el) =>
-      el.getAttribute('data-urgency') === 'warning',
-    );
+  it('ítem que caduca en ≤2 días tiene data-urgency=warning', () => {
+    renderView({ items: [makeItem({ id: 'w', name: 'Leche', expiryDate: relativeDate(1) })] });
+    const warning = screen
+      .getAllByRole('listitem')
+      .find((el) => el.querySelector('[data-urgency="warning"]'));
     expect(warning).toBeTruthy();
   });
 
-  it('ítem sin fecha de caducidad tiene urgency=none', () => {
-    mockFridgeItems = [
-      makeFridgeItem({ id: 'none', name: 'Arroz', expiryDate: null }),
-    ];
-    wrap(<FridgePage />);
-    const noExpiry = screen.getAllByRole('listitem').find((el) =>
-      el.getAttribute('data-urgency') === 'none',
-    );
-    expect(noExpiry).toBeTruthy();
-  });
-
-  it('abre el modal al pulsar "+ Añadir"', async () => {
-    const user = userEvent.setup();
-    wrap(<FridgePage />);
-    await user.click(screen.getByRole('button', { name: /añadir producto/i }));
-    expect(screen.getByRole('dialog', { name: /añadir producto/i })).toBeInTheDocument();
+  it('ítem sin fecha de caducidad tiene data-urgency=none', () => {
+    renderView({ items: [makeItem({ id: 'n', name: 'Arroz', expiryDate: null })] });
+    const none = screen
+      .getAllByRole('listitem')
+      .find((el) => el.querySelector('[data-urgency="none"]'));
+    expect(none).toBeTruthy();
   });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 2. AddFridgeItemModal — validación y envío
+// 3. Sección "Consumir primero"
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('AddFridgeItemModal — validación', () => {
-  const defaultProps = {
-    familyId: 'family-1',
-    onClose: vi.fn(),
-  };
-
-  it('muestra el campo de nombre', () => {
-    wrap(<AddFridgeItemModal {...defaultProps} />);
-    expect(screen.getByLabelText(/nombre/i)).toBeInTheDocument();
+describe('FridgeListView — Consumir primero', () => {
+  it('muestra la sección con ítems caducados/urgentes cuando filter=ALL', () => {
+    renderView({
+      items: [
+        makeItem({ id: 'expired', name: 'Mantequilla', expiryDate: relativeDate(-1) }),
+        makeItem({ id: 'ok', name: 'Pasta', expiryDate: relativeDate(30) }),
+      ],
+    });
+    const urgentSection = screen.getByRole('region', { name: /consumir primero/i });
+    expect(within(urgentSection).getByText('Mantequilla')).toBeInTheDocument();
   });
 
-  it('el botón Añadir está deshabilitado cuando el nombre está vacío', () => {
-    wrap(<AddFridgeItemModal {...defaultProps} />);
+  it('NO muestra la sección urgente cuando el filtro no es ALL', () => {
+    renderView({
+      locationFilter: 'FRIDGE',
+      items: [makeItem({ id: 'expired', name: 'Mantequilla', expiryDate: relativeDate(-1) })],
+    });
+    expect(screen.queryByRole('region', { name: /consumir primero/i })).not.toBeInTheDocument();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 4. Diálogo de añadir
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('FridgeListView — diálogo añadir', () => {
+  it('pulsar "+ Añadir" llama a onOpenAdd', async () => {
+    const user = userEvent.setup();
+    renderView();
+    await user.click(screen.getByRole('button', { name: /añadir producto/i }));
+    expect(onOpenAdd).toHaveBeenCalled();
+  });
+
+  it('con isAddOpen abre el diálogo "Añadir producto"', () => {
+    renderView({ isAddOpen: true });
+    expect(screen.getByRole('dialog', { name: /añadir producto/i })).toBeInTheDocument();
+  });
+
+  it('el botón Añadir está deshabilitado con el nombre vacío', () => {
+    renderView({ isAddOpen: true });
     expect(screen.getByRole('button', { name: /^añadir$/i })).toBeDisabled();
   });
 
-  it('el botón Añadir se habilita al escribir un nombre', async () => {
+  it('llama a onAdd con name y location al enviar', async () => {
     const user = userEvent.setup();
-    wrap(<AddFridgeItemModal {...defaultProps} />);
-    await user.type(screen.getByLabelText(/nombre/i), 'Leche');
-    expect(screen.getByRole('button', { name: /^añadir$/i })).not.toBeDisabled();
-  });
-
-  it('llama a createItem.mutate con los datos correctos al enviar', async () => {
-    const user = userEvent.setup();
-    wrap(<AddFridgeItemModal {...defaultProps} />);
+    renderView({ isAddOpen: true });
 
     await user.type(screen.getByLabelText(/nombre/i), 'Leche entera');
     await user.click(screen.getByRole('button', { name: /^añadir$/i }));
 
     await waitFor(() => {
-      expect(mockCreateItem).toHaveBeenCalledWith(
+      expect(onAdd).toHaveBeenCalledWith(
         expect.objectContaining({ name: 'Leche entera', location: 'FRIDGE' }),
-        expect.any(Object),
-      );
-    });
-  });
-
-  it('incluye la ubicación seleccionada en el payload', async () => {
-    const user = userEvent.setup();
-    wrap(<AddFridgeItemModal {...defaultProps} />);
-
-    await user.type(screen.getByLabelText(/nombre/i), 'Guisantes');
-    await user.selectOptions(screen.getByLabelText(/ubicación/i), 'FREEZER');
-    await user.click(screen.getByRole('button', { name: /^añadir$/i }));
-
-    await waitFor(() => {
-      expect(mockCreateItem).toHaveBeenCalledWith(
-        expect.objectContaining({ name: 'Guisantes', location: 'FREEZER' }),
-        expect.any(Object),
       );
     });
   });
 
   it('incluye la fecha de caducidad cuando se rellena', async () => {
     const user = userEvent.setup();
-    wrap(<AddFridgeItemModal {...defaultProps} />);
+    renderView({ isAddOpen: true });
 
     await user.type(screen.getByLabelText(/nombre/i), 'Yogur');
     await user.type(screen.getByLabelText(/fecha de caducidad/i), '2026-06-01');
     await user.click(screen.getByRole('button', { name: /^añadir$/i }));
 
     await waitFor(() => {
-      expect(mockCreateItem).toHaveBeenCalledWith(
-        expect.objectContaining({ expiryDate: '2026-06-01' }),
-        expect.any(Object),
-      );
+      expect(onAdd).toHaveBeenCalledWith(expect.objectContaining({ expiryDate: '2026-06-01' }));
     });
+  });
+
+  it('muestra submitError dentro del diálogo abierto', () => {
+    renderView({ isAddOpen: true, submitError: 'No se ha podido añadir el producto.' });
+    expect(screen.getByRole('alert')).toHaveTextContent(/no se ha podido añadir/i);
   });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 3. Acciones de ítem: comer / tirar / congelar
+// 5. Acciones de ítem
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('Acciones de ítem', () => {
-  beforeEach(() => {
-    mockFridgeItems = [
-      makeFridgeItem({ id: 'item-1', name: 'Leche', location: 'FRIDGE', expiryDate: null }),
-    ];
-  });
+describe('FridgeListView — acciones', () => {
+  function withMilk() {
+    return renderView({
+      items: [makeItem({ id: 'item-1', name: 'Leche', location: 'FRIDGE', expiryDate: null })],
+    });
+  }
 
-  it('pulsar "Comer" llama a useEatFridgeItem.mutate', async () => {
+  it('pulsar "Comer" llama a onEat con el id', async () => {
     const user = userEvent.setup();
-    wrap(<FridgePage />);
-
+    withMilk();
     await user.click(screen.getByRole('button', { name: /marcar leche como consumido/i }));
-
-    expect(mockEat).toHaveBeenCalled();
+    expect(onEat).toHaveBeenCalledWith('item-1');
   });
 
-  it('pulsar "Tirar" llama a useThrowFridgeItem.mutate', async () => {
+  it('pulsar "Tirar" llama a onThrow con el id', async () => {
     const user = userEvent.setup();
-    wrap(<FridgePage />);
-
+    withMilk();
     await user.click(screen.getByRole('button', { name: /tirar leche/i }));
-
-    expect(mockThrow).toHaveBeenCalled();
+    expect(onThrow).toHaveBeenCalledWith('item-1');
   });
 
-  it('pulsar "Congelar" llama a useFreezeFridgeItem.mutate', async () => {
+  it('pulsar "Congelar" llama a onFreeze con el id', async () => {
     const user = userEvent.setup();
-    wrap(<FridgePage />);
-
+    withMilk();
     await user.click(screen.getByRole('button', { name: /congelar leche/i }));
+    expect(onFreeze).toHaveBeenCalledWith('item-1');
+  });
 
-    expect(mockFreeze).toHaveBeenCalled();
+  it('pulsar "Eliminar" llama a onDelete con el id', async () => {
+    const user = userEvent.setup();
+    withMilk();
+    await user.click(screen.getByRole('button', { name: /eliminar leche/i }));
+    expect(onDelete).toHaveBeenCalledWith('item-1');
+  });
+
+  it('pulsar "Editar" llama a onOpenEdit con el ítem', async () => {
+    const user = userEvent.setup();
+    withMilk();
+    await user.click(screen.getByRole('button', { name: /editar leche/i }));
+    expect(onOpenEdit).toHaveBeenCalledWith(expect.objectContaining({ id: 'item-1' }));
   });
 
   it('no muestra "Congelar" para ítems ya en el congelador', () => {
-    mockFridgeItems = [
-      makeFridgeItem({ id: 'item-2', name: 'Helado', location: 'FREEZER', expiryDate: null }),
-    ];
-    wrap(<FridgePage />);
-
+    renderView({
+      items: [makeItem({ id: 'item-2', name: 'Helado', location: 'FREEZER', expiryDate: null })],
+    });
     expect(screen.queryByRole('button', { name: /congelar helado/i })).not.toBeInTheDocument();
   });
 });

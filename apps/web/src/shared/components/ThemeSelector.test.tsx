@@ -5,8 +5,8 @@
  * 1. Render y accesibilidad básica
  * 2. Abrir/cerrar el panel
  * 3. Cambiar modo (light/dark) → data-mode en <html>
- * 4. Cambiar estética → data-aesthetic en <html>
- * 5. Persistencia en localStorage
+ * 4. Cambiar theme → data-theme en <html>
+ * 5. Persistencia en localStorage ({ theme, mode })
  * 6. Cierre con tecla Escape
  */
 
@@ -35,7 +35,7 @@ function openPanel() {
 beforeEach(() => {
   // Limpiar estado
   localStorage.clear();
-  getHtml().removeAttribute('data-aesthetic');
+  getHtml().removeAttribute('data-theme');
   getHtml().removeAttribute('data-mode');
   // Aplicar defaults para que el componente lea un estado limpio
   applyTheme();
@@ -72,7 +72,7 @@ describe('ThemeSelector', () => {
 
   it('cambia a modo oscuro y actualiza data-mode en <html>', () => {
     // Partir de light
-    applyTheme({ mode: 'light', aesthetic: 'ios' });
+    applyTheme({ mode: 'light', theme: 'base' });
     render(<ThemeSelector />);
     openPanel();
 
@@ -83,7 +83,7 @@ describe('ThemeSelector', () => {
   });
 
   it('cambia a modo claro y actualiza data-mode en <html>', () => {
-    applyTheme({ mode: 'dark', aesthetic: 'ios' });
+    applyTheme({ mode: 'dark', theme: 'base' });
     render(<ThemeSelector />);
     openPanel();
 
@@ -93,59 +93,70 @@ describe('ThemeSelector', () => {
     expect(getHtml().getAttribute('data-mode')).toBe('light');
   });
 
-  it('cambia a estética pixel y actualiza data-aesthetic en <html>', () => {
-    applyTheme({ mode: 'light', aesthetic: 'ios' });
+  it('cambia al theme cozy y actualiza data-theme en <html>', () => {
+    applyTheme({ mode: 'light', theme: 'base' });
     render(<ThemeSelector />);
     openPanel();
 
-    const pixelBtn = screen.getByRole('button', { name: /pixel/i });
-    fireEvent.click(pixelBtn);
+    const cozyBtn = screen.getByRole('button', { name: /cuaderno/i });
+    fireEvent.click(cozyBtn);
 
-    expect(getHtml().getAttribute('data-aesthetic')).toBe('pixel');
+    expect(getHtml().getAttribute('data-theme')).toBe('cozy');
   });
 
-  it('cambia a estética okuda y actualiza data-aesthetic en <html>', () => {
-    applyTheme({ mode: 'light', aesthetic: 'ios' });
+  it('cambia al theme springfield y actualiza data-theme en <html>', () => {
+    applyTheme({ mode: 'light', theme: 'base' });
     render(<ThemeSelector />);
     openPanel();
 
-    const okudaBtn = screen.getByRole('button', { name: /okuda/i });
-    fireEvent.click(okudaBtn);
+    const springfieldBtn = screen.getByRole('button', { name: /cómic/i });
+    fireEvent.click(springfieldBtn);
 
-    expect(getHtml().getAttribute('data-aesthetic')).toBe('okuda');
+    expect(getHtml().getAttribute('data-theme')).toBe('springfield');
   });
 
-  it('persiste la estética en localStorage', () => {
-    applyTheme({ mode: 'light', aesthetic: 'ios' });
+  it('persiste el theme en localStorage', () => {
+    applyTheme({ mode: 'light', theme: 'base' });
     render(<ThemeSelector />);
     openPanel();
 
-    const pixelBtn = screen.getByRole('button', { name: /pixel/i });
-    fireEvent.click(pixelBtn);
+    const cozyBtn = screen.getByRole('button', { name: /cuaderno/i });
+    fireEvent.click(cozyBtn);
 
     const stored = JSON.parse(localStorage.getItem('cosasdecasa:theme') ?? '{}') as {
-      aesthetic?: string;
+      theme?: string;
       mode?: string;
     };
-    expect(stored.aesthetic).toBe('pixel');
+    expect(stored.theme).toBe('cozy');
   });
 
   it('persiste el modo en localStorage', () => {
-    applyTheme({ mode: 'light', aesthetic: 'ios' });
+    applyTheme({ mode: 'light', theme: 'base' });
     render(<ThemeSelector />);
     openPanel();
 
     fireEvent.click(screen.getByRole('button', { name: /◑ oscuro/i }));
 
     const stored = JSON.parse(localStorage.getItem('cosasdecasa:theme') ?? '{}') as {
-      aesthetic?: string;
+      theme?: string;
       mode?: string;
     };
     expect(stored.mode).toBe('dark');
   });
 
+  it('migra el formato viejo {aesthetic,...} a base sin crash', () => {
+    // Formato legacy en localStorage → loadPrefs no valida (sin `theme`), se
+    // descarta el objeto completo y aplicamos DEFAULT_THEME sin lanzar error.
+    localStorage.setItem('cosasdecasa:theme', JSON.stringify({ aesthetic: 'pixel', mode: 'dark' }));
+    getHtml().removeAttribute('data-theme');
+    getHtml().removeAttribute('data-mode');
+
+    expect(() => applyTheme()).not.toThrow();
+    expect(getHtml().getAttribute('data-theme')).toBe('base');
+  });
+
   it('el botón activo tiene aria-pressed=true', () => {
-    applyTheme({ mode: 'light', aesthetic: 'ios' });
+    applyTheme({ mode: 'light', theme: 'base' });
     render(<ThemeSelector />);
     openPanel();
 

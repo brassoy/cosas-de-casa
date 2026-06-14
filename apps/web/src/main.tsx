@@ -3,8 +3,12 @@ import { createRoot } from 'react-dom/client';
 import { RouterProvider } from '@tanstack/react-router';
 import { Providers } from './core/providers';
 import { router } from './core/router';
+import './shared/theme/styles.css';
 import './shared/theme/tokens.base.css';
 import './shared/theme/tokens.themes.css';
+import './shared/theme/themes/cozysitcom.css';
+import './shared/theme/themes/springfield.css';
+import './shared/theme/themes/cozy.css';
 import { applyTheme } from './shared/theme/theme-bootstrap';
 
 // Aplicar tema antes del primer render para evitar flash

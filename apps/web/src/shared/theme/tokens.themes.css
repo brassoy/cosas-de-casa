@@ -1,330 +1,177 @@
-/* ─── Design Tokens por Estética ────────────────────────────────────────────
+/* ─── Design Tokens por Theme ───────────────────────────────────────────────
  *
- * Modelo: [data-aesthetic="X"][data-mode="Y"] { --token: value }
+ * Modelo: [data-theme="X"] { --token: value }  (mapeo a vars semánticas)
  *
- * Tres estéticas visualmente distintas:
- *   pixel  — retro pixel-art (Courier, radius 0, sombras duras 8-bit)
- *   ios    — moderno iOS-like (sistema, esquinas redondas, sombras suaves)
- *   okuda  — pop-art geométrico Okuda (colores saturados, negros, neon)
+ * El theme `base` vive en tokens.base.css (:root + [data-mode='dark']).
+ * Aquí van los 3 themes alternativos, cada uno con su PALETA CRUDA (extraída de
+ * los kits estáticos de Lovable: cozy.tsx, cozysitcom.tsx, springfield.tsx) y su
+ * MAPEO a las CSS vars semánticas que consume toda la app + Tailwind/shadcn.
  *
- * Cada una tiene variante light + dark → 6 combinaciones en total.
+ * LIGHT-ONLY: estos themes no tienen variante oscura por ahora. Como se definen
+ * bajo [data-theme='X'] (sin filtrar por data-mode) y con mayor especificidad que
+ * el [data-mode='dark'] de tokens.base.css para las vars de color, en modo oscuro
+ * usan los MISMOS valores que en light. Para garantizarlo de forma explícita,
+ * cada bloque se replica también bajo [data-theme='X'][data-mode='dark'].
  * ─────────────────────────────────────────────────────────────────────────── */
 
 /* ═══════════════════════════════════════════════════════════════════════════
- * PIXEL — Retro 8-bit
- * Paleta: verdes/ámbar sobre negro (dark) · crema sobre gris oscuro (light)
- * Fuente: Courier New monoespaciada, peso bold
- * Radius: 0 en todo
- * Sombras: offset sólido sin blur (estilo sprite)
+ * COZY — Cuaderno de papel pautado, manuscrito
+ * Paleta cruda (cozy.tsx):
+ *   ink #3a2a1a · blue #2d4a8a · red #c0392b · green #5b8a3a
+ *   yellow #e3a51a · paper #fffaf0
+ * Fuentes: Patrick Hand (body) · Caveat (heading/marker)
  * ═══════════════════════════════════════════════════════════════════════════ */
 
-[data-aesthetic='pixel'][data-mode='light'] {
-  /* Surface */
-  --color-surface: #f0ede0;
-  --color-surface-raised: #e8e4d0;
-  --color-surface-overlay: rgba(0, 0, 0, 0.06);
+[data-theme='cozy'],
+[data-theme='cozy'][data-mode='dark'] {
+  /* Surface — papel crema */
+  --color-surface: #fffaf0;
+  --color-surface-raised: #fbf4e4;
+  --color-surface-overlay: rgba(58, 42, 26, 0.06);
 
-  /* Text */
-  --color-text: #1a1a1a;
-  --color-text-muted: #555544;
-  --color-text-inverse: #f0ede0;
+  /* Text — tinta marrón */
+  --color-text: #3a2a1a;
+  --color-text-muted: #6b5740;
+  --color-text-inverse: #fffaf0;
 
-  /* Accent */
-  --color-accent: #0a6b0a;
-  --color-accent-hover: #085908;
-  --color-accent-subtle: #d4edda;
+  /* Accent — azul de bolígrafo */
+  --color-accent: #2d4a8a;
+  --color-accent-hover: #233c72;
+  --color-accent-subtle: #e4eaf6;
 
   /* Feedback */
-  --color-success: #0a6b0a;
-  --color-warning: #b86800;
-  --color-error: #cc0000;
-  --color-info: #004488;
+  --color-success: #5b8a3a;
+  --color-warning: #e3a51a;
+  --color-error: #c0392b;
+  --color-info: #2d4a8a;
 
-  /* Border */
+  /* Border — pespunte de tinta */
+  --color-border: #d9c79a;
+  --color-border-strong: #3a2a1a;
+
+  /* Radius — esquinas suaves de papel */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-card: 6px;
+  --radius-full: 9999px;
+
+  /* Fuentes manuscritas */
+  --font-body: 'Patrick Hand', 'Comic Sans MS', cursive;
+  --font-heading: 'Caveat', 'Patrick Hand', cursive;
+  --font-mono: 'Patrick Hand', monospace;
+
+  /* Sombras de papel sobre tablón */
+  --shadow-sm: 1px 2px 0 rgba(58, 42, 26, 0.08);
+  --shadow-md: 2px 3px 0 rgba(58, 42, 26, 0.08);
+  --shadow-lg: 4px 6px 0 rgba(58, 42, 26, 0.12);
+  --shadow-card: 2px 3px 0 rgba(58, 42, 26, 0.08);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * COZYSITCOM — Retro sitcom 70/80, cálido, madera y mostaza
+ * Paleta cruda (cozysitcom.tsx):
+ *   denim #2F5D8C · mustard #E3B23C · garnet #A63A3A · retro #5F7A4F
+ *   wood #8B5E3C · beige #F4E3C1 · cream #FFF8EA · ink #242424
+ * Fuentes: Nunito (body) · Bree Serif (heading)
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+[data-theme='cozysitcom'],
+[data-theme='cozysitcom'][data-mode='dark'] {
+  /* Surface — crema y beige */
+  --color-surface: #fff8ea;
+  --color-surface-raised: #ffffff;
+  --color-surface-overlay: rgba(36, 36, 36, 0.05);
+
+  /* Text — tinta casi negra */
+  --color-text: #242424;
+  --color-text-muted: #6b5d49;
+  --color-text-inverse: #fff8ea;
+
+  /* Accent — denim */
+  --color-accent: #2f5d8c;
+  --color-accent-hover: #244a70;
+  --color-accent-subtle: #dde7f0;
+
+  /* Feedback */
+  --color-success: #5f7a4f;
+  --color-warning: #e3b23c;
+  --color-error: #a63a3a;
+  --color-info: #2f5d8c;
+
+  /* Border — beige cálido */
+  --color-border: #f4e3c1;
+  --color-border-strong: #8b5e3c;
+
+  /* Radius — generoso, redondeado retro */
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-card: 18px;
+  --radius-full: 9999px;
+
+  /* Fuentes retro */
+  --font-body: 'Nunito', system-ui, sans-serif;
+  --font-heading: 'Bree Serif', Georgia, serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  /* Sombras suaves con borde inferior tipo madera */
+  --shadow-sm: 0 1px 0 #f4e3c1, 0 4px 12px -10px rgba(36, 36, 36, 0.2);
+  --shadow-md: 0 1px 0 #f4e3c1, 0 8px 20px -12px rgba(36, 36, 36, 0.2);
+  --shadow-lg: 0 1px 0 #f4e3c1, 0 16px 32px -16px rgba(36, 36, 36, 0.25);
+  --shadow-card: 0 1px 0 #f4e3c1, 0 8px 22px -16px rgba(36, 36, 36, 0.2);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * SPRINGFIELD — Cómic pop, bordes gruesos, hard shadows
+ * Paleta cruda (springfield.tsx):
+ *   yellow #FFD90F · sky #70C5FF · red #E53935 · green #7CB342
+ *   pink #F48FB1 · ink #1A1A1A · cream #FFF3C4 · white #FFFFFF
+ * Fuentes: Nunito (body) · Bangers (heading) · Fredoka (sub)
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+[data-theme='springfield'],
+[data-theme='springfield'][data-mode='dark'] {
+  /* Surface — crema amarillenta + blanco */
+  --color-surface: #fff3c4;
+  --color-surface-raised: #ffffff;
+  --color-surface-overlay: rgba(26, 26, 26, 0.06);
+
+  /* Text — tinta negra de cómic */
+  --color-text: #1a1a1a;
+  --color-text-muted: #5a5a5a;
+  --color-text-inverse: #ffffff;
+
+  /* Accent — amarillo Springfield */
+  --color-accent: #ffd90f;
+  --color-accent-hover: #e6c200;
+  --color-accent-subtle: #fff7cc;
+
+  /* Feedback */
+  --color-success: #7cb342;
+  --color-warning: #ffd90f;
+  --color-error: #e53935;
+  --color-info: #70c5ff;
+
+  /* Border — contorno grueso de tinta */
   --color-border: #1a1a1a;
   --color-border-strong: #000000;
 
-  /* Radius — todo cuadrado */
-  --radius-sm: 0px;
-  --radius-md: 0px;
-  --radius-lg: 0px;
-  --radius-card: 0px;
-  --radius-full: 0px;
+  /* Radius — redondeado de viñeta */
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-card: 24px;
+  --radius-full: 9999px;
 
-  /* Tipografía pixelada */
-  --font-body: 'Courier New', 'Lucida Console', monospace;
-  --font-heading: 'Courier New', 'Lucida Console', monospace;
-  --font-mono: 'Courier New', 'Lucida Console', monospace;
+  /* Fuentes de cómic */
+  --font-body: 'Nunito', system-ui, sans-serif;
+  --font-heading: 'Bangers', 'Fredoka', cursive;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 
-  /* Sombras 8-bit: offset sólido sin blur */
+  /* Hard shadows offset (sin blur), estilo cómic */
   --shadow-sm: 2px 2px 0 #1a1a1a;
   --shadow-md: 4px 4px 0 #1a1a1a;
   --shadow-lg: 6px 6px 0 #1a1a1a;
-  --shadow-card: 4px 4px 0 #1a1a1a;
-
-  /* Transición lenta y discreta */
-  --transition-fast: 50ms steps(1);
-  --transition-base: 100ms steps(2);
-  --transition-slow: 150ms steps(3);
-}
-
-[data-aesthetic='pixel'][data-mode='dark'] {
-  /* Surface — pantalla CRT con fósforo verde */
-  --color-surface: #0a0a0a;
-  --color-surface-raised: #151515;
-  --color-surface-overlay: rgba(0, 255, 70, 0.05);
-
-  /* Text */
-  --color-text: #00ff46;
-  --color-text-muted: #00bb33;
-  --color-text-inverse: #0a0a0a;
-
-  /* Accent — ámbar retro */
-  --color-accent: #ffaa00;
-  --color-accent-hover: #ffcc33;
-  --color-accent-subtle: #1a1200;
-
-  /* Feedback */
-  --color-success: #00ff46;
-  --color-warning: #ffaa00;
-  --color-error: #ff2222;
-  --color-info: #00ccff;
-
-  /* Border */
-  --color-border: #00ff46;
-  --color-border-strong: #ffffff;
-
-  /* Radius — todo cuadrado */
-  --radius-sm: 0px;
-  --radius-md: 0px;
-  --radius-lg: 0px;
-  --radius-card: 0px;
-  --radius-full: 0px;
-
-  /* Tipografía pixelada */
-  --font-body: 'Courier New', 'Lucida Console', monospace;
-  --font-heading: 'Courier New', 'Lucida Console', monospace;
-  --font-mono: 'Courier New', 'Lucida Console', monospace;
-
-  /* Sombras 8-bit neon */
-  --shadow-sm: 2px 2px 0 #00ff46;
-  --shadow-md: 4px 4px 0 #00ff46;
-  --shadow-lg: 6px 6px 0 #00ff46;
-  --shadow-card: 4px 4px 0 #00ff46;
-
-  --transition-fast: 50ms steps(1);
-  --transition-base: 100ms steps(2);
-  --transition-slow: 150ms steps(3);
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
- * IOS — Moderno, pulido, iOS-like
- * Paleta: blancos/grises neutros + azul sistema (light) · dark neutrales
- * Fuente: -apple-system stack
- * Radius: muy redondo (16–24px)
- * Sombras: suaves difuminadas, sin color
- * ═══════════════════════════════════════════════════════════════════════════ */
-
-[data-aesthetic='ios'][data-mode='light'] {
-  /* Surface — blanco puro + gris sistema */
-  --color-surface: #f2f2f7;
-  --color-surface-raised: #ffffff;
-  --color-surface-overlay: rgba(0, 0, 0, 0.04);
-
-  /* Text */
-  --color-text: #000000;
-  --color-text-muted: #8e8e93;
-  --color-text-inverse: #ffffff;
-
-  /* Accent — azul iOS */
-  --color-accent: #007aff;
-  --color-accent-hover: #0062cc;
-  --color-accent-subtle: #e5f0ff;
-
-  /* Feedback */
-  --color-success: #34c759;
-  --color-warning: #ff9500;
-  --color-error: #ff3b30;
-  --color-info: #5ac8fa;
-
-  /* Border */
-  --color-border: rgba(60, 60, 67, 0.13);
-  --color-border-strong: rgba(60, 60, 67, 0.36);
-
-  /* Radius generoso */
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 18px;
-  --radius-card: 16px;
-  --radius-full: 9999px;
-
-  /* Fuente del sistema */
-  --font-body: -apple-system, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
-  --font-heading: -apple-system, 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif;
-  --font-mono: 'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace;
-
-  /* Sombras suaves */
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.05);
-  --shadow-lg: 0 20px 40px rgba(0, 0, 0, 0.10), 0 8px 16px rgba(0, 0, 0, 0.06);
-  --shadow-card: var(--shadow-md);
-
-  --transition-fast: 120ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  --transition-base: 240ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  --transition-slow: 400ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
-}
-
-[data-aesthetic='ios'][data-mode='dark'] {
-  /* Surface — sistema dark iOS */
-  --color-surface: #000000;
-  --color-surface-raised: #1c1c1e;
-  --color-surface-overlay: rgba(255, 255, 255, 0.05);
-
-  /* Text */
-  --color-text: #ffffff;
-  --color-text-muted: #8e8e93;
-  --color-text-inverse: #000000;
-
-  /* Accent — azul iOS dark mode */
-  --color-accent: #0a84ff;
-  --color-accent-hover: #409cff;
-  --color-accent-subtle: #001f3f;
-
-  /* Feedback */
-  --color-success: #30d158;
-  --color-warning: #ff9f0a;
-  --color-error: #ff453a;
-  --color-info: #64d2ff;
-
-  /* Border */
-  --color-border: rgba(84, 84, 88, 0.65);
-  --color-border-strong: rgba(84, 84, 88, 0.85);
-
-  /* Radius generoso */
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 18px;
-  --radius-card: 16px;
-  --radius-full: 9999px;
-
-  /* Fuente del sistema */
-  --font-body: -apple-system, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
-  --font-heading: -apple-system, 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif;
-  --font-mono: 'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace;
-
-  /* Sombras sutiles en dark */
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
-  --shadow-lg: 0 20px 40px rgba(0, 0, 0, 0.6);
-  --shadow-card: var(--shadow-md);
-
-  --transition-fast: 120ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  --transition-base: 240ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  --transition-slow: 400ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
- * OKUDA — Pop-art geométrico estilo Okuda San Miguel
- * Paleta: magenta, cian, amarillo, naranja eléctrico sobre negro
- * Fuente: system-ui pero bold, con texto en mayúsculas en headings
- * Radius: 0 (formas geométricas duras) con algún rectángulo rotado decorativo
- * Sombras: coloreadas y duras, como capas offset
- * ═══════════════════════════════════════════════════════════════════════════ */
-
-[data-aesthetic='okuda'][data-mode='light'] {
-  /* Surface — blanco con toque cálido */
-  --color-surface: #fafafa;
-  --color-surface-raised: #ffffff;
-  --color-surface-overlay: rgba(255, 0, 128, 0.04);
-
-  /* Text — negro total */
-  --color-text: #0a0a0a;
-  --color-text-muted: #4a4a4a;
-  --color-text-inverse: #ffffff;
-
-  /* Accent — magenta eléctrico */
-  --color-accent: #e8007a;
-  --color-accent-hover: #c60069;
-  --color-accent-subtle: #ffd6ea;
-
-  /* Feedback — colores pop */
-  --color-success: #00c853;
-  --color-warning: #ff6d00;
-  --color-error: #d50000;
-  --color-info: #00b0ff;
-
-  /* Border — negro fuerte con grosor insinuado */
-  --color-border: #0a0a0a;
-  --color-border-strong: #000000;
-
-  /* Radius — geométrico puro */
-  --radius-sm: 0px;
-  --radius-md: 0px;
-  --radius-lg: 0px;
-  --radius-card: 0px;
-  --radius-full: 0px;
-
-  /* Fuente bold, titulares en caps */
-  --font-body: system-ui, 'Segoe UI', Arial, sans-serif;
-  --font-heading: system-ui, 'Segoe UI', Arial, sans-serif;
-  --font-mono: 'Courier New', monospace;
-
-  /* Sombras offset coloreadas — capas pop-art */
-  --shadow-sm: 3px 3px 0 #e8007a;
-  --shadow-md: 5px 5px 0 #e8007a;
-  --shadow-lg: 8px 8px 0 #e8007a;
-  --shadow-card: 5px 5px 0 #00b0ff;
-
-  --transition-fast: 80ms ease;
-  --transition-base: 160ms ease;
-  --transition-slow: 280ms ease;
-}
-
-[data-aesthetic='okuda'][data-mode='dark'] {
-  /* Surface — negro absoluto, el lienzo Okuda */
-  --color-surface: #060606;
-  --color-surface-raised: #111111;
-  --color-surface-overlay: rgba(255, 20, 147, 0.06);
-
-  /* Text — blanco puro */
-  --color-text: #ffffff;
-  --color-text-muted: #aaaaaa;
-  --color-text-inverse: #000000;
-
-  /* Accent — cian eléctrico */
-  --color-accent: #00e5ff;
-  --color-accent-hover: #80f0ff;
-  --color-accent-subtle: #001820;
-
-  /* Feedback — neon */
-  --color-success: #69ff47;
-  --color-warning: #ffd740;
-  --color-error: #ff1744;
-  --color-info: #40c4ff;
-
-  /* Border — neon visible */
-  --color-border: #00e5ff;
-  --color-border-strong: #ffffff;
-
-  /* Radius — geométrico puro */
-  --radius-sm: 0px;
-  --radius-md: 0px;
-  --radius-lg: 0px;
-  --radius-card: 0px;
-  --radius-full: 0px;
-
-  /* Fuente bold */
-  --font-body: system-ui, 'Segoe UI', Arial, sans-serif;
-  --font-heading: system-ui, 'Segoe UI', Arial, sans-serif;
-  --font-mono: 'Courier New', monospace;
-
-  /* Sombras neon coloreadas */
-  --shadow-sm: 3px 3px 0 #ff1493;
-  --shadow-md: 5px 5px 0 #ff1493;
-  --shadow-lg: 8px 8px 0 #ff1493;
-  --shadow-card: 5px 5px 0 #ffd740;
-
-  --transition-fast: 80ms ease;
-  --transition-base: 160ms ease;
-  --transition-slow: 280ms ease;
+  --shadow-card: 6px 6px 0 #1a1a1a;
 }

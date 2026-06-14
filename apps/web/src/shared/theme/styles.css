@@ -1,0 +1,65 @@
+/* ─── Tailwind v4 entry — Cosas de Casa ────────────────────────────────────── */
+/* Tailwind se monta ENCIMA del sistema de tokens existente. NO redefine colores: */
+/* el bloque @theme inline mapea los tokens de Tailwind/shadcn a las CSS vars      */
+/* semánticas que tokens.base.css / tokens.themes.css resuelven por theme + modo.  */
+
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+/* Variante dark por atributo en <html data-mode="dark"> (modelo del proyecto). */
+@custom-variant dark (&:where([data-mode='dark'], [data-mode='dark'] *));
+
+@theme inline {
+  /* ── Colores shadcn -> CSS vars semánticas (resueltas por theme activo) ────── */
+  --color-background: var(--color-surface);
+  --color-foreground: var(--color-text);
+
+  --color-card: var(--color-surface-raised);
+  --color-card-foreground: var(--color-text);
+
+  --color-popover: var(--color-surface-raised);
+  --color-popover-foreground: var(--color-text);
+
+  --color-primary: var(--color-accent);
+  --color-primary-foreground: var(--color-text-inverse);
+
+  --color-secondary: var(--color-surface-raised);
+  --color-secondary-foreground: var(--color-text);
+
+  --color-muted: var(--color-surface-overlay);
+  --color-muted-foreground: var(--color-text-muted);
+
+  --color-accent: var(--color-accent-subtle);
+  --color-accent-foreground: var(--color-accent);
+
+  --color-destructive: var(--color-error);
+  --color-destructive-foreground: var(--color-text-inverse);
+
+  /* ── Feedback (success/warning/info/error) -> utilidades bg-*/text-* ───────── */
+  --color-success: var(--color-success);
+  --color-success-foreground: var(--color-text-inverse);
+  --color-warning: var(--color-warning);
+  --color-warning-foreground: var(--color-text-inverse);
+  --color-info: var(--color-info);
+  --color-info-foreground: var(--color-text-inverse);
+  --color-error: var(--color-error);
+  --color-error-foreground: var(--color-text-inverse);
+
+  --color-border: var(--color-border);
+  --color-input: var(--color-border);
+  --color-ring: var(--color-accent);
+
+  /* ── Radios -> tokens existentes ───────────────────────────────────────────── */
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-lg);
+  --radius-card: var(--radius-card);
+  --radius-full: var(--radius-full);
+  --radius: var(--radius-card);
+
+  /* ── Tipografía -> tokens existentes ───────────────────────────────────────── */
+  --font-sans: var(--font-body);
+  --font-heading: var(--font-heading);
+  --font-mono: var(--font-mono);
+}

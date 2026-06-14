@@ -1,0 +1,180 @@
+/**
+ * CreatePlanView — vista presentacional `base` (shadcn) del formulario de plan.
+ *
+ * Porta el JSX del componente base del kit (Lovable `CreatePlanPage`) a las
+ * primitivas shadcn de `@/shared/ui/*`, reconciliando los tipos con `SavedPlaceDto`
+ * real. El estado del formulario (título, descripción, fecha, lugar) es estado de
+ * UI presentacional y vive en la vista; al enviar emite los valores resueltos.
+ *
+ * Toggle saved/manual: la vista resuelve el lugar guardado seleccionado a
+ * `{ name, address }` desde `savedPlaces` y lo emite junto con `savePlace`. El
+ * container decide qué hacer con esos valores (crear plan + guardar lugar).
+ *
+ * Presentacional puro: solo props in / callbacks out. Sin fetch, sin hooks de
+ * datos, sin stores, sin navegación.
+ */
+
+import { useState } from 'react';
+import { Map as MapIcon } from 'lucide-react';
+import { Button } from '@/shared/ui/button';
+import { Input } from '@/shared/ui/input';
+import { Label } from '@/shared/ui/label';
+import { Textarea } from '@/shared/ui/textarea';
+import { Checkbox } from '@/shared/ui/checkbox';
+import { Alert, AlertDescription } from '@/shared/ui/alert';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/shared/ui/select';
+import type { PlanPlaceInput, CreatePlanViewProps } from '../types';
+
+export default function CreatePlanView(props: CreatePlanViewProps) {
+  const { savedPlaces, isSubmitting, error, onSubmit, onCancel } = props;
+
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [scheduledAt, setScheduledAt] = useState('');
+  const [useSaved, setUseSaved] = useState('');
+  const [placeName, setPlaceName] = useState('');
+  const [placeAddress, setPlaceAddress] = useState('');
+  const [savePlace, setSavePlace] = useState(false);
+
+  function handleSubmit() {
+    let place: PlanPlaceInput | undefined;
+    if (useSaved) {
+      const sp = savedPlaces.find((s) => s.id === useSaved);
+      if (sp) place = { name: sp.name, address: sp.address };
+    } else if (placeName.trim()) {
+      place = { name: placeName.trim(), address: placeAddress.trim() || undefined };
+    }
+
+    onSubmit({
+      title: title.trim(),
+      description: description.trim() || undefined,
+      scheduledAt: scheduledAt || undefined,
+      place,
+      // savePlace solo aplica a un lugar manual nuevo con nombre.
+      savePlace: !useSaved && savePlace && Boolean(placeName.trim()),
+    });
+  }
+
+  return (
+    <div className="space-y-4">
+      <button type="button" onClick={onCancel} className="text-sm text-muted-foreground cursor-pointer">
+        ‹ Planes
+      </button>
+      <h1 className="text-2xl font-bold">Nuevo plan</h1>
+
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      <div className="space-y-3">
+        <div className="space-y-1.5">
+          <Label htmlFor="plan-title">Título *</Label>
+          <Input
+            id="plan-title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Cañas en La Latina"
+            autoFocus
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="plan-description">Descripción</Label>
+          <Textarea
+            id="plan-description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={3}
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="plan-scheduled-at">Cuándo</Label>
+          <Input
+            id="plan-scheduled-at"
+            type="datetime-local"
+            value={scheduledAt}
+            onChange={(e) => setScheduledAt(e.target.value)}
+          />
+        </div>
+
+        <fieldset className="space-y-3 p-3 rounded-card border border-border">
+          <legend className="text-sm font-medium px-1">Lugar</legend>
+
+          {savedPlaces.length > 0 && (
+            <div className="space-y-1.5">
+              <Label>Lugar guardado</Label>
+              <Select value={useSaved} onValueChange={setUseSaved}>
+                <SelectTrigger aria-label="Lugar guardado">
+                  <SelectValue placeholder="Elige uno o escribe abajo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {savedPlaces.map((sp) => (
+                    <SelectItem key={sp.id} value={sp.id}>
+                      {sp.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {!useSaved && (
+            <>
+              <div className="space-y-1.5">
+                <Label htmlFor="place-name">Nombre</Label>
+                <Input
+                  id="place-name"
+                  value={placeName}
+                  onChange={(e) => setPlaceName(e.target.value)}
+                  placeholder="p. ej. Parque del Retiro"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="place-address">Dirección</Label>
+                <Input
+                  id="place-address"
+                  value={placeAddress}
+                  onChange={(e) => setPlaceAddress(e.target.value)}
+                />
+              </div>
+              {placeName.trim() && (
+                <label className="flex items-center gap-2 text-sm cursor-pointer min-h-[36px]">
+                  <Checkbox
+                    checked={savePlace}
+                    onCheckedChange={(c) => setSavePlace(c === true)}
+                  />
+                  Guardar este lugar
+                </label>
+              )}
+            </>
+          )}
+
+          {/* TODO(maps): aquí iría el widget de Google Maps para seleccionar el lugar. */}
+          <div className="rounded-md border border-dashed border-border bg-muted h-32 grid place-items-center text-muted-foreground text-sm">
+            <span className="flex items-center gap-2">
+              <MapIcon className="h-4 w-4" />
+              Mapa próximamente
+            </span>
+          </div>
+        </fieldset>
+
+        <Button
+          className="w-full"
+          disabled={!title.trim() || isSubmitting}
+          onClick={handleSubmit}
+        >
+          {isSubmitting ? 'Creando…' : 'Crear plan'}
+        </Button>
+      </div>
+    </div>
+  );
+}

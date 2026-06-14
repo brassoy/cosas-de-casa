@@ -1,360 +1,311 @@
 /**
- * Tests de la feature tasks.
+ * Tests de la feature tasks (vistas presentacionales `base`, Fase 2 theme base).
+ *
+ * Tras la migración a themes, el render vive en las vistas presentacionales
+ * `views/base/*View` (props in / callbacks out). Los containers (`TasksPage` /
+ * `TaskDetailPage`) solo cablean la lógica real (queries, mutaciones, filtros
+ * Zustand, compresión + Supabase Storage) y delegan en `ThemeView`, cuyo
+ * registry se compone en otra fase. Por eso los tests de UI apuntan directamente
+ * a las vistas, que es donde está la lógica de presentación.
  *
  * Cubre:
- *  1. TasksPage — render básico + filtro por estado
- *  2. CreateTaskModal — validación de título obligatorio
- *  3. Flujo compresión+subida de foto — mockea browser-image-compression y supabase.storage
+ *  1. TasksListView   — cabecera, listado, filtros, vacío, error, callbacks, diálogo de crear.
+ *  2. CreateTaskDialog (dentro de TasksListView) — validación de título, preselección, payload.
+ *  3. TaskDetailView  — cabecera, edición, cambio de estado, galería (subida foto), generar lista.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-// ── Mocks de infraestructura ──────────────────────────────────────────────────
+import type { FamilyMemberDto } from '@cosasdecasa/contracts';
+import TasksListView from './views/base/TasksListView';
+import TaskDetailView from './views/base/TaskDetailView';
+import type {
+  TaskDto,
+  TaskView,
+  TasksListViewProps,
+  TaskDetailViewProps,
+} from './views/types';
 
-vi.mock('@/shared/lib/supabase', () => ({
-  supabase: {
-    auth: {
-      onAuthStateChange: vi.fn(() => ({
-        data: { subscription: { unsubscribe: vi.fn() } },
-      })),
-      getSession: vi
-        .fn()
-        .mockResolvedValue({ data: { session: { access_token: 'tok' } } }),
-    },
-    storage: {
-      listBuckets: vi.fn().mockResolvedValue({ data: [{ name: 'task-photos' }] }),
-      from: vi.fn(() => ({
-        upload: vi.fn().mockResolvedValue({ error: null }),
-        getPublicUrl: vi.fn(() => ({
-          data: { publicUrl: 'https://storage.example.com/photo.jpg' },
-        })),
-      })),
-    },
-  },
-}));
+// ── Factories ──────────────────────────────────────────────────────────────────
 
-vi.mock('@/features/auth/store/auth.store', () => ({
-  useAuthStore: vi.fn(
-    (
-      selector: (s: {
-        user: { id: string; email: string; user_metadata: Record<string, unknown> };
-      }) => unknown,
-    ) => selector({ user: { id: 'user-1', email: 'test@example.com', user_metadata: {} } }),
-  ),
-}));
+const MEMBERS: FamilyMemberDto[] = [
+  { userId: 'user-1', displayName: 'Ana', role: 'OWNER', joinedAt: new Date().toISOString() },
+  { userId: 'user-2', displayName: 'Marcos', role: 'MEMBER', joinedAt: new Date().toISOString() },
+];
 
-vi.mock('@/features/family/store/family.store', () => ({
-  useFamilyStore: vi.fn(
-    (selector: (s: { activeFamily: { id: string; name: string } | null }) => unknown) =>
-      selector({ activeFamily: { id: 'family-1', name: 'Mi familia' } }),
-  ),
-}));
-
-vi.mock('@tanstack/react-router', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@tanstack/react-router')>();
+function makeTask(overrides: Partial<TaskDto> = {}): TaskDto {
   return {
-    ...actual,
-    useNavigate: () => vi.fn(),
-    useParams: () => ({ familyId: 'family-1', taskId: 'task-1' }),
+    id: 'task-1',
+    familyId: 'family-1',
+    title: 'Reparar el grifo',
+    description: null,
+    status: 'OPEN',
+    recommendedDate: null,
+    deadlineDate: null,
+    createdBy: null,
+    assignees: [],
+    photos: [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    ...overrides,
   };
-});
-
-// ── Mock de browser-image-compression ────────────────────────────────────────
-
-vi.mock('browser-image-compression', () => ({
-  default: vi.fn(async (file: File) => file), // devuelve el mismo File sin comprimir
-}));
-
-// ── Mock de useTasks ──────────────────────────────────────────────────────────
-
-const mockCreateTask = vi.fn();
-const mockUploadPhoto = vi.fn();
-
-const makeMockTask = (overrides: Partial<{
-  id: string;
-  title: string;
-  status: 'OPEN' | 'IN_PROGRESS' | 'DONE';
-}> = {}) => ({
-  id: overrides.id ?? 'task-1',
-  familyId: 'family-1',
-  title: overrides.title ?? 'Reparar el grifo',
-  description: null,
-  status: overrides.status ?? 'OPEN',
-  recommendedDate: null,
-  deadlineDate: null,
-  createdBy: null,
-  assignees: [],
-  photos: [],
-  createdAt: new Date().toISOString(),
-  updatedAt: new Date().toISOString(),
-});
-
-vi.mock('@/features/tasks/hooks/useTasks', () => ({
-  useFamilyTasks: vi.fn(() => ({
-    data: [
-      makeMockTask({ id: 'task-1', title: 'Reparar el grifo', status: 'OPEN' }),
-      makeMockTask({ id: 'task-2', title: 'Pintar el salón', status: 'DONE' }),
-    ],
-    isLoading: false,
-    error: null,
-  })),
-  useTaskDetail: vi.fn(() => ({
-    data: makeMockTask(),
-    isLoading: false,
-    error: null,
-  })),
-  useCreateTask: vi.fn(() => ({
-    mutate: mockCreateTask,
-    isPending: false,
-  })),
-  useUpdateTask: vi.fn(() => ({
-    mutate: vi.fn(),
-    isPending: false,
-  })),
-  useUpdateTaskAssignees: vi.fn(() => ({
-    mutate: vi.fn(),
-    isPending: false,
-  })),
-  useUploadTaskPhoto: vi.fn(() => ({
-    mutate: mockUploadPhoto,
-    isPending: false,
-  })),
-  useGenerateShoppingList: vi.fn(() => ({
-    mutate: vi.fn(),
-    isPending: false,
-  })),
-  getPhotoPublicUrl: vi.fn(
-    () => 'https://storage.example.com/photo.jpg',
-  ),
-  taskKeys: {
-    all: ['tasks'],
-    byFamily: (id: string) => ['tasks', 'family', id],
-    detail: (id: string) => ['tasks', 'detail', id],
-  },
-  ApiRequestError: class extends Error {
-    constructor(
-      public readonly status: number,
-      public readonly body: { message: string },
-    ) {
-      super(body.message);
-    }
-  },
-}));
-
-vi.mock('@/features/family/hooks/useFamily', () => ({
-  useFamilyMembers: vi.fn(() => ({
-    data: [
-      { userId: 'user-1', displayName: 'Ana', role: 'OWNER', joinedAt: new Date().toISOString() },
-      { userId: 'user-2', displayName: 'Marcos', role: 'MEMBER', joinedAt: new Date().toISOString() },
-    ],
-  })),
-  useGenerateJoinPin: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
-}));
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function makeQC() {
-  return new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
 }
 
-function wrap(ui: React.ReactElement) {
-  return render(<QueryClientProvider client={makeQC()}>{ui}</QueryClientProvider>);
+function makeTaskView(overrides: Partial<TaskView> = {}): TaskView {
+  return { ...makeTask(), photos: [], ...overrides } as TaskView;
 }
 
-// ── Importaciones bajo test ───────────────────────────────────────────────────
+function listProps(overrides: Partial<TasksListViewProps> = {}): TasksListViewProps {
+  return {
+    tasks: [
+      makeTask({ id: 'task-1', title: 'Reparar el grifo', status: 'OPEN' }),
+      makeTask({ id: 'task-2', title: 'Pintar el salón', status: 'DONE' }),
+    ],
+    members: MEMBERS,
+    isLoading: false,
+    error: null,
+    statusFilter: 'ALL',
+    assigneeFilter: 'ALL',
+    currentUserId: 'user-1',
+    createOpen: false,
+    isCreating: false,
+    createError: null,
+    onChangeStatusFilter: vi.fn(),
+    onChangeAssigneeFilter: vi.fn(),
+    onChangeCreateOpen: vi.fn(),
+    onOpen: vi.fn(),
+    onCreate: vi.fn(),
+    ...overrides,
+  };
+}
 
-import { TasksPage } from './pages/TasksPage';
-import { CreateTaskModal } from './components/CreateTaskModal';
-
-// ── Limpieza ──────────────────────────────────────────────────────────────────
-
-beforeEach(() => {
-  vi.clearAllMocks();
-});
+function detailProps(overrides: Partial<TaskDetailViewProps> = {}): TaskDetailViewProps {
+  return {
+    task: makeTaskView(),
+    isEditing: false,
+    members: MEMBERS,
+    isLoading: false,
+    error: null,
+    isSaving: false,
+    editError: null,
+    isUpdatingStatus: false,
+    uploadingPhoto: false,
+    uploadError: null,
+    isGeneratingList: false,
+    generateError: null,
+    onBack: vi.fn(),
+    onToggleEdit: vi.fn(),
+    onSave: vi.fn(),
+    onSetAssignees: vi.fn(),
+    onSetStatus: vi.fn(),
+    onUploadPhoto: vi.fn(),
+    onGenerateShoppingList: vi.fn(),
+    ...overrides,
+  };
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 1. TasksPage
+// 1. TasksListView
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('TasksPage', () => {
-  it('renderiza el título de la página y el botón de crear', () => {
-    wrap(<TasksPage />);
+describe('TasksListView', () => {
+  it('renderiza el título y el botón de crear', () => {
+    render(<TasksListView {...listProps()} />);
     expect(screen.getByText('Tareas')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /crear tarea/i })).toBeInTheDocument();
   });
 
-  it('muestra las tareas de la familia', () => {
-    wrap(<TasksPage />);
+  it('muestra las tareas recibidas', () => {
+    render(<TasksListView {...listProps()} />);
     expect(screen.getByText('Reparar el grifo')).toBeInTheDocument();
     expect(screen.getByText('Pintar el salón')).toBeInTheDocument();
   });
 
   it('renderiza los filtros de estado y asignado', () => {
-    wrap(<TasksPage />);
-    expect(screen.getByLabelText(/filtrar por estado/i)).toBeInTheDocument();
+    render(<TasksListView {...listProps()} />);
+    expect(screen.getByRole('group', { name: /filtrar por estado/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/filtrar por asignado/i)).toBeInTheDocument();
   });
 
-  it('filtrar por estado DONE oculta las tareas OPEN', async () => {
+  it('emite onChangeStatusFilter al pulsar un filtro de estado', async () => {
     const user = userEvent.setup();
-    wrap(<TasksPage />);
+    const onChangeStatusFilter = vi.fn();
+    render(<TasksListView {...listProps({ onChangeStatusFilter })} />);
 
-    const statusSelect = screen.getByLabelText(/filtrar por estado/i);
-    await user.selectOptions(statusSelect, 'DONE');
+    const group = screen.getByRole('group', { name: /filtrar por estado/i });
+    await user.click(within(group).getByRole('button', { name: 'Hecho' }));
 
-    // "Pintar el salón" es DONE → debe seguir visible
-    expect(screen.getByText('Pintar el salón')).toBeInTheDocument();
-    // "Reparar el grifo" es OPEN → debe desaparecer
-    expect(screen.queryByText('Reparar el grifo')).not.toBeInTheDocument();
+    expect(onChangeStatusFilter).toHaveBeenCalledWith('DONE');
   });
 
-  it('filtrar por estado OPEN oculta las tareas DONE', async () => {
+  it('emite onOpen al pulsar una tarjeta', async () => {
     const user = userEvent.setup();
-    wrap(<TasksPage />);
+    const onOpen = vi.fn();
+    render(<TasksListView {...listProps({ onOpen })} />);
 
-    const statusSelect = screen.getByLabelText(/filtrar por estado/i);
-    await user.selectOptions(statusSelect, 'OPEN');
-
-    expect(screen.getByText('Reparar el grifo')).toBeInTheDocument();
-    expect(screen.queryByText('Pintar el salón')).not.toBeInTheDocument();
+    await user.click(screen.getByText('Reparar el grifo'));
+    expect(onOpen).toHaveBeenCalledWith('task-1');
   });
 
-  it('abre el modal al pulsar "+ Crear tarea"', async () => {
+  it('muestra el estado vacío cuando no hay tareas', () => {
+    render(<TasksListView {...listProps({ tasks: [] })} />);
+    expect(screen.getByText(/no hay tareas/i)).toBeInTheDocument();
+  });
+
+  it('muestra el error cuando lo recibe', () => {
+    render(<TasksListView {...listProps({ tasks: [], error: 'Algo falló' })} />);
+    expect(screen.getByText('Algo falló')).toBeInTheDocument();
+  });
+
+  it('emite onChangeCreateOpen(true) al pulsar "Crear tarea"', async () => {
     const user = userEvent.setup();
-    wrap(<TasksPage />);
+    const onChangeCreateOpen = vi.fn();
+    render(<TasksListView {...listProps({ onChangeCreateOpen })} />);
 
     await user.click(screen.getByRole('button', { name: /crear tarea/i }));
+    expect(onChangeCreateOpen).toHaveBeenCalledWith(true);
+  });
 
-    expect(screen.getByRole('dialog', { name: /crear tarea/i })).toBeInTheDocument();
+  it('renderiza el diálogo cuando createOpen es true', () => {
+    render(<TasksListView {...listProps({ createOpen: true })} />);
+    expect(screen.getByRole('dialog', { name: /nueva tarea/i })).toBeInTheDocument();
   });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 2. CreateTaskModal — validación
+// 2. CreateTaskDialog (sub-flujo dentro de TasksListView)
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('CreateTaskModal — validación', () => {
-  const defaultProps = {
-    familyId: 'family-1',
-    currentUserId: 'user-1',
-    members: [
-      { userId: 'user-1', displayName: 'Ana', role: 'OWNER' as const, joinedAt: new Date().toISOString() },
-    ],
-    onClose: vi.fn(),
-  };
-
-  it('muestra el campo de título', () => {
-    wrap(<CreateTaskModal {...defaultProps} />);
-    expect(screen.getByLabelText(/título/i)).toBeInTheDocument();
-  });
-
-  it('el botón Crear tarea está deshabilitado cuando el título está vacío', () => {
-    wrap(<CreateTaskModal {...defaultProps} />);
-    const btn = screen.getByRole('button', { name: /crear tarea/i });
-    expect(btn).toBeDisabled();
-  });
-
-  it('el botón Crear tarea se habilita al escribir un título', async () => {
+describe('TasksListView — diálogo de crear tarea', () => {
+  function openDialog(props: Partial<TasksListViewProps> = {}) {
     const user = userEvent.setup();
-    wrap(<CreateTaskModal {...defaultProps} />);
+    render(<TasksListView {...listProps({ createOpen: true, ...props })} />);
+    return user;
+  }
 
-    await user.type(screen.getByLabelText(/título/i), 'Hacer la colada');
-
-    const btn = screen.getByRole('button', { name: /crear tarea/i });
-    expect(btn).not.toBeDisabled();
+  it('el botón "Crear tarea" del diálogo está deshabilitado con título vacío', () => {
+    openDialog();
+    const dialog = screen.getByRole('dialog', { name: /nueva tarea/i });
+    expect(within(dialog).getByRole('button', { name: /crear tarea/i })).toBeDisabled();
   });
 
-  it('llama a createTask.mutate con los datos correctos al enviar', async () => {
-    const user = userEvent.setup();
-    wrap(<CreateTaskModal {...defaultProps} />);
-
-    await user.type(screen.getByLabelText(/título/i), 'Comprar comida');
-    await user.click(screen.getByRole('button', { name: /crear tarea/i }));
-
-    await waitFor(() => {
-      expect(mockCreateTask).toHaveBeenCalledWith(
-        expect.objectContaining({ title: 'Comprar comida' }),
-        expect.any(Object),
-      );
-    });
+  it('preselecciona al usuario actual como asignado', () => {
+    openDialog({ currentUserId: 'user-1' });
+    const dialog = screen.getByRole('dialog', { name: /nueva tarea/i });
+    const anaCheckbox = within(dialog).getByRole('checkbox', { name: /ana/i });
+    expect(anaCheckbox).toBeChecked();
   });
 
-  it('selecciona y deselecciona asignados', async () => {
-    const user = userEvent.setup();
-    wrap(<CreateTaskModal {...defaultProps} />);
+  it('emite onCreate con los valores al enviar', async () => {
+    const onCreate = vi.fn();
+    const user = openDialog({ onCreate });
+    const dialog = screen.getByRole('dialog', { name: /nueva tarea/i });
 
-    const anaBtn = screen.getByRole('button', { name: 'Ana' });
-    // Ana ya está activa (currentUserId === user-1)
-    expect(anaBtn).toHaveAttribute('aria-pressed', 'true');
+    await user.type(within(dialog).getByLabelText(/título/i), 'Comprar comida');
+    await user.click(within(dialog).getByRole('button', { name: /crear tarea/i }));
 
-    // Deseleccionar
-    await user.click(anaBtn);
-    expect(anaBtn).toHaveAttribute('aria-pressed', 'false');
-
-    // Volver a seleccionar
-    await user.click(anaBtn);
-    expect(anaBtn).toHaveAttribute('aria-pressed', 'true');
+    expect(onCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Comprar comida', assigneeIds: ['user-1'] }),
+    );
   });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 3. Flujo compresión + subida de foto
+// 3. TaskDetailView
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('Flujo compresión + subida de foto', () => {
-  it('llama a imageCompression con las opciones correctas y luego sube al storage', async () => {
-    const imageCompression = (await import('browser-image-compression')).default;
-    const { supabase } = await import('@/shared/lib/supabase');
+describe('TaskDetailView', () => {
+  it('renderiza el título y los datos de la tarea', () => {
+    render(
+      <TaskDetailView
+        {...detailProps({
+          task: makeTaskView({ title: 'Montar la estantería', description: 'En el dormitorio' }),
+        })}
+      />,
+    );
+    expect(screen.getByText('Montar la estantería')).toBeInTheDocument();
+    expect(screen.getByText('En el dormitorio')).toBeInTheDocument();
+  });
 
-    const { uploadPhotoToStorage } = await vi.importActual<
-      typeof import('./hooks/useTasks')
-    >('./hooks/useTasks') as { uploadPhotoToStorage?: (taskId: string, file: File) => Promise<string> };
+  it('emite onBack al pulsar volver', async () => {
+    const user = userEvent.setup();
+    const onBack = vi.fn();
+    render(<TaskDetailView {...detailProps({ onBack })} />);
+    await user.click(screen.getByRole('button', { name: /volver a tareas/i }));
+    expect(onBack).toHaveBeenCalled();
+  });
 
-    // uploadPhotoToStorage no está exportada; probamos la mutación a través del hook.
-    // Lo que sí podemos testear es que si alguien llama a la función de compresión
-    // con las opciones esperadas, se llama correctamente.
+  it('emite onSetStatus al pulsar un estado', async () => {
+    const user = userEvent.setup();
+    const onSetStatus = vi.fn();
+    render(<TaskDetailView {...detailProps({ onSetStatus })} />);
 
-    const file = new File(['content'], 'foto.jpg', { type: 'image/jpeg' });
+    const group = screen.getByRole('group', { name: /cambiar estado/i });
+    await user.click(within(group).getByRole('button', { name: 'Hecho' }));
+    expect(onSetStatus).toHaveBeenCalledWith('DONE');
+  });
 
-    // Llamamos directamente a imageCompression para verificar el contrato.
-    await imageCompression(file, { maxSizeMB: 1, maxWidthOrHeight: 1600, useWebWorker: true });
-
-    expect(imageCompression).toHaveBeenCalledWith(
-      file,
-      expect.objectContaining({ maxSizeMB: 1, maxWidthOrHeight: 1600 }),
+  it('muestra el editor controlado en modo edición y emite onSave', async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn();
+    render(
+      <TaskDetailView
+        {...detailProps({ isEditing: true, task: makeTaskView({ title: 'Original' }), onSave })}
+      />,
     );
 
-    void uploadPhotoToStorage; // referenciado sin errores de TS
-    void supabase; // referenciado para confirmar que el mock está activo
+    const titleInput = screen.getByLabelText('Título');
+    expect(titleInput).toHaveValue('Original');
+    await user.clear(titleInput);
+    await user.type(titleInput, 'Editado');
+    await user.click(screen.getByRole('button', { name: /guardar cambios/i }));
+
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ title: 'Editado' }));
   });
 
-  it('llama a mutate de uploadPhoto al seleccionar un archivo en PhotoGallery', async () => {
-    // Necesitamos TaskDetailPage para renderizar PhotoGallery con su handler.
-    // Como useTaskDetail ya está mockeado, simplemente verificamos que el mutate
-    // se dispara cuando se selecciona un fichero.
-    const { TaskDetailPage } = await import('./pages/TaskDetailPage');
+  it('emite onUploadPhoto al seleccionar un archivo en la galería', async () => {
     const user = userEvent.setup();
-
-    wrap(<TaskDetailPage />);
+    const onUploadPhoto = vi.fn();
+    render(<TaskDetailView {...detailProps({ onUploadPhoto })} />);
 
     const fileInput = screen.getByLabelText(/seleccionar imagen/i);
     const file = new File(['img'], 'foto.png', { type: 'image/png' });
     await user.upload(fileInput, file);
 
-    await waitFor(() => {
-      expect(mockUploadPhoto).toHaveBeenCalledWith(file, expect.any(Object));
-    });
+    await waitFor(() => expect(onUploadPhoto).toHaveBeenCalledWith(file));
   });
 
-  it('el mock de supabase.storage.from devuelve publicUrl', async () => {
-    const { supabase } = await import('@/shared/lib/supabase');
-    const storageRef = supabase.storage.from('task-photos');
-    const result = storageRef.getPublicUrl('tasks/task-1/photo.jpg');
-    expect(result.data.publicUrl).toBe('https://storage.example.com/photo.jpg');
+  it('pinta las fotos con la URL pública ya resuelta', () => {
+    render(
+      <TaskDetailView
+        {...detailProps({
+          task: makeTaskView({
+            photos: [
+              {
+                id: 'photo-1',
+                taskId: 'task-1',
+                storagePath: 'tasks/task-1/a.jpg',
+                createdAt: new Date().toISOString(),
+                url: 'https://storage.example.com/a.jpg',
+              },
+            ],
+          }),
+        })}
+      />,
+    );
+    expect(screen.getByRole('img', { name: /foto de la tarea/i })).toHaveAttribute(
+      'src',
+      'https://storage.example.com/a.jpg',
+    );
+  });
+
+  it('emite onGenerateShoppingList al pulsar el botón', async () => {
+    const user = userEvent.setup();
+    const onGenerateShoppingList = vi.fn();
+    render(<TaskDetailView {...detailProps({ onGenerateShoppingList })} />);
+    await user.click(screen.getByRole('button', { name: /generar lista de la compra/i }));
+    expect(onGenerateShoppingList).toHaveBeenCalled();
   });
 });

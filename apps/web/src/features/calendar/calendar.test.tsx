@@ -1,72 +1,40 @@
 /**
- * Tests de la feature calendar (Fase 3A).
+ * Tests de la feature calendar (theme base).
+ *
+ * Se testea la VISTA pura `CalendarView` (import default + render con props), NO
+ * el container: el container solo cablea hooks reales y delega en `ThemeView`.
  *
  * Cubre:
- *  1. CalendarGrid — render del grid del mes con eventos, navegación, día de hoy
- *  2. AgendaView   — renderiza eventos futuros agrupados por día
- *  3. CalendarEventModal — validación: título obligatorio, deshabilitar botón
- *  4. CalendarPage — integración: muestra eventos, navega de mes, crea evento
+ *  1. Rejilla mensual — render del mes con eventos, navegación, día de hoy,
+ *     días fuera de mes, "+N más", clicks (día / evento).
+ *  2. Agenda — eventos futuros agrupados, oculta pasados, click en evento.
+ *  3. Modal de evento — validación (título obligatorio), allDay cambia el input,
+ *     asistentes toggle, modo edición (Guardar/Eliminar), borrado de dos toques,
+ *     ocurrencia recurrente en SOLO LECTURA.
+ *  4. Cabecera — título, botón nuevo evento, selector de vista, callbacks.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-// ── Mocks de infraestructura ──────────────────────────────────────────────────
+// jsdom no implementa ResizeObserver. El `Switch` de Radix (usado en el modal de
+// evento para "Todo el día") lo necesita al montarse; lo polirrellenamos local.
+if (!('ResizeObserver' in globalThis)) {
+  class ResizeObserverMock {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+  (globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver = ResizeObserverMock;
+}
 
-vi.mock('@/shared/lib/supabase', () => ({
-  supabase: {
-    auth: {
-      onAuthStateChange: vi.fn(() => ({
-        data: { subscription: { unsubscribe: vi.fn() } },
-      })),
-      getSession: vi
-        .fn()
-        .mockResolvedValue({ data: { session: { access_token: 'tok' } } }),
-    },
-  },
-}));
-
-vi.mock('@/features/auth/store/auth.store', () => ({
-  useAuthStore: vi.fn(
-    (selector: (s: { user: { id: string } }) => unknown) =>
-      selector({ user: { id: 'user-1' } }),
-  ),
-}));
-
-vi.mock('@/features/family/store/family.store', () => ({
-  useFamilyStore: vi.fn(
-    (selector: (s: { activeFamily: { id: string; name: string } | null }) => unknown) =>
-      selector({ activeFamily: { id: 'family-1', name: 'Mi familia' } }),
-  ),
-}));
-
-vi.mock('@tanstack/react-router', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@tanstack/react-router')>();
-  return {
-    ...actual,
-    useNavigate: () => vi.fn(),
-    useParams: () => ({ familyId: 'family-1' }),
-  };
-});
-
-// ── Mock de useFamily ─────────────────────────────────────────────────────────
-
-vi.mock('@/features/family/hooks/useFamily', () => ({
-  useFamilyMembers: vi.fn(() => ({
-    data: [
-      { userId: 'user-1', displayName: 'Ana', role: 'OWNER', joinedAt: new Date().toISOString() },
-      { userId: 'user-2', displayName: 'Marcos', role: 'MEMBER', joinedAt: new Date().toISOString() },
-    ],
-    isLoading: false,
-    error: null,
-  })),
-}));
+import CalendarView from './views/base/CalendarView';
+import type { CalendarEventDto, CalendarViewProps, FamilyMemberDto } from './views/types';
 
 // ── Helpers de datos ──────────────────────────────────────────────────────────
 
-/** Construye un CalendarEventDto (forma real del contrato) para una fecha concreta en hora local. */
+/** Construye un CalendarEventDto real para una fecha concreta en hora local. */
 function makeEvent(overrides: {
   id?: string;
   title?: string;
@@ -75,8 +43,18 @@ function makeEvent(overrides: {
   day: number;
   hour?: number;
   allDay?: boolean;
-}) {
-  const { id = 'ev-1', title = 'Reunión familiar', year, month, day, hour = 10, allDay = false } = overrides;
+  recurrenceRule?: string | null;
+}): CalendarEventDto {
+  const {
+    id = 'ev-1',
+    title = 'Reunión familiar',
+    year,
+    month,
+    day,
+    hour = 10,
+    allDay = false,
+    recurrenceRule = null,
+  } = overrides;
   const startsAt = new Date(year, month - 1, day, hour, 0, 0).toISOString();
   const endsAt = new Date(year, month - 1, day, hour + 1, 0, 0).toISOString();
   return {
@@ -88,220 +66,161 @@ function makeEvent(overrides: {
     startsAt,
     endsAt,
     allDay,
-    recurrenceRule: null,
-    attendees: [] as { userId: string }[],
+    recurrenceRule,
+    attendees: [],
     createdBy: null,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
 }
 
-// ── Spies de mutaciones ───────────────────────────────────────────────────────
+const MEMBERS: FamilyMemberDto[] = [
+  { userId: 'user-1', displayName: 'Ana', role: 'OWNER', joinedAt: new Date().toISOString() },
+  { userId: 'user-2', displayName: 'Marcos', role: 'MEMBER', joinedAt: new Date().toISOString() },
+];
 
-const mockCreateEvent = vi.fn();
-const mockUpdateEvent = vi.fn();
-const mockDeleteEvent = vi.fn();
-
-// ── Mock de useCalendar ────────────────────────────────────────────────────────
-
-let mockEvents: ReturnType<typeof makeEvent>[] = [];
-
-const mockSetAttendees = vi.fn();
-
-vi.mock('@/features/calendar/hooks/useCalendar', () => ({
-  useCalendarEvents: vi.fn(() => ({
-    data: mockEvents,
+/** Props base de la vista, con callbacks espía sobreescribibles. */
+function baseProps(overrides: Partial<CalendarViewProps> = {}): CalendarViewProps {
+  return {
+    events: [],
+    members: MEMBERS,
     isLoading: false,
     error: null,
-  })),
-  useCreateCalendarEvent: vi.fn(() => ({
-    mutate: mockCreateEvent,
-    isPending: false,
-  })),
-  useUpdateCalendarEvent: vi.fn(() => ({
-    mutate: mockUpdateEvent,
-    isPending: false,
-  })),
-  useSetEventAttendees: vi.fn(() => ({
-    mutate: mockSetAttendees,
-    isPending: false,
-  })),
-  useDeleteCalendarEvent: vi.fn(() => ({
-    mutate: mockDeleteEvent,
-    isPending: false,
-  })),
-  calendarKeys: {
-    all: ['calendar'],
-    byFamily: (id: string) => ['calendar', 'family', id],
-    byMonth: (id: string, y: number, m: number) => ['calendar', 'family', id, 'month', y, m],
-  },
-  ApiRequestError: class extends Error {
-    constructor(
-      public readonly status: number,
-      public readonly body: { message: string },
-    ) {
-      super(body.message);
-    }
-  },
-}));
-
-// ── Helpers de render ─────────────────────────────────────────────────────────
-
-function makeQC() {
-  return new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
+    view: 'month',
+    viewYear: 2026,
+    viewMonth: 4, // mayo (0-indexed)
+    selectedDay: null,
+    isDayPanelOpen: false,
+    isEventModalOpen: false,
+    editingEvent: null,
+    initialDate: null,
+    isRecurringOccurrence: false,
+    parentEventId: null,
+    isSubmitting: false,
+    confirmDelete: false,
+    submitError: null,
+    onChangeView: vi.fn(),
+    onPrevMonth: vi.fn(),
+    onNextMonth: vi.fn(),
+    onToday: vi.fn(),
+    onSelectDay: vi.fn(),
+    onCloseDayPanel: vi.fn(),
+    onOpenEvent: vi.fn(),
+    onNewEvent: vi.fn(),
+    onNewEventForDay: vi.fn(),
+    onCloseEventModal: vi.fn(),
+    onSubmitEvent: vi.fn(),
+    onDeleteEvent: vi.fn(),
+    ...overrides,
+  };
 }
-
-function wrap(ui: React.ReactElement) {
-  return render(<QueryClientProvider client={makeQC()}>{ui}</QueryClientProvider>);
-}
-
-// ── Importaciones bajo test ───────────────────────────────────────────────────
-
-import { CalendarGrid } from './components/CalendarGrid';
-import { AgendaView } from './components/AgendaView';
-import { CalendarEventModal } from './components/CalendarEventModal';
-import { CalendarPage } from './pages/CalendarPage';
-
-// ── Limpieza ──────────────────────────────────────────────────────────────────
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockEvents = [];
-  // Resetear la mock de mutación de asistentes
-  mockSetAttendees.mockReset();
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 1. CalendarGrid — render del grid
+// 1. Rejilla mensual
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('CalendarGrid — grid mensual', () => {
-  const gridProps = {
-    year: 2026,
-    month: 4, // mayo (0-indexed)
-    events: [] as ReturnType<typeof makeEvent>[],
-    selectedDate: null,
-    onDayClick: vi.fn(),
-    onEventClick: vi.fn(),
-    onPrev: vi.fn(),
-    onNext: vi.fn(),
-    onToday: vi.fn(),
-  };
-
+describe('CalendarView — rejilla mensual', () => {
   it('muestra el título del mes y el año', () => {
-    render(<CalendarGrid {...gridProps} />);
+    render(<CalendarView {...baseProps()} />);
     expect(screen.getByText(/mayo/i)).toBeInTheDocument();
     expect(screen.getByText(/2026/)).toBeInTheDocument();
   });
 
   it('renderiza los 7 encabezados de días (Lun…Dom)', () => {
-    render(<CalendarGrid {...gridProps} />);
+    render(<CalendarView {...baseProps()} />);
     expect(screen.getByText('Lun')).toBeInTheDocument();
     expect(screen.getByText('Dom')).toBeInTheDocument();
   });
 
   it('renderiza al menos 28 celdas de días', () => {
-    render(<CalendarGrid {...gridProps} />);
-    const cells = screen.getAllByRole('gridcell');
-    expect(cells.length).toBeGreaterThanOrEqual(28);
+    render(<CalendarView {...baseProps()} />);
+    expect(screen.getAllByRole('gridcell').length).toBeGreaterThanOrEqual(28);
   });
 
   it('muestra el evento en la celda del día correspondiente', () => {
     const event = makeEvent({ id: 'ev-1', title: 'Cumpleaños Ana', year: 2026, month: 5, day: 15 });
-    render(<CalendarGrid {...gridProps} events={[event]} />);
+    render(<CalendarView {...baseProps({ events: [event] })} />);
     expect(screen.getByText('Cumpleaños Ana')).toBeInTheDocument();
   });
 
-  it('llama a onDayClick al hacer clic en una celda', async () => {
+  it('llama a onSelectDay al hacer clic en una celda', async () => {
     const user = userEvent.setup();
-    const onDayClick = vi.fn();
-    render(<CalendarGrid {...gridProps} onDayClick={onDayClick} />);
+    const onSelectDay = vi.fn();
+    render(<CalendarView {...baseProps({ onSelectDay })} />);
 
-    const cells = screen.getAllByRole('gridcell');
-    await user.click(cells[7]!); // primera fila de días reales
-
-    expect(onDayClick).toHaveBeenCalledWith(expect.any(Date));
+    await user.click(screen.getAllByRole('gridcell')[7]!);
+    expect(onSelectDay).toHaveBeenCalledWith(expect.any(Date));
   });
 
-  it('llama a onPrev al pulsar el botón de mes anterior', async () => {
+  it('llama a onPrevMonth al pulsar el botón de mes anterior', async () => {
     const user = userEvent.setup();
-    const onPrev = vi.fn();
-    render(<CalendarGrid {...gridProps} onPrev={onPrev} />);
+    const onPrevMonth = vi.fn();
+    render(<CalendarView {...baseProps({ onPrevMonth })} />);
 
     await user.click(screen.getByRole('button', { name: /mes anterior/i }));
-    expect(onPrev).toHaveBeenCalledOnce();
+    expect(onPrevMonth).toHaveBeenCalledOnce();
   });
 
-  it('llama a onNext al pulsar el botón de mes siguiente', async () => {
+  it('llama a onNextMonth al pulsar el botón de mes siguiente', async () => {
     const user = userEvent.setup();
-    const onNext = vi.fn();
-    render(<CalendarGrid {...gridProps} onNext={onNext} />);
+    const onNextMonth = vi.fn();
+    render(<CalendarView {...baseProps({ onNextMonth })} />);
 
     await user.click(screen.getByRole('button', { name: /mes siguiente/i }));
-    expect(onNext).toHaveBeenCalledOnce();
+    expect(onNextMonth).toHaveBeenCalledOnce();
   });
 
   it('el día de hoy tiene data-today=true', () => {
     const today = new Date();
-    // Solo si el año/mes del grid coincide con hoy podemos comprobarlo.
-    const props = { ...gridProps, year: today.getFullYear(), month: today.getMonth() };
-    render(<CalendarGrid {...props} />);
-
-    const todayCell = screen.getAllByRole('gridcell').find(
-      (el) => el.getAttribute('data-today') === 'true',
+    render(
+      <CalendarView
+        {...baseProps({ viewYear: today.getFullYear(), viewMonth: today.getMonth() })}
+      />,
     );
+    const todayCell = screen
+      .getAllByRole('gridcell')
+      .find((el) => el.getAttribute('data-today') === 'true');
     expect(todayCell).toBeTruthy();
   });
 
   it('los días fuera del mes tienen data-outside=true', () => {
-    render(<CalendarGrid {...gridProps} />);
-    const outsideCells = screen.getAllByRole('gridcell').filter(
-      (el) => el.getAttribute('data-outside') === 'true',
-    );
-    // Mayo 2026 empieza en viernes → los primeros días del grid (lun-jue) son abril
-    expect(outsideCells.length).toBeGreaterThan(0);
+    render(<CalendarView {...baseProps()} />);
+    const outside = screen
+      .getAllByRole('gridcell')
+      .filter((el) => el.getAttribute('data-outside') === 'true');
+    expect(outside.length).toBeGreaterThan(0);
   });
 
-  it('el evento muestra la hora cuando no es todo-el-día', () => {
-    const event = makeEvent({ id: 'ev-time', title: 'Cena', year: 2026, month: 5, day: 20, hour: 21 });
-    render(<CalendarGrid {...gridProps} events={[event]} />);
-    // La hora se muestra en la chip del evento
-    expect(screen.getByText('Cena')).toBeInTheDocument();
-  });
-
-  it('llama a onEventClick al hacer clic en un evento del grid', async () => {
+  it('llama a onOpenEvent al hacer clic en un evento del grid', async () => {
     const user = userEvent.setup();
-    const onEventClick = vi.fn();
+    const onOpenEvent = vi.fn();
     const event = makeEvent({ id: 'ev-click', title: 'Partido', year: 2026, month: 5, day: 10 });
-    render(<CalendarGrid {...gridProps} events={[event]} onEventClick={onEventClick} />);
+    render(<CalendarView {...baseProps({ events: [event], onOpenEvent })} />);
 
     await user.click(screen.getByText('Partido'));
-    expect(onEventClick).toHaveBeenCalledWith(event);
+    expect(onOpenEvent).toHaveBeenCalledWith(event);
   });
 
   it('muestra "+N más" cuando hay más eventos de los visibles', () => {
     const events = Array.from({ length: 5 }, (_, i) =>
       makeEvent({ id: `ev-${i}`, title: `Evento ${i}`, year: 2026, month: 5, day: 12 }),
     );
-    render(<CalendarGrid {...gridProps} events={events} />);
+    render(<CalendarView {...baseProps({ events })} />);
     expect(screen.getByText(/\+\d+ más/)).toBeInTheDocument();
   });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 2. AgendaView
+// 2. Agenda
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('AgendaView', () => {
-  const onEventClick = vi.fn();
-  const onNewEvent = vi.fn();
-
+describe('CalendarView — agenda', () => {
   it('muestra el mensaje vacío cuando no hay eventos futuros', () => {
-    render(
-      <AgendaView events={[]} onEventClick={onEventClick} onNewEvent={onNewEvent} />,
-    );
+    render(<CalendarView {...baseProps({ view: 'agenda' })} />);
     expect(screen.getByText(/no hay eventos próximos/i)).toBeInTheDocument();
   });
 
@@ -315,9 +234,7 @@ describe('AgendaView', () => {
       month: future.getMonth() + 1,
       day: future.getDate(),
     });
-    render(
-      <AgendaView events={[event]} onEventClick={onEventClick} onNewEvent={onNewEvent} />,
-    );
+    render(<CalendarView {...baseProps({ view: 'agenda', events: [event] })} />);
     expect(screen.getByText('Excursión al parque')).toBeInTheDocument();
   });
 
@@ -331,14 +248,13 @@ describe('AgendaView', () => {
       month: past.getMonth() + 1,
       day: past.getDate(),
     });
-    render(
-      <AgendaView events={[event]} onEventClick={onEventClick} onNewEvent={onNewEvent} />,
-    );
+    render(<CalendarView {...baseProps({ view: 'agenda', events: [event] })} />);
     expect(screen.queryByText('Evento pasado')).not.toBeInTheDocument();
   });
 
-  it('llama a onEventClick al pulsar un evento', async () => {
+  it('llama a onOpenEvent al pulsar un evento de la agenda', async () => {
     const user = userEvent.setup();
+    const onOpenEvent = vi.fn();
     const future = new Date();
     future.setDate(future.getDate() + 1);
     const event = makeEvent({
@@ -348,85 +264,69 @@ describe('AgendaView', () => {
       month: future.getMonth() + 1,
       day: future.getDate(),
     });
-    render(
-      <AgendaView events={[event]} onEventClick={onEventClick} onNewEvent={onNewEvent} />,
-    );
+    render(<CalendarView {...baseProps({ view: 'agenda', events: [event], onOpenEvent })} />);
+
     await user.click(screen.getByText('Reunión'));
-    expect(onEventClick).toHaveBeenCalledWith(event);
+    expect(onOpenEvent).toHaveBeenCalledWith(event);
   });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 3. CalendarEventModal — validación
+// 3. Modal de evento
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('CalendarEventModal — validación', () => {
-  const defaultProps = {
-    familyId: 'family-1',
-    year: 2026,
-    month: 4,
-    members: [
-      { userId: 'user-1', displayName: 'Ana', role: 'OWNER' as const, joinedAt: new Date().toISOString() },
-    ],
-    event: null,
-    initialDate: null,
-    onClose: vi.fn(),
-  };
-
-  it('muestra el campo de título', () => {
-    wrap(<CalendarEventModal {...defaultProps} />);
+describe('CalendarView — modal de evento', () => {
+  it('muestra el campo de título cuando el modal está abierto', () => {
+    render(<CalendarView {...baseProps({ isEventModalOpen: true })} />);
     expect(screen.getByLabelText(/título/i)).toBeInTheDocument();
   });
 
-  it('el botón "Crear evento" está deshabilitado cuando el título está vacío', () => {
-    wrap(<CalendarEventModal {...defaultProps} />);
+  it('el botón "Crear evento" está deshabilitado con el título vacío', () => {
+    render(<CalendarView {...baseProps({ isEventModalOpen: true })} />);
     expect(screen.getByRole('button', { name: /crear evento/i })).toBeDisabled();
   });
 
   it('el botón "Crear evento" se habilita al escribir un título', async () => {
     const user = userEvent.setup();
-    wrap(<CalendarEventModal {...defaultProps} />);
+    render(<CalendarView {...baseProps({ isEventModalOpen: true })} />);
 
     await user.type(screen.getByLabelText(/título/i), 'Cumpleaños');
     expect(screen.getByRole('button', { name: /crear evento/i })).not.toBeDisabled();
   });
 
-  it('llama a createEvent.mutate con los datos correctos al enviar', async () => {
+  it('llama a onSubmitEvent con los datos del formulario al enviar', async () => {
     const user = userEvent.setup();
-    wrap(<CalendarEventModal {...defaultProps} />);
+    const onSubmitEvent = vi.fn();
+    render(<CalendarView {...baseProps({ isEventModalOpen: true, onSubmitEvent })} />);
 
     await user.type(screen.getByLabelText(/título/i), 'Cena navideña');
     await user.click(screen.getByRole('button', { name: /crear evento/i }));
 
-    await waitFor(() => {
-      expect(mockCreateEvent).toHaveBeenCalledWith(
-        expect.objectContaining({ title: 'Cena navideña', startsAt: expect.any(String) }),
-        expect.any(Object),
-      );
-    });
+    expect(onSubmitEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'Cena navideña',
+        startsAt: expect.any(String),
+        allDay: false,
+        attendeeIds: [],
+      }),
+    );
   });
 
-  it('muestra el campo "Todo el día" y al activarlo oculta la hora', async () => {
+  it('muestra "Todo el día" y al activarlo el input de inicio pasa a tipo date', async () => {
     const user = userEvent.setup();
-    wrap(<CalendarEventModal {...defaultProps} />);
+    render(<CalendarView {...baseProps({ isEventModalOpen: true })} />);
 
-    const allDayCheck = screen.getByLabelText(/todo el día/i);
-    expect(allDayCheck).toBeInTheDocument();
+    const allDay = screen.getByLabelText(/todo el día/i);
+    expect(allDay).toBeInTheDocument();
+    expect(screen.getByLabelText(/inicio/i)).toHaveAttribute('type', 'datetime-local');
 
-    // Antes de marcar: el input de inicio es datetime-local
-    const startBefore = screen.getByLabelText(/inicio/i);
-    expect(startBefore).toHaveAttribute('type', 'datetime-local');
-
-    await user.click(allDayCheck);
-
-    // Después de marcar: el input de inicio es date
-    const startAfter = screen.getByLabelText(/inicio/i);
-    expect(startAfter).toHaveAttribute('type', 'date');
+    await user.click(allDay);
+    expect(screen.getByLabelText(/inicio/i)).toHaveAttribute('type', 'date');
   });
 
   it('permite seleccionar y deseleccionar asistentes', async () => {
     const user = userEvent.setup();
-    wrap(<CalendarEventModal {...defaultProps} />);
+    render(<CalendarView {...baseProps({ isEventModalOpen: true })} />);
 
     const anaBtn = screen.getByRole('button', { name: 'Ana' });
     expect(anaBtn).toHaveAttribute('aria-pressed', 'false');
@@ -438,136 +338,134 @@ describe('CalendarEventModal — validación', () => {
     expect(anaBtn).toHaveAttribute('aria-pressed', 'false');
   });
 
-  it('en modo edición muestra el botón "Guardar" en lugar de "Crear evento"', () => {
+  it('expone un campo RRULE de repetición', () => {
+    render(<CalendarView {...baseProps({ isEventModalOpen: true })} />);
+    expect(screen.getByLabelText(/repetición/i)).toBeInTheDocument();
+  });
+
+  it('en modo edición muestra "Guardar" en lugar de "Crear evento"', () => {
     const event = makeEvent({ id: 'ev-edit', title: 'Boda', year: 2026, month: 6, day: 1 });
-    wrap(<CalendarEventModal {...defaultProps} event={event} />);
+    render(<CalendarView {...baseProps({ isEventModalOpen: true, editingEvent: event })} />);
     expect(screen.getByRole('button', { name: /guardar/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /crear evento/i })).not.toBeInTheDocument();
   });
 
   it('en modo edición muestra el botón "Eliminar"', () => {
     const event = makeEvent({ id: 'ev-del', title: 'Clase de yoga', year: 2026, month: 5, day: 5 });
-    wrap(<CalendarEventModal {...defaultProps} event={event} />);
+    render(<CalendarView {...baseProps({ isEventModalOpen: true, editingEvent: event })} />);
     expect(screen.getByRole('button', { name: /eliminar/i })).toBeInTheDocument();
   });
 
-  it('el primer click en "Eliminar" pide confirmación', async () => {
+  it('el botón eliminar llama a onDeleteEvent (la confirmación la lleva el container)', async () => {
     const user = userEvent.setup();
+    const onDeleteEvent = vi.fn();
     const event = makeEvent({ id: 'ev-confirm', title: 'Evento', year: 2026, month: 5, day: 3 });
-    wrap(<CalendarEventModal {...defaultProps} event={event} />);
+    render(
+      <CalendarView {...baseProps({ isEventModalOpen: true, editingEvent: event, onDeleteEvent })} />,
+    );
 
     await user.click(screen.getByRole('button', { name: /^eliminar$/i }));
+    expect(onDeleteEvent).toHaveBeenCalledOnce();
+  });
 
-    // Cambia el texto a "Confirmar borrado"
+  it('muestra "Confirmar borrado" cuando confirmDelete=true', () => {
+    const event = makeEvent({ id: 'ev-c', title: 'Evento', year: 2026, month: 5, day: 3 });
+    render(
+      <CalendarView
+        {...baseProps({ isEventModalOpen: true, editingEvent: event, confirmDelete: true })}
+      />,
+    );
     expect(screen.getByRole('button', { name: /confirmar borrado/i })).toBeInTheDocument();
-    // No ha llamado a deleteEvent todavía
-    expect(mockDeleteEvent).not.toHaveBeenCalled();
   });
 
   it('muestra aviso de solo lectura para ocurrencias recurrentes (_occ_N)', () => {
-    const occ = {
-      ...makeEvent({ id: 'ev-base_occ_3', title: 'Reunión semanal', year: 2026, month: 5, day: 18 }),
+    const occ = makeEvent({
+      id: 'ev-base_occ_3',
+      title: 'Reunión semanal',
+      year: 2026,
+      month: 5,
+      day: 18,
       recurrenceRule: 'FREQ=WEEKLY;BYDAY=MO',
-    };
-    wrap(<CalendarEventModal {...defaultProps} event={occ} />);
+    });
+    render(
+      <CalendarView
+        {...baseProps({
+          isEventModalOpen: true,
+          editingEvent: occ,
+          isRecurringOccurrence: true,
+          parentEventId: 'ev-base',
+        })}
+      />,
+    );
 
     expect(screen.getByRole('dialog', { name: /evento recurrente/i })).toBeInTheDocument();
-    // No debe mostrar ni el botón de guardar ni el de eliminar
+    expect(screen.getByText(/se edita el evento original/i)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /guardar/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /eliminar/i })).not.toBeInTheDocument();
+  });
+
+  it('muestra submitError cuando una mutación falla', () => {
+    const event = makeEvent({ id: 'ev-err', title: 'X', year: 2026, month: 5, day: 3 });
+    render(
+      <CalendarView
+        {...baseProps({
+          isEventModalOpen: true,
+          editingEvent: event,
+          submitError: 'No se ha podido guardar el evento.',
+        })}
+      />,
+    );
+    expect(screen.getByRole('alert')).toHaveTextContent(/no se ha podido guardar/i);
+  });
+
+  it('llama a onCloseEventModal al pulsar "Cancelar"', async () => {
+    const user = userEvent.setup();
+    const onCloseEventModal = vi.fn();
+    render(<CalendarView {...baseProps({ isEventModalOpen: true, onCloseEventModal })} />);
+
+    await user.click(screen.getByRole('button', { name: /cancelar/i }));
+    expect(onCloseEventModal).toHaveBeenCalled();
   });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 4. CalendarPage — integración
+// 4. Cabecera y selector de vista
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('CalendarPage', () => {
+describe('CalendarView — cabecera', () => {
   it('renderiza el título "Calendario"', () => {
-    wrap(<CalendarPage />);
+    render(<CalendarView {...baseProps()} />);
     expect(screen.getByRole('heading', { name: /calendario/i })).toBeInTheDocument();
   });
 
-  it('muestra el botón "+ Nuevo evento"', () => {
-    wrap(<CalendarPage />);
-    expect(screen.getByRole('button', { name: /nuevo evento/i })).toBeInTheDocument();
+  it('muestra el botón "Nuevo evento" y llama a onNewEvent', async () => {
+    const user = userEvent.setup();
+    const onNewEvent = vi.fn();
+    render(<CalendarView {...baseProps({ onNewEvent })} />);
+
+    const btn = screen.getByRole('button', { name: /nuevo evento/i });
+    expect(btn).toBeInTheDocument();
+    await user.click(btn);
+    expect(onNewEvent).toHaveBeenCalledOnce();
   });
 
-  it('muestra los botones de vista "Mes" y "Agenda"', () => {
-    wrap(<CalendarPage />);
+  it('muestra los botones de vista "Mes" y "Agenda" y llama a onChangeView', async () => {
+    const user = userEvent.setup();
+    const onChangeView = vi.fn();
+    render(<CalendarView {...baseProps({ onChangeView })} />);
+
     expect(screen.getByRole('button', { name: /^mes$/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^agenda$/i })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /^agenda$/i }));
+    expect(onChangeView).toHaveBeenCalledWith('agenda');
   });
 
-  it('muestra el grid del mes por defecto', () => {
-    wrap(<CalendarPage />);
-    // El grid tiene el role="grid"
+  it('muestra el grid del mes cuando view=month', () => {
+    render(<CalendarView {...baseProps({ view: 'month' })} />);
     expect(screen.getByRole('grid')).toBeInTheDocument();
   });
 
-  it('cambia a la vista agenda al pulsar "Agenda"', async () => {
-    const user = userEvent.setup();
-    wrap(<CalendarPage />);
-
-    await user.click(screen.getByRole('button', { name: /^agenda$/i }));
-
-    // El grid desaparece; aparece el mensaje de agenda (vacía en este caso)
+  it('oculta el grid cuando view=agenda', () => {
+    render(<CalendarView {...baseProps({ view: 'agenda' })} />);
     expect(screen.queryByRole('grid')).not.toBeInTheDocument();
-  });
-
-  it('muestra eventos del mes en el grid', () => {
-    const today = new Date();
-    mockEvents = [
-      makeEvent({
-        id: 'ev-page',
-        title: 'Fiesta del colegio',
-        year: today.getFullYear(),
-        month: today.getMonth() + 1,
-        day: today.getDate(),
-      }),
-    ];
-    wrap(<CalendarPage />);
-    expect(screen.getByText('Fiesta del colegio')).toBeInTheDocument();
-  });
-
-  it('abre el modal de nuevo evento al pulsar "+ Nuevo evento"', async () => {
-    const user = userEvent.setup();
-    wrap(<CalendarPage />);
-
-    await user.click(screen.getByRole('button', { name: /nuevo evento/i }));
-
-    expect(screen.getByRole('dialog', { name: /nuevo evento/i })).toBeInTheDocument();
-  });
-
-  it('navega al mes anterior/siguiente desde el grid', async () => {
-    const user = userEvent.setup();
-    wrap(<CalendarPage />);
-
-    // Asegurar que estamos en la vista de mes
-    const mesBtn = screen.getByRole('button', { name: /^mes$/i });
-    await user.click(mesBtn);
-
-    // La cabecera de navegación del grid muestra el mes actual
-    const today = new Date();
-    const currentMonth = today.toLocaleString('es-ES', { month: 'long' });
-    // El título del mes aparece en el grid (puede ser mayo, junio, etc.)
-    expect(screen.getByRole('heading', { level: 2, name: new RegExp(currentMonth, 'i') })).toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: /mes anterior/i }));
-
-    const prevMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-    const prevMonthName = prevMonth.toLocaleString('es-ES', { month: 'long' });
-    expect(screen.getByRole('heading', { level: 2, name: new RegExp(prevMonthName, 'i') })).toBeInTheDocument();
-  });
-
-  it('cierra el modal de evento al pulsar "Cancelar"', async () => {
-    const user = userEvent.setup();
-    wrap(<CalendarPage />);
-
-    await user.click(screen.getByRole('button', { name: /nuevo evento/i }));
-    expect(screen.getByRole('dialog')).toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: /cancelar/i }));
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 });

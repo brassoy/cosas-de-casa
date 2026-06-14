@@ -168,3 +168,108 @@ export function useFreezeFridgeItem(itemId: string, familyId: string) {
     },
   });
 }
+
+// ── Acciones de ítem scoped por familia (id en tiempo de mutación) ──────────────
+//
+// Variantes que reciben el `itemId` en `mutate(itemId)` en lugar de fijarlo en el
+// closure. El container las instancia UNA vez (no una por ítem en un bucle, lo que
+// rompería las reglas de hooks) y delega en la vista presentacional. La semántica
+// de cache es idéntica a las versiones per-ítem de arriba.
+
+/** PATCH /fridge-items/:id (id + payload por mutación). */
+export function useUpdateFridgeItemByFamily(familyId: string) {
+  const qc = useQueryClient();
+  return useMutation<FridgeItemDto, ApiRequestError, { id: string; input: UpdateFridgeItemInput }>({
+    mutationFn: ({ id, input }) => api.patch<FridgeItemDto>(`/fridge-items/${id}`, input),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: fridgeKeys.byFamily(familyId) });
+    },
+  });
+}
+
+/** DELETE /fridge-items/:id (optimista + revert, id por mutación). */
+export function useDeleteFridgeItemByFamily(familyId: string) {
+  const qc = useQueryClient();
+  return useMutation<void, ApiRequestError, string>({
+    mutationFn: (itemId) => api.delete<void>(`/fridge-items/${itemId}`),
+    onMutate: async (itemId) => {
+      await qc.cancelQueries({ queryKey: fridgeKeys.byFamily(familyId) });
+      const prev = qc.getQueryData<FridgeItemDto[]>(fridgeKeys.byFamily(familyId));
+      qc.setQueryData<FridgeItemDto[]>(
+        fridgeKeys.byFamily(familyId),
+        (old) => old?.filter((i) => i.id !== itemId) ?? [],
+      );
+      return { prev };
+    },
+    onError: (_err, _itemId, ctx) => {
+      const context = ctx as { prev?: FridgeItemDto[] } | undefined;
+      if (context?.prev) {
+        qc.setQueryData(fridgeKeys.byFamily(familyId), context.prev);
+      }
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: fridgeKeys.byFamily(familyId) });
+    },
+  });
+}
+
+/** POST /fridge-items/:id/eat → { deleted } (id por mutación). */
+export function useEatFridgeItemByFamily(familyId: string) {
+  const qc = useQueryClient();
+  return useMutation<EatFridgeItemResponse, ApiRequestError, string>({
+    mutationFn: (itemId) => api.post<EatFridgeItemResponse>(`/fridge-items/${itemId}/eat`, {}),
+    onSuccess: (result, itemId) => {
+      if (result.deleted) {
+        qc.setQueryData<FridgeItemDto[]>(
+          fridgeKeys.byFamily(familyId),
+          (old) => old?.filter((i) => i.id !== itemId) ?? [],
+        );
+      } else {
+        void qc.invalidateQueries({ queryKey: fridgeKeys.byFamily(familyId) });
+      }
+    },
+  });
+}
+
+/** POST /fridge-items/:id/throw → 204 (optimista + revert, id por mutación). */
+export function useThrowFridgeItemByFamily(familyId: string) {
+  const qc = useQueryClient();
+  return useMutation<void, ApiRequestError, string>({
+    mutationFn: (itemId) => api.post<void>(`/fridge-items/${itemId}/throw`, {}),
+    onMutate: async (itemId) => {
+      await qc.cancelQueries({ queryKey: fridgeKeys.byFamily(familyId) });
+      const prev = qc.getQueryData<FridgeItemDto[]>(fridgeKeys.byFamily(familyId));
+      qc.setQueryData<FridgeItemDto[]>(
+        fridgeKeys.byFamily(familyId),
+        (old) => old?.filter((i) => i.id !== itemId) ?? [],
+      );
+      return { prev };
+    },
+    onError: (_err, _itemId, ctx) => {
+      const context = ctx as { prev?: FridgeItemDto[] } | undefined;
+      if (context?.prev) {
+        qc.setQueryData(fridgeKeys.byFamily(familyId), context.prev);
+      }
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: fridgeKeys.byFamily(familyId) });
+    },
+  });
+}
+
+/** POST /fridge-items/:id/freeze → 200 FridgeItemDto (relocation, id por mutación). */
+export function useFreezeFridgeItemByFamily(familyId: string) {
+  const qc = useQueryClient();
+  return useMutation<FridgeItemDto, ApiRequestError, string>({
+    mutationFn: (itemId) => api.post<FridgeItemDto>(`/fridge-items/${itemId}/freeze`, {}),
+    onSuccess: (updated, itemId) => {
+      qc.setQueryData<FridgeItemDto[]>(
+        fridgeKeys.byFamily(familyId),
+        (old) => old?.map((i) => (i.id === itemId ? updated : i)) ?? [],
+      );
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: fridgeKeys.byFamily(familyId) });
+    },
+  });
+}

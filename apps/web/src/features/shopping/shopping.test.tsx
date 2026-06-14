@@ -10,9 +10,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, renderHook, act } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { renderHook, act } from '@testing-library/react';
 
 // ── Mocks de infraestructura ──────────────────────────────────────────────────
 
@@ -213,21 +211,13 @@ vi.mock('@/shared/lib/api', () => ({
   },
 }));
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function makeQC() {
-  return new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
-}
-
-function wrap(ui: React.ReactElement) {
-  return render(<QueryClientProvider client={makeQC()}>{ui}</QueryClientProvider>);
-}
 
 // ── Importación bajo test ─────────────────────────────────────────────────────
-
-import { ListDetailPage } from './pages/ListDetailPage';
+//
+// Los tests de renderizado del CONTAINER `ListDetailPage` se han migrado a
+// `shopping-view.test.tsx` (se testea la VISTA presentacional `ShoppingListDetailView`
+// con props, no el container). Aquí permanecen los tests de LÓGICA (Outbox/sync y
+// el hook real `useAddItemWithDedup`), que no dependen del render del container.
 
 // ── Limpieza ──────────────────────────────────────────────────────────────────
 
@@ -241,178 +231,6 @@ beforeEach(() => {
   mockAddItem.mockResolvedValue(undefined);
   mockDeleteItem.mockResolvedValue(undefined);
   mockEnqueue.mockResolvedValue(undefined);
-});
-
-// ── 1. ListDetailPage ─────────────────────────────────────────────────────────
-
-describe('ListDetailPage', () => {
-  it('renderiza el formulario de añadir artículo', () => {
-    mockedList = {
-      id: 'list-1',
-      familyId: 'family-1',
-      name: 'Lista de prueba',
-      type: 'CUSTOM',
-      updatedAt: new Date().toISOString(),
-      createdAt: new Date().toISOString(),
-    };
-    wrap(<ListDetailPage />);
-    expect(screen.getByLabelText(/nombre del artículo/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /añadir/i })).toBeInTheDocument();
-  });
-
-  it('muestra el nombre de la lista', () => {
-    mockedList = {
-      id: 'list-1',
-      familyId: 'family-1',
-      name: 'Lista de prueba',
-      type: 'CUSTOM',
-      updatedAt: new Date().toISOString(),
-      createdAt: new Date().toISOString(),
-    };
-    wrap(<ListDetailPage />);
-    expect(screen.getByText('Lista de prueba')).toBeInTheDocument();
-  });
-
-  it('muestra los ítems existentes', () => {
-    mockedList = {
-      id: 'list-1',
-      familyId: 'family-1',
-      name: 'Lista',
-      type: 'CUSTOM',
-      updatedAt: new Date().toISOString(),
-      createdAt: new Date().toISOString(),
-    };
-    mockedItems = [
-      {
-        id: 'item-1',
-        listId: 'list-1',
-        name: 'Leche',
-        checked: false,
-        updatedAt: new Date().toISOString(),
-        createdAt: new Date().toISOString(),
-      },
-    ];
-    wrap(<ListDetailPage />);
-    expect(screen.getByText('Leche')).toBeInTheDocument();
-  });
-
-  it('añadir ítem llama a addItem con el nombre correcto', async () => {
-    const user = userEvent.setup();
-    mockedList = {
-      id: 'list-1',
-      familyId: 'family-1',
-      name: 'Lista',
-      type: 'CUSTOM',
-      updatedAt: new Date().toISOString(),
-      createdAt: new Date().toISOString(),
-    };
-    wrap(<ListDetailPage />);
-
-    const input = screen.getByLabelText(/nombre del artículo/i);
-    await user.type(input, 'Pan');
-    await user.click(screen.getByRole('button', { name: /añadir/i }));
-
-    await waitFor(() => {
-      expect(mockAddItem).toHaveBeenCalledWith(
-        'list-1',
-        expect.objectContaining({ name: 'Pan' }),
-      );
-    });
-  });
-
-  it('marcar comprado llama a toggleItem con checked=true', async () => {
-    const user = userEvent.setup();
-    mockedList = {
-      id: 'list-1',
-      familyId: 'family-1',
-      name: 'Lista',
-      type: 'CUSTOM',
-      updatedAt: new Date().toISOString(),
-      createdAt: new Date().toISOString(),
-    };
-    mockedItems = [
-      {
-        id: 'item-toggle',
-        listId: 'list-1',
-        name: 'Mantequilla',
-        checked: false,
-        updatedAt: new Date().toISOString(),
-        createdAt: new Date().toISOString(),
-      },
-    ];
-    wrap(<ListDetailPage />);
-
-    const checkbox = screen.getByRole('button', {
-      name: /marcar mantequilla como comprado/i,
-    });
-    await user.click(checkbox);
-
-    await waitFor(() => {
-      expect(mockToggleItem).toHaveBeenCalledWith('item-toggle', true);
-    });
-  });
-
-  it('desmarcar comprado llama a toggleItem con checked=false', async () => {
-    const user = userEvent.setup();
-    mockedList = {
-      id: 'list-1',
-      familyId: 'family-1',
-      name: 'Lista',
-      type: 'CUSTOM',
-      updatedAt: new Date().toISOString(),
-      createdAt: new Date().toISOString(),
-    };
-    mockedItems = [
-      {
-        id: 'item-uncheck',
-        listId: 'list-1',
-        name: 'Yogur',
-        checked: true,
-        updatedAt: new Date().toISOString(),
-        createdAt: new Date().toISOString(),
-      },
-    ];
-    wrap(<ListDetailPage />);
-
-    const checkbox = screen.getByRole('button', {
-      name: /marcar yogur como pendiente/i,
-    });
-    await user.click(checkbox);
-
-    await waitFor(() => {
-      expect(mockToggleItem).toHaveBeenCalledWith('item-uncheck', false);
-    });
-  });
-
-  it('eliminar ítem llama a deleteItem', async () => {
-    const user = userEvent.setup();
-    mockedList = {
-      id: 'list-1',
-      familyId: 'family-1',
-      name: 'Lista',
-      type: 'CUSTOM',
-      updatedAt: new Date().toISOString(),
-      createdAt: new Date().toISOString(),
-    };
-    mockedItems = [
-      {
-        id: 'item-del',
-        listId: 'list-1',
-        name: 'Aceite',
-        checked: false,
-        updatedAt: new Date().toISOString(),
-        createdAt: new Date().toISOString(),
-      },
-    ];
-    wrap(<ListDetailPage />);
-
-    const deleteBtn = screen.getByRole('button', { name: /eliminar aceite/i });
-    await user.click(deleteBtn);
-
-    await waitFor(() => {
-      expect(mockDeleteItem).toHaveBeenCalledWith('item-del');
-    });
-  });
 });
 
 // ── 2. Outbox / sync real ─────────────────────────────────────────────────────

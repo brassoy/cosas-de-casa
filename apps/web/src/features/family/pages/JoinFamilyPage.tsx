@@ -1,11 +1,23 @@
-import { type FormEvent, useState } from 'react';
-import { useNavigate } from '@tanstack/react-router';
-import { useJoinFamily } from '../hooks/useFamily';
-import { ApiRequestError } from '@/shared/lib/api';
+/**
+ * JoinFamilyPage — CONTAINER para unirse a una familia con un PIN.
+ *
+ * La vista (`JoinFamilyView`) ya sanitiza el input (uppercase/filtro/slice 8) y
+ * valida la longitud; este container hace la validación de FORMATO Crockford
+ * definitiva y traduce los errores de negocio (`friendlyJoinError`: 404/410/409).
+ * La mutación `useJoinFamily` ya hace `setActiveFamily` + invalidate en su
+ * `onSuccess`. Delega el render en `ThemeView`.
+ */
 
-// PIN: 8 caracteres, base32 Crockford (0-9 A-Z excluyendo I, L, O, U)
+import { useState } from 'react';
+import { useNavigate } from '@tanstack/react-router';
+import { JOIN_PIN_LENGTH } from '@cosasdecasa/contracts';
+import { ThemeView } from '@/shared/theme/ThemeView';
+import { ApiRequestError } from '@/shared/lib/api';
+import { useJoinFamily } from '../hooks/useFamily';
+import type { JoinFamilyViewProps } from '../views/types';
+
+// PIN: 8 caracteres, Base32 Crockford (0-9 A-Z excluyendo I, L, O, U).
 const PIN_REGEX = /^[0-9A-HJKMNP-TV-Z]{8}$/;
-const PIN_LENGTH = 8;
 
 function friendlyJoinError(err: unknown): string {
   if (err instanceof ApiRequestError) {
@@ -18,166 +30,34 @@ function friendlyJoinError(err: unknown): string {
 }
 
 export function JoinFamilyPage() {
-  const [pin, setPin] = useState('');
-  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
   const { mutate, isPending } = useJoinFamily();
+  const [error, setError] = useState<string | null>(null);
 
-  function handlePinChange(value: string) {
-    // Solo mayúsculas, elimina caracteres no válidos
-    setPin(value.toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, PIN_LENGTH));
-  }
+  const viewProps: JoinFamilyViewProps = {
+    isSubmitting: isPending,
+    error,
+    onSubmit: (code) => {
+      setError(null);
 
-  function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    setError(null);
+      if (code.length !== JOIN_PIN_LENGTH || !PIN_REGEX.test(code)) {
+        setError(
+          'El PIN contiene caracteres no válidos. Usa solo letras (sin I, L, O, U) y números.',
+        );
+        return;
+      }
 
-    if (pin.length !== PIN_LENGTH) {
-      setError(`El PIN debe tener ${PIN_LENGTH} caracteres.`);
-      return;
-    }
-
-    if (!PIN_REGEX.test(pin)) {
-      setError('El PIN contiene caracteres no válidos. Usa solo letras (sin I, L, O, U) y números.');
-      return;
-    }
-
-    mutate(
-      { code: pin },
-      {
-        onSuccess: async (family) => {
-          await navigate({ to: '/family/$familyId', params: { familyId: family.id } });
+      mutate(
+        { code },
+        {
+          onSuccess: async (family) => {
+            await navigate({ to: '/family/$familyId', params: { familyId: family.id } });
+          },
+          onError: (err) => setError(friendlyJoinError(err)),
         },
-        onError: (err) => {
-          setError(friendlyJoinError(err));
-        },
-      },
-    );
-  }
+      );
+    },
+  };
 
-  return (
-    <div style={styles.wrapper}>
-      <div style={styles.card}>
-        <h2 style={styles.heading}>Únete con un PIN</h2>
-        <p style={styles.subtitle}>
-          Introduce el PIN de 8 caracteres que te ha compartido el propietario de la unidad
-          familiar.
-        </p>
-
-        {error && (
-          <p role="alert" style={styles.error}>
-            {error}
-          </p>
-        )}
-
-        <form onSubmit={handleSubmit} style={styles.form} noValidate>
-          <label htmlFor="join-pin" style={styles.label}>
-            PIN de invitación
-          </label>
-          <input
-            id="join-pin"
-            type="text"
-            inputMode="text"
-            autoComplete="one-time-code"
-            required
-            value={pin}
-            onChange={(e) => handlePinChange(e.target.value)}
-            placeholder="XXXXXXXX"
-            maxLength={PIN_LENGTH}
-            style={styles.pinInput}
-            disabled={isPending}
-            aria-describedby="pin-hint"
-          />
-          <p id="pin-hint" style={styles.hint}>
-            {pin.length}/{PIN_LENGTH} caracteres
-          </p>
-
-          <button
-            type="submit"
-            style={styles.btnPrimary}
-            disabled={isPending || pin.length !== PIN_LENGTH}
-          >
-            {isPending ? 'Uniéndose...' : 'Unirse a la familia'}
-          </button>
-        </form>
-      </div>
-    </div>
-  );
+  return <ThemeView screen="family_join" props={viewProps} />;
 }
-
-const styles: Record<string, React.CSSProperties> = {
-  wrapper: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: '80dvh',
-    padding: 'var(--space-4)',
-  },
-  card: {
-    width: '100%',
-    maxWidth: '440px',
-    backgroundColor: 'var(--color-surface-raised)',
-    borderRadius: 'var(--radius-card)',
-    padding: 'var(--space-8)',
-    boxShadow: 'var(--shadow-lg)',
-    border: '1px solid var(--color-border)',
-  },
-  heading: {
-    fontSize: 'var(--font-size-2xl)',
-    fontWeight: 'var(--font-weight-bold)',
-    color: 'var(--color-text)',
-    marginBottom: 'var(--space-2)',
-  },
-  subtitle: {
-    fontSize: 'var(--font-size-sm)',
-    color: 'var(--color-text-muted)',
-    marginBottom: 'var(--space-6)',
-  },
-  form: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 'var(--space-3)',
-  },
-  label: {
-    fontSize: 'var(--font-size-sm)',
-    fontWeight: 'var(--font-weight-medium)',
-    color: 'var(--color-text)',
-  },
-  pinInput: {
-    padding: 'var(--space-4)',
-    borderRadius: 'var(--radius-md)',
-    border: '1px solid var(--color-border)',
-    backgroundColor: 'var(--color-surface)',
-    color: 'var(--color-text)',
-    fontSize: 'var(--font-size-2xl)',
-    fontFamily: 'var(--font-mono)',
-    letterSpacing: '0.25em',
-    textAlign: 'center',
-    width: '100%',
-  },
-  hint: {
-    fontSize: 'var(--font-size-xs)',
-    color: 'var(--color-text-muted)',
-    textAlign: 'right',
-  },
-  btnPrimary: {
-    marginTop: 'var(--space-2)',
-    padding: 'var(--space-3)',
-    borderRadius: 'var(--radius-md)',
-    border: 'none',
-    backgroundColor: 'var(--color-accent)',
-    color: 'var(--color-text-inverse)',
-    fontSize: 'var(--font-size-base)',
-    fontWeight: 'var(--font-weight-semibold)',
-    cursor: 'pointer',
-  },
-  error: {
-    backgroundColor: 'rgba(220,38,38,0.1)',
-    border: '1px solid var(--color-error)',
-    borderRadius: 'var(--radius-md)',
-    padding: 'var(--space-3)',
-    color: 'var(--color-error)',
-    fontSize: 'var(--font-size-sm)',
-    marginBottom: 'var(--space-4)',
-  },
-};

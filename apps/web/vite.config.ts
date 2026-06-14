@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite';
+import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import { resolve } from 'node:path';
@@ -28,6 +29,7 @@ export default defineConfig({
   // El .env vive en la raíz del monorepo (compartido con la API), no en apps/web.
   envDir: resolve(__dirname, '../..'),
   plugins: [
+    tailwindcss(),
     react(),
     VitePWA({
       strategies: 'injectManifest',

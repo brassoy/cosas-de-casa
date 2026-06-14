@@ -1,0 +1,274 @@
+/* ─── Cozy — Hoja de estilos decorativos ─────────────────────────────────────
+ *
+ * Theme "Cuaderno de papel manuscrito": papel crema pautado, tinta marrón,
+ * bolígrafo azul, notas pegadas con cinta y chinchetas, casillas a mano y sellos
+ * inclinados. Clases utilitarias reutilizables (.ck-*) extraídas del kit estático
+ * (screens/themes/cozy.tsx). Las vistas las consumen para reproducir el look del
+ * theme sin reescribir estilos inline.
+ *
+ * SCOPE: todas las reglas viven bajo html[data-theme="cozy"] para NO filtrar a
+ * otros themes. Cuando existe una var semántica equivalente (resuelta por
+ * [data-theme='cozy'] en tokens.themes.css) se usa var(--color-*) /
+ * var(--radius-*) / var(--shadow-*) / var(--font-*). Los hex sueltos son matices
+ * decorativos propios del theme sin var semántica: el papel pautado (.ck-page),
+ * el amarillo de la cinta (.ck-tape), el degradado de las chinchetas (.ck-pin) y
+ * la tinta de los doodles.
+ *
+ * @keyframes: globales (son inertes sin su clase). Las rotaciones ESTÁTICAS de
+ * cinta y sello se mantienen siempre (no son movimiento). Cualquier `animation`
+ * RESPETA prefers-reduced-motion: solo bajo @media (prefers-reduced-motion:
+ * no-preference).
+ *
+ * Paleta cruda de referencia (kit):
+ *   ink #3a2a1a · blue #2d4a8a · red #c0392b · green #5b8a3a
+ *   yellow #e3a51a · paper #fffaf0
+ * Fuentes: Patrick Hand (body) · Caveat (heading/marker)  ← cargadas por
+ * ensureThemeFonts('cozy')
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+/* Tipografía base del theme (cuerpo Patrick Hand) y tinta marrón. */
+html[data-theme='cozy'] .ck {
+  font-family: var(--font-body);
+  color: var(--color-text);
+}
+
+/* Manuscrita expresiva (Caveat) para titulares, labels y marcas a mano. */
+html[data-theme='cozy'] .ck-marker {
+  font-family: var(--font-heading);
+}
+
+/* Fondo de papel pautado: líneas horizontales cada 32px sobre crema. Patrón
+ * decorativo sin var semántica → hex crudos (crema #fbf4e4, raya #e8d9b8). */
+html[data-theme='cozy'] .ck-page {
+  background:
+    repeating-linear-gradient(0deg, #fbf4e4 0 31px, #e8d9b8 31px 32px),
+    #fbf4e4;
+}
+
+/* Hoja/tarjeta de papel: crema, pespunte de tinta y sombra de papel sobre tablón. */
+html[data-theme='cozy'] .ck-card {
+  position: relative;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+/* Trozo de cinta adhesiva que sujeta la nota (rotación estática, no es movimiento).
+ * El amarillo translúcido de celo es decorativo → hex crudo. */
+html[data-theme='cozy'] .ck-tape {
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%) rotate(-3deg);
+  width: 60px;
+  height: 18px;
+  background: rgba(255, 213, 79, 0.7);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* Chincheta que clava la tarjeta al corcho. El brillo del cabezal es decorativo
+ * (degradado radial) → hex crudo; el tono base usa el rojo de feedback. */
+html[data-theme='cozy'] .ck-pin {
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-full);
+  background: radial-gradient(circle at 30% 30%, #ff8a8a, var(--color-error));
+  box-shadow: 0 2px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* Campo de formulario manuscrito: solo línea inferior de puntos (boli azul),
+ * sin caja. El foco vira a rojo. */
+html[data-theme='cozy'] .ck-input {
+  width: 100%;
+  padding: 6px 4px;
+  background: transparent;
+  border: none;
+  border-bottom: 1.5px dashed var(--color-accent);
+  font-family: var(--font-body);
+  font-size: 18px;
+  color: var(--color-text);
+}
+html[data-theme='cozy'] .ck-input:focus {
+  outline: none;
+  border-bottom-color: var(--color-error);
+}
+
+/* Botón pill manuscrito (Caveat): borde de tinta, fondo blanco y sombra de papel. */
+html[data-theme='cozy'] .ck-btn {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 22px;
+  padding: 6px 18px;
+  border: 2px solid var(--color-border-strong);
+  border-radius: var(--radius-full);
+  background: #fff;
+  color: var(--color-text);
+  box-shadow: 2px 2px 0 rgba(58, 42, 26, 0.2);
+}
+
+/* Botón primario azul (boli). */
+html[data-theme='cozy'] .ck-btn-blue {
+  background: var(--color-accent);
+  color: var(--color-text-inverse);
+  border-color: var(--color-accent);
+}
+
+/* Botón rojo (acción destacada / destructiva). */
+html[data-theme='cozy'] .ck-btn-red {
+  background: var(--color-error);
+  color: var(--color-text-inverse);
+  border-color: var(--color-error);
+}
+
+/* Etiqueta/pill compacta a mano (categoría, estado, contador). */
+html[data-theme='cozy'] .ck-tag {
+  display: inline-block;
+  padding: 0 8px;
+  border: 1.5px solid var(--color-border-strong);
+  border-radius: var(--radius-full);
+  background: #fff;
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 14px;
+}
+
+/* Casilla de verificación a mano (borde azul); .on = marcada en verde. */
+html[data-theme='cozy'] .ck-check {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  background: #fff;
+}
+html[data-theme='cozy'] .ck-check.on {
+  background: var(--color-success);
+  border-color: var(--color-success);
+}
+
+/* Sello de tinta inclinado (estado tipo "PENDIENTE"/"OK"). La rotación es
+ * estática (decorativa, no movimiento) → se mantiene siempre. */
+html[data-theme='cozy'] .ck-stamp {
+  display: inline-block;
+  padding: 2px 8px;
+  border: 2px solid var(--color-error);
+  border-radius: var(--radius-sm);
+  color: var(--color-error);
+  font-family: var(--font-heading);
+  font-weight: 700;
+  transform: rotate(-6deg);
+}
+
+/* Garabato/doodle SVG dibujado a mano: trazo de tinta sin relleno. */
+html[data-theme='cozy'] .ck-doodle {
+  stroke: var(--color-text);
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+
+/* ─── Cozy — Variante OSCURA real (Cuaderno NOCTURNO) ─────────────────────────
+ *
+ * tokens.themes.css es COMPARTIDO y define los themes alternativos como
+ * light-only: bajo [data-theme='cozy'][data-mode='dark'] replica los valores
+ * light (placeholder, especificidad (0,2,0)). Aquí redefinimos las vars
+ * semánticas a una paleta oscura con el selector html[data-theme="cozy"][data-mode="dark"]
+ * → especificidad (0,2,1): un selector de TIPO (html) + 2 atributos, MAYOR que
+ * el placeholder. Y además esta hoja se importa DESPUÉS de tokens.themes.css en
+ * main.tsx (línea 11 vs 8), así que gana por cascada con doble garantía:
+ * especificidad superior + orden de origen posterior.
+ *
+ * Identidad conservada: sigue siendo un cuaderno manuscrito, pero NOCTURNO —
+ * papel oscuro tipo cuero/pizarra, tinta crema legible, boli azul luminoso.
+ * Solo afecta a [data-mode='dark']; la variante light queda intacta.
+ *
+ * Paleta cruda nocturna de referencia:
+ *   paper #1b1813 · raised #26211a · ink #ece0c8 · muted #b6a98c
+ *   blue #7aa2ff · red #e8736a · green #8fc16a · yellow #f0c14a
+ * Contraste ink/paper ≈ AA holgado (texto crema #ece0c8 sobre #1b1813).
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+html[data-theme='cozy'][data-mode='dark'] {
+  /* Surface — papel nocturno tipo cuero/pizarra */
+  --color-surface: #1b1813;
+  --color-surface-raised: #26211a;
+  --color-surface-overlay: rgba(236, 224, 200, 0.06);
+
+  /* Text — tinta clara crema legible */
+  --color-text: #ece0c8;
+  --color-text-muted: #b6a98c;
+  --color-text-inverse: #1b1813;
+
+  /* Accent — boli azul más luminoso para resaltar sobre oscuro */
+  --color-accent: #7aa2ff;
+  --color-accent-hover: #97b6ff;
+  --color-accent-subtle: #2a3350;
+
+  /* Feedback — tonos algo más claros para legibilidad en oscuro */
+  --color-success: #8fc16a;
+  --color-warning: #f0c14a;
+  --color-error: #e8736a;
+  --color-info: #7aa2ff;
+
+  /* Border — pespunte tenue claro sobre papel oscuro */
+  --color-border: #463c2c;
+  --color-border-strong: #ece0c8;
+
+  /* Sombras de papel sobre tablón nocturno (más oscuras y marcadas) */
+  --shadow-sm: 1px 2px 0 rgba(0, 0, 0, 0.35);
+  --shadow-md: 2px 3px 0 rgba(0, 0, 0, 0.4);
+  --shadow-lg: 4px 6px 0 rgba(0, 0, 0, 0.5);
+  --shadow-card: 2px 3px 0 rgba(0, 0, 0, 0.4);
+}
+
+/* Papel pautado nocturno: líneas tenues claras sobre fondo oscuro (antes hex
+ * crudos crema). El patrón replica el de light pero invertido para oscuro. */
+html[data-theme='cozy'][data-mode='dark'] .ck-page {
+  background:
+    repeating-linear-gradient(0deg, #1b1813 0 31px, #2e2820 31px 32px),
+    #1b1813;
+}
+
+/* Cinta adhesiva sobre oscuro: celo translúcido cálido tenue, no el amarillo
+ * brillante de light que cegaría sobre fondo oscuro. */
+html[data-theme='cozy'][data-mode='dark'] .ck-tape {
+  background: rgba(240, 224, 180, 0.18);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+/* Chincheta sobre oscuro: brillo del cabezal ajustado (rojo nocturno más claro). */
+html[data-theme='cozy'][data-mode='dark'] .ck-pin {
+  background: radial-gradient(circle at 30% 30%, #ffb0a8, var(--color-error));
+  box-shadow: 0 2px 2px rgba(0, 0, 0, 0.5);
+}
+
+/* Botones/tags manuscritos: el fondo blanco crudo (#fff) de light se sustituye
+ * por la superficie elevada oscura; el texto ya hereda la tinta crema vía var. */
+html[data-theme='cozy'][data-mode='dark'] .ck-btn,
+html[data-theme='cozy'][data-mode='dark'] .ck-tag,
+html[data-theme='cozy'][data-mode='dark'] .ck-check {
+  background: var(--color-surface-raised);
+}
+
+/* Botones de color (azul/rojo) conservan su fondo de acento vía var: el texto
+ * inverse es oscuro sobre el acento luminoso, así que mantiene contraste. */
+html[data-theme='cozy'][data-mode='dark'] .ck-btn-blue {
+  background: var(--color-accent);
+  color: var(--color-text-inverse);
+  border-color: var(--color-accent);
+}
+html[data-theme='cozy'][data-mode='dark'] .ck-btn-red {
+  background: var(--color-error);
+  color: var(--color-text-inverse);
+  border-color: var(--color-error);
+}
+
+/* Sombra dura de papel del botón: la tinta marrón translúcida de light no se ve
+ * sobre oscuro → sombra negra para mantener el efecto de relieve. */
+html[data-theme='cozy'][data-mode='dark'] .ck-btn {
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.45);
+}

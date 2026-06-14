@@ -84,9 +84,68 @@ const mockServiceWorkerRegistration = {
 };
 
 // ── Importaciones bajo test ───────────────────────────────────────────────────
+//
+// El subcomponente presentacional `NotificationToggle` se eliminó al migrar a las
+// 4 themes; en producción la pantalla vive inline en `family/views/<theme>/`, y el
+// `FamilyHomePage` cablea la lógica real con `useNotificationsStore` +
+// `useSubscribeToPush`. Para NO perder cobertura de esa lógica real (permiso,
+// pushManager.subscribe, conversión VAPID y POST a la API), montamos aquí un
+// harness mínimo que reproduce EXACTAMENTE ese cableado de producción.
 
-import { NotificationToggle } from './components/NotificationToggle';
 import { useNotificationsStore } from './store/notifications.store';
+import { useSubscribeToPush } from './hooks/useNotifications';
+
+// Espejo del cableado de FamilyHomePage: store + mutación reales. La UI es la
+// superficie mínima sobre la que disparar y observar la lógica.
+function NotificationToggle() {
+  const { permissionStatus, isSubscribed, isLoading } = useNotificationsStore();
+  const subscribe = useSubscribeToPush();
+
+  const isActive = permissionStatus === 'granted' && isSubscribed;
+  const disabled =
+    permissionStatus === 'unsupported' || permissionStatus === 'denied';
+  const showSpinner = isLoading || subscribe.isPending;
+
+  // Texto de estado (en el <p>): espeja el copy del componente original.
+  const statusLabel =
+    permissionStatus === 'unsupported'
+      ? 'Notificaciones no disponibles'
+      : permissionStatus === 'denied'
+        ? 'Notificaciones bloqueadas'
+        : 'Activar notificaciones';
+
+  // Etiqueta de la acción (en el <button>): distinta del <p> para no colisionar
+  // con las queries getByText del estado.
+  const actionLabel =
+    permissionStatus === 'unsupported'
+      ? 'No disponible'
+      : permissionStatus === 'denied'
+        ? 'Ver ajustes'
+        : 'Activar';
+
+  function handleClick() {
+    if (disabled || isActive) return;
+    subscribe.mutate();
+  }
+
+  if (isActive) {
+    return <span aria-live="polite">✓ Activas</span>;
+  }
+
+  return (
+    <div>
+      <p>{subscribe.error ? subscribe.error.message : statusLabel}</p>
+      <button
+        type="button"
+        onClick={handleClick}
+        disabled={disabled || showSpinner}
+        aria-label={actionLabel}
+      >
+        {showSpinner ? 'Activando...' : actionLabel}
+      </button>
+    </div>
+  );
+}
 
 // ── Limpieza ──────────────────────────────────────────────────────────────────
 

@@ -1,245 +1,220 @@
 /**
- * Tests de la feature budget (Fase 4A).
+ * Tests de la feature budget (vistas presentacionales `base`).
+ *
+ * Tras la migración a themes, el render vive en las vistas presentacionales
+ * `views/base/*View` (props in / callbacks out). Los containers
+ * (`ReceiptsPage`/`ReceiptDetailPage`/`SpendPage`) solo cablean la lógica real
+ * (queries, máquina de captura, OCR, mutaciones) y delegan en `ThemeView`. Por
+ * eso los tests de UI apuntan directamente a las vistas.
  *
  * Cubre:
- *  1. ReceiptsPage — render básico, captura con OCR, manejo de 503, alta manual.
- *  2. ReceiptDraftEditor — edición de borrador, cálculo de total.
- *  3. SpendPage — render de barras por categoría y mes.
+ *  1. ReceiptsView       — cabecera, vacío, listado, captura/OCR 503, alta manual, editor.
+ *  2. ReceiptDraftEditor — pre-relleno, total calculado, añadir línea, guardar/cancelar.
+ *  3. ReceiptDetailView  — resumen, líneas, editar (abre editor), borrar.
+ *  4. SpendView          — total, barras por categoría/mes, sin datos, role=progressbar.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-// ── Mocks de infraestructura ──────────────────────────────────────────────────
+import type {
+  ReceiptDto,
+  ReceiptSummaryDto,
+  SpendSummaryDto,
+} from './contracts';
+import type {
+  ReceiptsViewProps,
+  ReceiptDetailViewProps,
+  SpendViewProps,
+} from './views/types';
 
-vi.mock('@/shared/lib/supabase', () => ({
-  supabase: {
-    auth: {
-      onAuthStateChange: vi.fn(() => ({
-        data: { subscription: { unsubscribe: vi.fn() } },
-      })),
-      getSession: vi
-        .fn()
-        .mockResolvedValue({ data: { session: { access_token: 'tok' } } }),
-    },
+import ReceiptsView from './views/base/ReceiptsView';
+import ReceiptDraftEditor from './views/base/ReceiptDraftEditor';
+import ReceiptDetailView from './views/base/ReceiptDetailView';
+import SpendView from './views/base/SpendView';
+
+// ── Factories ──────────────────────────────────────────────────────────────────
+
+const MOCK_RECEIPTS: ReceiptSummaryDto[] = [
+  {
+    id: 'r1',
+    merchant: 'Mercadona',
+    purchasedAt: '2026-05-20T10:00:00Z',
+    total: 45.5,
+    currency: 'EUR',
+    status: 'confirmed',
+    lineCount: 3,
   },
-}));
+];
 
-vi.mock('@/features/auth/store/auth.store', () => ({
-  useAuthStore: vi.fn(
-    (selector: (s: { user: { id: string } }) => unknown) =>
-      selector({ user: { id: 'user-1' } }),
-  ),
-}));
+const MOCK_RECEIPT: ReceiptDto = {
+  id: 'r-abc',
+  familyId: 'fam-1',
+  merchant: 'Lidl',
+  purchasedAt: '2026-05-20',
+  total: 2,
+  currency: 'EUR',
+  status: 'draft',
+  lines: [
+    { id: 'l1', description: 'Leche', lineTotal: 1.2, category: 'groceries' },
+    { id: 'l2', description: 'Pan', lineTotal: 0.8, category: 'groceries' },
+  ],
+  createdBy: 'user-1',
+  createdAt: '2026-05-20T10:00:00Z',
+};
 
-vi.mock('@/features/family/store/family.store', () => ({
-  useFamilyStore: vi.fn(
-    (selector: (s: { activeFamily: { id: string; name: string } | null }) => unknown) =>
-      selector({ activeFamily: { id: 'family-1', name: 'Mi familia' } }),
-  ),
-}));
+const MOCK_SUMMARY: SpendSummaryDto = {
+  total: 200,
+  currency: 'EUR',
+  byCategory: [
+    { category: 'groceries', total: 150 },
+    { category: 'household', total: 50 },
+  ],
+  byMonth: [
+    { month: '2026-05', total: 120 },
+    { month: '2026-04', total: 80 },
+  ],
+};
 
-vi.mock('@tanstack/react-router', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@tanstack/react-router')>();
-  return {
-    ...actual,
-    useNavigate: () => vi.fn(),
-    useParams: () => ({ familyId: 'family-1', receiptId: 'receipt-1' }),
-  };
-});
+// ── Helpers de render ──────────────────────────────────────────────────────────
 
-// ── Mock de browser-image-compression ────────────────────────────────────────
-
-vi.mock('browser-image-compression', () => ({
-  default: vi.fn(async (file: File) => file),
-}));
-
-// ── Mock de useBudget ─────────────────────────────────────────────────────────
-// Nota: vi.mock se hoist — no puede referenciar variables top-level.
-// Usamos vi.fn() por defecto y luego mockReturnValue en cada test.
-
-vi.mock('@/features/budget/hooks/useBudget', () => {
-  class ApiRequestError extends Error {
-    constructor(
-      public readonly status: number,
-      public readonly body: { message: string },
-    ) {
-      super(body.message);
-      this.name = 'ApiRequestError';
-    }
-  }
-
-  return {
-    useFamilyReceipts: vi.fn(() => ({ data: [], isLoading: false, error: null })),
-    useReceiptDetail: vi.fn(() => ({ data: null, isLoading: false, error: null })),
-    useSpendSummary: vi.fn(() => ({ data: null, isLoading: false, error: null })),
-    useExtractReceipt: vi.fn(() => ({
-      mutateAsync: vi.fn(),
-      isPending: false,
-    })),
-    useCreateReceipt: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
-    useUpdateReceipt: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
-    useDeleteReceipt: vi.fn(() => ({
-      mutate: vi.fn(),
-      mutateAsync: vi.fn(),
-      isPending: false,
-    })),
-    compressImageToBase64: vi.fn(async () => 'base64data'),
-    budgetKeys: {
-      all: ['budget'],
-      receiptsByFamily: (id: string) => ['budget', 'receipts', id],
-      receiptDetail: (id: string) => ['budget', 'receipt', id],
-      spendSummary: (id: string) => ['budget', 'spend-summary', id],
-    },
-    ApiRequestError,
-  };
-});
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function makeQC() {
-  return new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  });
-}
-
-function wrap(ui: React.ReactElement) {
-  return render(<QueryClientProvider client={makeQC()}>{ui}</QueryClientProvider>);
-}
-
-// ── Importaciones bajo test ───────────────────────────────────────────────────
-
-import { ReceiptsPage } from './pages/ReceiptsPage';
-import { ReceiptDraftEditor } from './components/ReceiptDraftEditor';
-import { SpendPage } from './pages/SpendPage';
-import * as useBudgetModule from './hooks/useBudget';
-
-// ── Limpieza ──────────────────────────────────────────────────────────────────
-
-beforeEach(() => {
-  vi.clearAllMocks();
-
-  // Restaurar los mocks a su estado por defecto
-  (useBudgetModule.useFamilyReceipts as ReturnType<typeof vi.fn>).mockReturnValue({
-    data: [],
+function renderReceipts(overrides: Partial<ReceiptsViewProps> = {}) {
+  const props: ReceiptsViewProps = {
+    receipts: [],
     isLoading: false,
     error: null,
-  });
-  (useBudgetModule.useExtractReceipt as ReturnType<typeof vi.fn>).mockReturnValue({
-    mutateAsync: vi.fn(),
-    isPending: false,
-  });
-  (useBudgetModule.useCreateReceipt as ReturnType<typeof vi.fn>).mockReturnValue({
-    mutateAsync: vi.fn(),
-    isPending: false,
-  });
-  (useBudgetModule.useDeleteReceipt as ReturnType<typeof vi.fn>).mockReturnValue({
-    mutate: vi.fn(),
-    mutateAsync: vi.fn(),
-    isPending: false,
-  });
-  (useBudgetModule.useSpendSummary as ReturnType<typeof vi.fn>).mockReturnValue({
-    data: null,
+    capture: { phase: 'idle' },
+    captureError: null,
+    isSavingDraft: false,
+    onCapture: vi.fn(),
+    onManualEntry: vi.fn(),
+    onCancelCapture: vi.fn(),
+    onSaveDraft: vi.fn(),
+    onOpen: vi.fn(),
+    onDelete: vi.fn(),
+    onGoSpend: vi.fn(),
+    ...overrides,
+  };
+  return { props, ...render(<ReceiptsView {...props} />) };
+}
+
+function renderDetail(overrides: Partial<ReceiptDetailViewProps> = {}) {
+  const props: ReceiptDetailViewProps = {
+    receipt: MOCK_RECEIPT,
+    isEditing: false,
     isLoading: false,
     error: null,
-  });
-});
+    isSaving: false,
+    isDeleting: false,
+    onBack: vi.fn(),
+    onToggleEdit: vi.fn(),
+    onSave: vi.fn(),
+    onDelete: vi.fn(),
+    ...overrides,
+  };
+  return { props, ...render(<ReceiptDetailView {...props} />) };
+}
+
+function renderSpend(overrides: Partial<SpendViewProps> = {}) {
+  const props: SpendViewProps = {
+    summary: MOCK_SUMMARY,
+    isLoading: false,
+    error: null,
+    onBack: vi.fn(),
+    ...overrides,
+  };
+  return { props, ...render(<SpendView {...props} />) };
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 1. ReceiptsPage
+// 1. ReceiptsView
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('ReceiptsPage', () => {
+describe('ReceiptsView', () => {
   it('renderiza el título y el botón de capturar', () => {
-    wrap(<ReceiptsPage />);
+    renderReceipts();
     expect(screen.getByText('Tickets y gasto')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /capturar ticket/i })).toBeInTheDocument();
   });
 
-  it('muestra mensaje vacío cuando no hay tickets', () => {
-    wrap(<ReceiptsPage />);
-    expect(screen.getByText(/no hay tickets registrados/i)).toBeInTheDocument();
+  it('muestra el estado vacío cuando no hay tickets', () => {
+    renderReceipts({ receipts: [] });
+    expect(screen.getByText(/aún no hay tickets registrados/i)).toBeInTheDocument();
   });
 
   it('muestra la lista de tickets', () => {
-    (useBudgetModule.useFamilyReceipts as ReturnType<typeof vi.fn>).mockReturnValue({
-      data: [
-        {
-          id: 'r1',
-          merchant: 'Mercadona',
-          purchasedAt: '2026-05-20T10:00:00Z',
-          total: 45.5,
-          currency: 'EUR',
-          status: 'confirmed',
-          lineCount: 3,
-        },
-      ],
-      isLoading: false,
-      error: null,
-    });
-    wrap(<ReceiptsPage />);
+    renderReceipts({ receipts: MOCK_RECEIPTS });
     expect(screen.getByText('Mercadona')).toBeInTheDocument();
-  });
-
-  it('muestra el aviso de IA no disponible cuando extract devuelve 503', async () => {
-    (useBudgetModule.useExtractReceipt as ReturnType<typeof vi.fn>).mockReturnValue({
-      mutateAsync: vi.fn().mockRejectedValue(
-        Object.assign(new Error('503'), { status: 503, body: { message: 'Unavailable' } }),
-      ),
-      isPending: false,
-    });
-
-    const user = userEvent.setup();
-    wrap(<ReceiptsPage />);
-
-    const fileInput = screen.getByLabelText(/seleccionar imagen del ticket/i);
-    await user.upload(fileInput, new File(['img'], 'ticket.jpg', { type: 'image/jpeg' }));
-
-    await waitFor(() => {
-      expect(screen.getByRole('alert')).toBeInTheDocument();
-    });
-
-    expect(screen.getByText(/la ia no está disponible/i)).toBeInTheDocument();
-    expect(screen.getByText(/recargar la clave de minimax/i)).toBeInTheDocument();
-  });
-
-  it('el botón "Alta manual" aparece cuando la IA no está disponible y abre el editor', async () => {
-    (useBudgetModule.useExtractReceipt as ReturnType<typeof vi.fn>).mockReturnValue({
-      mutateAsync: vi.fn().mockRejectedValue(
-        Object.assign(new Error('503'), { status: 503, body: { message: 'Unavailable' } }),
-      ),
-      isPending: false,
-    });
-
-    const user = userEvent.setup();
-    wrap(<ReceiptsPage />);
-
-    const fileInput = screen.getByLabelText(/seleccionar imagen del ticket/i);
-    await user.upload(fileInput, new File(['img'], 'ticket.jpg', { type: 'image/jpeg' }));
-
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /alta manual/i })).toBeInTheDocument();
-    });
-
-    await user.click(screen.getByRole('button', { name: /alta manual/i }));
-
-    await waitFor(() => {
-      expect(screen.getByRole('main', { name: /editor de ticket/i })).toBeInTheDocument();
-    });
+    expect(screen.getByText('45,50 €')).toBeInTheDocument();
   });
 
   it('tiene un input de fichero con accept=image/* y capture=environment', () => {
-    wrap(<ReceiptsPage />);
+    renderReceipts();
     const fileInput = screen.getByLabelText(/seleccionar imagen del ticket/i);
     expect(fileInput).toHaveAttribute('accept', 'image/*');
     expect(fileInput).toHaveAttribute('capture', 'environment');
   });
 
-  it('muestra el enlace "Ver gasto"', () => {
-    wrap(<ReceiptsPage />);
+  it('emite onCapture al seleccionar un archivo', async () => {
+    const onCapture = vi.fn();
+    const user = userEvent.setup();
+    renderReceipts({ onCapture });
+
+    const fileInput = screen.getByLabelText(/seleccionar imagen del ticket/i);
+    await user.upload(fileInput, new File(['img'], 'ticket.jpg', { type: 'image/jpeg' }));
+
+    expect(onCapture).toHaveBeenCalledTimes(1);
+  });
+
+  it('muestra "Procesando…" y deshabilita el botón mientras extrae', () => {
+    renderReceipts({ capture: { phase: 'extracting' } });
+    expect(screen.getByRole('button', { name: /capturar ticket/i })).toBeDisabled();
+    expect(screen.getByText(/procesando/i)).toBeInTheDocument();
+  });
+
+  it('muestra el aviso de IA no disponible (503) con "Alta manual" y "Cancelar"', () => {
+    renderReceipts({ capture: { phase: 'ai-unavailable' } });
+    expect(screen.getByText(/la ia no está disponible/i)).toBeInTheDocument();
+    expect(screen.getByText(/recargar la clave de minimax/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /alta manual/i })).toBeInTheDocument();
+  });
+
+  it('emite onManualEntry al pulsar "Alta manual"', async () => {
+    const onManualEntry = vi.fn();
+    const user = userEvent.setup();
+    renderReceipts({ capture: { phase: 'ai-unavailable' }, onManualEntry });
+    await user.click(screen.getByRole('button', { name: /alta manual/i }));
+    expect(onManualEntry).toHaveBeenCalled();
+  });
+
+  it('renderiza el editor de borrador a pantalla completa en fase draft', () => {
+    renderReceipts({
+      capture: {
+        phase: 'draft',
+        draft: { currency: 'EUR', lines: [{ description: 'Café', lineTotal: 3, category: 'groceries' }] },
+      },
+    });
+    expect(screen.getByRole('main', { name: /editor de ticket/i })).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Café')).toBeInTheDocument();
+  });
+
+  it('renderiza el editor en fase manual con borrador vacío', () => {
+    renderReceipts({ capture: { phase: 'manual', draft: { lines: [], currency: 'EUR' } } });
+    expect(screen.getByRole('main', { name: /editor de ticket/i })).toBeInTheDocument();
+  });
+
+  it('muestra el botón "Ver gasto"', () => {
+    renderReceipts();
     expect(screen.getByRole('button', { name: /ver gasto/i })).toBeInTheDocument();
+  });
+
+  it('emite onDelete al pulsar el botón de eliminar de una fila', async () => {
+    const onDelete = vi.fn();
+    const user = userEvent.setup();
+    renderReceipts({ receipts: MOCK_RECEIPTS, onDelete });
+    await user.click(screen.getByRole('button', { name: /eliminar ticket mercadona/i }));
+    expect(onDelete).toHaveBeenCalledWith('r1');
   });
 });
 
@@ -258,54 +233,55 @@ describe('ReceiptDraftEditor', () => {
     ],
   };
 
-  const defaultProps = {
-    draft: defaultDraft,
-    isSaving: false,
-    onSave: vi.fn(),
-    onCancel: vi.fn(),
-  };
+  function renderEditor(overrides: Partial<React.ComponentProps<typeof ReceiptDraftEditor>> = {}) {
+    const props = {
+      draft: defaultDraft,
+      isSaving: false,
+      onSave: vi.fn(),
+      onCancel: vi.fn(),
+      ...overrides,
+    };
+    return { props, ...render(<ReceiptDraftEditor {...props} />) };
+  }
 
   it('pre-rellena el campo merchant con el valor del borrador', () => {
-    wrap(<ReceiptDraftEditor {...defaultProps} />);
+    renderEditor();
     expect(screen.getByDisplayValue('Lidl')).toBeInTheDocument();
   });
 
   it('muestra los artículos del borrador', () => {
-    wrap(<ReceiptDraftEditor {...defaultProps} />);
+    renderEditor();
     expect(screen.getByDisplayValue('Leche')).toBeInTheDocument();
     expect(screen.getByDisplayValue('Pan')).toBeInTheDocument();
   });
 
   it('calcula el total como suma de los importes de las líneas', () => {
-    wrap(<ReceiptDraftEditor {...defaultProps} />);
-    // total = 1.2 + 0.8 = 2.00 €
+    renderEditor();
+    // total = 1.2 + 0.8 = 2,00 €
     expect(screen.getByText('2,00 €')).toBeInTheDocument();
   });
 
   it('puede añadir un nuevo artículo', async () => {
     const user = userEvent.setup();
-    wrap(<ReceiptDraftEditor {...defaultProps} />);
-
+    renderEditor();
     await user.click(screen.getByRole('button', { name: /añadir artículo/i }));
-
     const inputs = screen.getAllByLabelText(/descripción del artículo/i);
     expect(inputs).toHaveLength(3);
   });
 
-  it('llama a onSave con los datos correctos al pulsar "Guardar ticket"', async () => {
+  it('llama a onSave con el CreateReceiptInput completo al guardar', async () => {
     const onSave = vi.fn();
     const user = userEvent.setup();
-    wrap(<ReceiptDraftEditor {...defaultProps} onSave={onSave} />);
-
+    renderEditor({ onSave });
     await user.click(screen.getByRole('button', { name: /guardar ticket/i }));
-
     expect(onSave).toHaveBeenCalledWith(
       expect.objectContaining({
         merchant: 'Lidl',
+        purchasedAt: '2026-05-20',
         total: 2,
         currency: 'EUR',
         lines: expect.arrayContaining([
-          expect.objectContaining({ description: 'Leche' }),
+          expect.objectContaining({ description: 'Leche', category: 'groceries' }),
         ]),
       }),
     );
@@ -314,115 +290,123 @@ describe('ReceiptDraftEditor', () => {
   it('llama a onCancel al pulsar "Cancelar"', async () => {
     const onCancel = vi.fn();
     const user = userEvent.setup();
-    wrap(<ReceiptDraftEditor {...defaultProps} onCancel={onCancel} />);
-
+    renderEditor({ onCancel });
     await user.click(screen.getByRole('button', { name: /cancelar/i }));
-
     expect(onCancel).toHaveBeenCalled();
   });
 
-  it('el botón Guardar está deshabilitado si no hay artículos', async () => {
+  it('el botón Guardar está deshabilitado si no hay artículos y se habilita al añadir', async () => {
     const user = userEvent.setup();
-    wrap(
-      <ReceiptDraftEditor
-        {...defaultProps}
-        draft={{ ...defaultDraft, lines: [] }}
-      />,
-    );
-
+    renderEditor({ draft: { ...defaultDraft, lines: [] } });
     expect(screen.getByRole('button', { name: /guardar ticket/i })).toBeDisabled();
-
     await user.click(screen.getByRole('button', { name: /añadir artículo/i }));
-
     expect(screen.getByRole('button', { name: /guardar ticket/i })).not.toBeDisabled();
+  });
+
+  it('respeta el title y el saveLabel personalizados (modo edición)', () => {
+    renderEditor({ title: 'Editar ticket', saveLabel: 'Guardar cambios' });
+    expect(screen.getByText('Editar ticket')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /guardar cambios/i })).toBeInTheDocument();
   });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 3. SpendPage
+// 3. ReceiptDetailView
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('SpendPage', () => {
+describe('ReceiptDetailView', () => {
+  it('muestra el establecimiento, el total y el badge de borrador', () => {
+    renderDetail();
+    expect(screen.getByText('Lidl')).toBeInTheDocument();
+    expect(screen.getByText('2,00 €')).toBeInTheDocument();
+    expect(screen.getByText('Borrador')).toBeInTheDocument();
+  });
+
+  it('muestra las líneas con su categoría', () => {
+    renderDetail();
+    expect(screen.getByText('Leche')).toBeInTheDocument();
+    expect(screen.getByText('Pan')).toBeInTheDocument();
+    expect(screen.getAllByText('Supermercado').length).toBeGreaterThan(0);
+  });
+
+  it('emite onToggleEdit al pulsar "Editar"', async () => {
+    const onToggleEdit = vi.fn();
+    const user = userEvent.setup();
+    renderDetail({ onToggleEdit });
+    await user.click(screen.getByRole('button', { name: /editar/i }));
+    expect(onToggleEdit).toHaveBeenCalled();
+  });
+
+  it('emite onBack al pulsar "‹ Tickets"', async () => {
+    const onBack = vi.fn();
+    const user = userEvent.setup();
+    renderDetail({ onBack });
+    await user.click(screen.getByRole('button', { name: /tickets/i }));
+    expect(onBack).toHaveBeenCalled();
+  });
+
+  it('emite onDelete al pulsar "Borrar ticket"', async () => {
+    const onDelete = vi.fn();
+    const user = userEvent.setup();
+    renderDetail({ onDelete });
+    await user.click(screen.getByRole('button', { name: /borrar ticket/i }));
+    expect(onDelete).toHaveBeenCalled();
+  });
+
+  it('en modo edición muestra el editor de borrador sembrado con el ticket', () => {
+    renderDetail({ isEditing: true });
+    expect(screen.getByRole('main', { name: /editor de ticket/i })).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Lidl')).toBeInTheDocument();
+    expect(screen.getByText('Editar ticket')).toBeInTheDocument();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 4. SpendView
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('SpendView', () => {
   it('renderiza el título de la página', () => {
-    (useBudgetModule.useSpendSummary as ReturnType<typeof vi.fn>).mockReturnValue({
-      data: { total: 0, currency: 'EUR', byCategory: [], byMonth: [] },
-      isLoading: false,
-      error: null,
-    });
-    wrap(<SpendPage />);
+    renderSpend();
     expect(screen.getByText('Resumen de gasto')).toBeInTheDocument();
   });
 
   it('muestra el total formateado en euros', () => {
-    (useBudgetModule.useSpendSummary as ReturnType<typeof vi.fn>).mockReturnValue({
-      data: { total: 123.45, currency: 'EUR', byCategory: [], byMonth: [] },
-      isLoading: false,
-      error: null,
-    });
-    wrap(<SpendPage />);
+    renderSpend({ summary: { total: 123.45, currency: 'EUR', byCategory: [], byMonth: [] } });
     expect(screen.getByText('123,45 €')).toBeInTheDocument();
   });
 
-  it('renderiza las barras por categoría', () => {
-    (useBudgetModule.useSpendSummary as ReturnType<typeof vi.fn>).mockReturnValue({
-      data: {
-        total: 200,
-        currency: 'EUR',
-        byCategory: [
-          { category: 'groceries', total: 150 },
-          { category: 'household', total: 50 },
-        ],
-        byMonth: [],
-      },
-      isLoading: false,
-      error: null,
-    });
-    wrap(<SpendPage />);
+  it('renderiza las barras por categoría con sus etiquetas', () => {
+    renderSpend();
     expect(screen.getByText('Supermercado')).toBeInTheDocument();
     expect(screen.getByText('Hogar')).toBeInTheDocument();
   });
 
   it('renderiza las barras por mes', () => {
-    (useBudgetModule.useSpendSummary as ReturnType<typeof vi.fn>).mockReturnValue({
-      data: {
-        total: 100,
-        currency: 'EUR',
-        byCategory: [],
-        byMonth: [
-          { month: '2026-05', total: 60 },
-          { month: '2026-04', total: 40 },
-        ],
-      },
-      isLoading: false,
-      error: null,
-    });
-    wrap(<SpendPage />);
+    renderSpend();
     expect(screen.getByText(/mayo.*2026/i)).toBeInTheDocument();
   });
 
   it('muestra mensaje cuando no hay datos', () => {
-    (useBudgetModule.useSpendSummary as ReturnType<typeof vi.fn>).mockReturnValue({
-      data: { total: 0, currency: 'EUR', byCategory: [], byMonth: [] },
-      isLoading: false,
-      error: null,
-    });
-    wrap(<SpendPage />);
+    renderSpend({ summary: { total: 0, currency: 'EUR', byCategory: [], byMonth: [] } });
     expect(screen.getByText(/no hay datos de gasto/i)).toBeInTheDocument();
   });
 
   it('las barras tienen role=progressbar', () => {
-    (useBudgetModule.useSpendSummary as ReturnType<typeof vi.fn>).mockReturnValue({
-      data: {
-        total: 100,
-        currency: 'EUR',
-        byCategory: [{ category: 'groceries', total: 100 }],
-        byMonth: [],
-      },
-      isLoading: false,
-      error: null,
-    });
-    wrap(<SpendPage />);
-    const bars = screen.getAllByRole('progressbar');
-    expect(bars.length).toBeGreaterThan(0);
+    renderSpend();
+    expect(screen.getAllByRole('progressbar').length).toBeGreaterThan(0);
+  });
+
+  it('emite onBack al pulsar "‹ Tickets"', async () => {
+    const onBack = vi.fn();
+    const user = userEvent.setup();
+    renderSpend({ onBack });
+    await user.click(screen.getByRole('button', { name: /tickets/i }));
+    expect(onBack).toHaveBeenCalled();
+  });
+
+  it('muestra el estado de carga (no muestra el total)', () => {
+    renderSpend({ isLoading: true });
+    expect(screen.queryByText('200,00 €')).not.toBeInTheDocument();
   });
 });

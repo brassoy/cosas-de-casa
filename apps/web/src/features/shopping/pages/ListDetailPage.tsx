@@ -1,172 +1,83 @@
-import { useState } from 'react';
-import { useParams, useNavigate } from '@tanstack/react-router';
-import { useShoppingListDetail, useToggleItem, useDeleteItem, useAddItemWithDedup } from '../hooks/useShopping';
+/**
+ * ListDetailPage — CONTAINER del detalle de una lista de la compra.
+ *
+ * Es la pantalla MÁS DENSA: cablea TODA la lógica real una sola vez y delega el
+ * render en `ThemeView` (vista presentacional del theme activo, fallback base).
+ * No se pierde nada: offline-first Dexie+outbox, dedup SUGGEST/AUTO_MERGE, realtime
+ * LWW, voz (Web Speech + extracción IA), comentarios offline-first y success overlay.
+ *
+ * Responsabilidades que viven AQUÍ (no en la vista):
+ *  - `useShoppingListDetail` (Dexie liveQuery + seed) + `useToggleItem`,
+ *    `useDeleteItem`, `useAddItemWithDedup` (con su estado: dedupState, autoMerge,
+ *    successOverlay, successCount).
+ *  - `useFrequentItems` (frecuentes de la familia) → barra de "añadir rápido".
+ *  - `useRealtimeItems` (Supabase Realtime → merge LWW en Dexie respetando outbox).
+ *  - `useShoppingStore` (ítem abierto en el Sheet) + comentarios del ítem abierto
+ *    (`useItemComments` + `useAddComment`, instanciados para el ÚNICO ítem abierto,
+ *    nunca en bucle).
+ *  - Voz: `useVoiceRecognition` (Web Speech) + POST /ai/extract-items → chips de
+ *    confirmación; estado expuesto como `voiceState`/`voiceInterim`/`voiceError`/
+ *    `voiceCandidates` y callbacks `onVoice`/`onConfirmVoice`/`onCancelVoice`.
+ *  - `isOffline` reactivo (navigator.onLine + eventos online/offline).
+ *  - Mapeo `LocalItem`/`LocalComment` → DTOs de presentación (null → undefined).
+ */
+
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate, useParams } from '@tanstack/react-router';
+import { api } from '@/shared/lib/api';
+import { ThemeView } from '@/shared/theme/ThemeView';
+import { useAuthStore } from '@/features/auth/store/auth.store';
+import {
+  useShoppingListDetail,
+  useToggleItem,
+  useDeleteItem,
+  useAddItemWithDedup,
+  useItemComments,
+  useAddComment,
+} from '../hooks/useShopping';
 import { useFrequentItems } from '../hooks/useFrequentItems';
 import { useRealtimeItems } from '../hooks/useRealtimeItems';
+import { useVoiceRecognition } from '../hooks/useVoiceRecognition';
 import { useShoppingStore } from '../store/shopping.store';
-import { ItemSheet } from '../components/ItemSheet';
-import { VoiceAddButton } from '../components/VoiceAddButton';
-import { FrequentItemsBar } from '../components/FrequentItemsBar';
-import { DedupConfirmDialog } from '../components/DedupConfirmDialog';
-import { AddSuccessOverlay } from '../components/AddSuccessOverlay';
-import type { LocalItem } from '../offline/db';
+import type { LocalComment, LocalItem } from '../offline/db';
+import type {
+  AddItemPayload,
+  ItemCommentView,
+  ShoppingItemView,
+  ShoppingListDetailViewProps,
+} from '../views/types';
 
-// ── Presentational: fila de ítem ─────────────────────────────────────────────
-
-interface ItemRowProps {
-  item: LocalItem;
-  onToggle: (id: string, checked: boolean) => void;
-  onDelete: (id: string) => void;
-  onOpenDetail: (id: string) => void;
+// TODO(contracts): añadir ExtractItemsResponseDto a @cosasdecasa/contracts cuando
+// el backend formalice el contrato del endpoint /ai/extract-items.
+interface ExtractItemsResponse {
+  items: string[];
 }
 
-function ItemRow({ item, onToggle, onDelete, onOpenDetail }: ItemRowProps) {
-  const hasDetail = Boolean(item.description || item.purchaseLink);
+// ── Mapeos Dexie → DTO de presentación ────────────────────────────────────────
 
-  return (
-    <li style={styles.itemRow}>
-      <button
-        type="button"
-        onClick={() => onToggle(item.id, !item.checked)}
-        style={{ ...styles.checkbox, ...(item.checked ? styles.checkboxChecked : {}) }}
-        aria-label={item.checked ? `Marcar ${item.name} como pendiente` : `Marcar ${item.name} como comprado`}
-        aria-pressed={item.checked}
-      >
-        {item.checked && <span style={styles.checkmark}>✓</span>}
-      </button>
-
-      <div style={styles.itemContent}>
-        <span
-          style={{ ...styles.itemName, ...(item.checked ? styles.itemNameChecked : {}) }}
-          onClick={() => hasDetail && onOpenDetail(item.id)}
-          role={hasDetail ? 'button' : undefined}
-          tabIndex={hasDetail ? 0 : undefined}
-          onKeyDown={(e) => { if (hasDetail && (e.key === 'Enter' || e.key === ' ')) onOpenDetail(item.id); }}
-        >
-          {item.name}
-        </span>
-
-        {(item.quantity !== undefined || item.unit) && (
-          <span style={styles.itemMeta}>
-            {item.quantity !== undefined ? String(item.quantity) : ''} {item.unit ?? ''}
-          </span>
-        )}
-
-        {hasDetail && (
-          <button
-            type="button"
-            onClick={() => onOpenDetail(item.id)}
-            style={styles.detailBtn}
-            aria-label={`Ver detalle de ${item.name}`}
-          >
-            Ver detalle
-          </button>
-        )}
-      </div>
-
-      <button
-        type="button"
-        onClick={() => onDelete(item.id)}
-        style={styles.deleteBtn}
-        aria-label={`Eliminar ${item.name}`}
-      >
-        ✕
-      </button>
-    </li>
-  );
+/** Normaliza el ítem local a `ShoppingItemDto`: `null`/`undefined` coherentes. */
+function toItemView(i: LocalItem): ShoppingItemView {
+  return {
+    id: i.id,
+    listId: i.listId,
+    name: i.name,
+    quantity: i.quantity ?? undefined,
+    unit: i.unit ?? undefined,
+    description: i.description ?? undefined,
+    purchaseLink: i.purchaseLink ?? undefined,
+    checked: i.checked,
+    updatedAt: i.updatedAt,
+    createdAt: i.createdAt,
+  };
 }
 
-// ── Formulario: añadir ítem ───────────────────────────────────────────────────
-
-interface AddItemFormProps {
-  listId: string;
-  onAdd: (data: { name: string; unit?: string }) => Promise<void>;
-}
-
-function AddItemForm({ onAdd }: AddItemFormProps) {
-  const [name, setName] = useState('');
-  const [unit, setUnit] = useState('');
-  const [adding, setAdding] = useState(false);
-  const [expanded, setExpanded] = useState(false);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!name.trim()) return;
-    setAdding(true);
-    try {
-      await onAdd({ name: name.trim(), unit: unit.trim() || undefined });
-      setName('');
-      setUnit('');
-      setExpanded(false);
-    } finally {
-      setAdding(false);
-    }
-  }
-
-  return (
-    <form onSubmit={(e) => { void handleSubmit(e); }} style={styles.addForm}>
-      <div style={styles.addRow}>
-        <input
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Añadir artículo…"
-          style={styles.addInput}
-          aria-label="Nombre del artículo"
-          maxLength={200}
-          onFocus={() => setExpanded(true)}
-        />
-        <button
-          type="submit"
-          disabled={adding || !name.trim()}
-          style={styles.addBtn}
-        >
-          {adding ? '…' : 'Añadir'}
-        </button>
-      </div>
-
-      {expanded && (
-        <div style={styles.addExtra}>
-          <input
-            type="text"
-            value={unit}
-            onChange={(e) => setUnit(e.target.value)}
-            placeholder="Unidad (opcional, p. ej. kg, l, uds)"
-            style={styles.addInput}
-            aria-label="Unidad"
-            maxLength={50}
-          />
-        </div>
-      )}
-    </form>
-  );
-}
-
-// ── Sección de acciones de añadir (texto + voz + frecuentes) ─────────────────
-
-interface AddSectionProps {
-  listId: string;
-  familyId: string;
-  onAdd: (data: { name: string; unit?: string }) => Promise<void>;
-  onAddByVoice: (names: string[]) => Promise<void>;
-}
-
-function AddSection({ listId, familyId, onAdd, onAddByVoice }: AddSectionProps) {
-  const { items: frequentItems, loading: loadingFrequent } = useFrequentItems(familyId);
-
-  return (
-    <div style={styles.addSection}>
-      <AddItemForm listId={listId} onAdd={onAdd} />
-      <div style={styles.addSectionRow}>
-        <VoiceAddButton onAddItems={onAddByVoice} />
-      </div>
-      <FrequentItemsBar
-        items={frequentItems}
-        loading={loadingFrequent}
-        onAdd={(name) => onAdd({ name })}
-      />
-    </div>
-  );
+function toCommentView(c: LocalComment): ItemCommentView {
+  return {
+    id: c.id,
+    body: c.body,
+    authorName: c.authorName,
+    createdAt: c.createdAt,
+  };
 }
 
 // ── Container ─────────────────────────────────────────────────────────────────
@@ -177,6 +88,8 @@ export function ListDetailPage() {
     familyId: string;
   };
   const navigate = useNavigate();
+  const user = useAuthStore((s) => s.user);
+
   const { list, items, loading } = useShoppingListDetail(listId);
   const { toggleItem } = useToggleItem();
   const { deleteItem } = useDeleteItem();
@@ -191,320 +104,185 @@ export function ListDetailPage() {
     hideSuccessOverlay,
   } = useAddItemWithDedup();
 
-  // Suscripción Realtime: mergea cambios remotos en Dexie; useLiveQuery repinta.
+  const { items: frequentItems } = useFrequentItems(familyId);
+
+  // Realtime: mergea cambios remotos en Dexie (LWW respetando outbox pending).
   useRealtimeItems(listId);
+
+  // Ítem abierto en el Sheet (Zustand) + sus comentarios (un solo ítem, sin bucle).
   const openItemId = useShoppingStore((s) => s.openItemId);
   const openItem = useShoppingStore((s) => s.openItem);
   const closeItem = useShoppingStore((s) => s.closeItem);
+  const { comments } = useItemComments(openItemId ?? undefined);
+  const { addComment } = useAddComment(openItemId ?? '');
+  const [isSendingComment, setIsSendingComment] = useState(false);
 
+  // ── Estado online/offline reactivo ──────────────────────────────────────────
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  useEffect(() => {
+    const goOnline = () => setIsOffline(false);
+    const goOffline = () => setIsOffline(true);
+    window.addEventListener('online', goOnline);
+    window.addEventListener('offline', goOffline);
+    return () => {
+      window.removeEventListener('online', goOnline);
+      window.removeEventListener('offline', goOffline);
+    };
+  }, []);
+
+  // ── Voz: reconocimiento + extracción de ítems por IA ────────────────────────
+  const [voiceCandidates, setVoiceCandidates] = useState<string[]>([]);
+  const [voiceExtractError, setVoiceExtractError] = useState<string | null>(null);
+  const [extracting, setExtracting] = useState(false);
+
+  const handleFinalTranscript = useCallback(async (transcript: string) => {
+    setVoiceExtractError(null);
+    setExtracting(true);
+    try {
+      const response = await api.post<ExtractItemsResponse>('/ai/extract-items', {
+        phrase: transcript,
+      });
+      const detected = response.items.filter((s) => s.trim().length > 0);
+      if (detected.length === 0) {
+        setVoiceExtractError('No se han detectado artículos en lo que has dicho. Inténtalo de nuevo.');
+        return;
+      }
+      setVoiceCandidates(detected);
+    } catch {
+      setVoiceExtractError('No se ha podido extraer los artículos. Inténtalo de nuevo.');
+    } finally {
+      setExtracting(false);
+    }
+  }, []);
+
+  const {
+    supported: voiceSupported,
+    state: rawVoiceState,
+    interimTranscript,
+    start: startVoice,
+    stop: stopVoice,
+    errorMessage: voiceRecogError,
+  } = useVoiceRecognition(handleFinalTranscript);
+
+  // El estado de voz del contrato fusiona el reconocimiento con la extracción IA.
+  const voiceState =
+    rawVoiceState === 'listening'
+      ? ('listening' as const)
+      : rawVoiceState === 'processing' || extracting
+        ? ('processing' as const)
+        : ('idle' as const);
+
+  // ── Mapeos para la vista ─────────────────────────────────────────────────────
+  const mappedItems = useMemo<ShoppingItemView[]>(() => items.map(toItemView), [items]);
   const openItemData = openItemId ? items.find((i) => i.id === openItemId) ?? null : null;
 
-  const pending = items.filter((i) => !i.checked);
-  const checked = items.filter((i) => i.checked);
-
-  async function handleAdd(data: { name: string; unit?: string }) {
-    await addItemWithDedup(listId, data);
+  // ── Acciones ─────────────────────────────────────────────────────────────────
+  async function handleAdd(payload: AddItemPayload) {
+    await addItemWithDedup(
+      listId,
+      {
+        name: payload.name,
+        quantity: payload.quantity,
+        unit: payload.unit,
+        description: payload.description,
+        purchaseLink: payload.purchaseLink,
+      },
+      payload.forceAdd ? { forceAdd: true } : {},
+    );
   }
 
-  async function handleAddByVoice(names: string[]) {
+  async function handleConfirmVoice(names: string[]) {
+    setVoiceCandidates([]);
     for (const name of names) {
       await addItemWithDedup(listId, { name });
     }
   }
 
+  function handleSubmitComment(body: string) {
+    if (!user || !openItemId) return;
+    setIsSendingComment(true);
+    void addComment(
+      body,
+      user.id,
+      (user.user_metadata?.['display_name'] as string) ?? user.email ?? 'Usuario',
+    ).finally(() => setIsSendingComment(false));
+  }
+
   if (!list && !loading) {
     return (
-      <div style={styles.center}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '60dvh',
+        }}
+      >
         <p style={{ color: 'var(--color-text-muted)' }}>Lista no encontrada.</p>
       </div>
     );
   }
 
-  return (
-    <div style={styles.page}>
-      {/* Cabecera */}
-      <header style={styles.pageHeader}>
-        <button
-          type="button"
-          onClick={() => void navigate({ to: '/family/$familyId/lists', params: { familyId } })}
-          style={styles.backBtn}
-          aria-label="Volver a listas"
-        >
-          ‹ Listas
-        </button>
-        <h2 style={styles.pageTitle}>{list?.name ?? '…'}</h2>
-      </header>
+  const props: ShoppingListDetailViewProps = {
+    listName: list?.name ?? '…',
+    items: mappedItems,
+    frequentItems,
+    isLoading: loading,
+    error: null,
+    isOffline,
+    voiceSupported,
+    voiceState,
+    voiceInterim: interimTranscript,
+    voiceError: voiceRecogError ?? voiceExtractError,
+    voiceCandidates,
+    autoMergeMessage,
+    dedupPending: dedupState
+      ? {
+          pendingName: dedupState.itemData.name,
+          candidates: [{ displayName: dedupState.existingName }],
+        }
+      : null,
+    successOverlay: { visible: showSuccessOverlay, key: successCount },
+    openItem: openItemData
+      ? {
+          item: toItemView(openItemData),
+          comments: comments.map(toCommentView),
+          isSendingComment,
+        }
+      : null,
+    onBack: () => void navigate({ to: '/family/$familyId/lists', params: { familyId } }),
+    onAddItem: (payload) => {
+      void handleAdd(payload);
+    },
+    onToggle: (id, checked) => {
+      void toggleItem(id, checked);
+    },
+    onDelete: (id) => {
+      void deleteItem(id);
+    },
+    onQuickAdd: (name) => {
+      void handleAdd({ name });
+    },
+    onVoice: () => {
+      if (rawVoiceState === 'listening') stopVoice();
+      else startVoice();
+    },
+    onConfirmVoice: (names) => {
+      void handleConfirmVoice(names);
+    },
+    onCancelVoice: () => {
+      setVoiceCandidates([]);
+      setVoiceExtractError(null);
+    },
+    onConfirmDedup: () => {
+      void confirmDedup();
+    },
+    onCancelDedup: cancelDedup,
+    onCloseSuccess: hideSuccessOverlay,
+    onOpenItem: openItem,
+    onCloseItem: closeItem,
+    onAddComment: handleSubmitComment,
+  };
 
-      {/* Sección de añadir: texto + voz + frecuentes */}
-      <AddSection
-        listId={listId}
-        familyId={familyId}
-        onAdd={handleAdd}
-        onAddByVoice={handleAddByVoice}
-      />
-
-      {/* Feedback de fusión automática */}
-      {autoMergeMessage && (
-        <p style={styles.autoMergeToast} role="status" aria-live="polite">
-          {autoMergeMessage}
-        </p>
-      )}
-
-      {/* Estado cargando */}
-      {loading && <p style={styles.muted}>Cargando artículos…</p>}
-
-      {/* Lista pendiente */}
-      {pending.length > 0 && (
-        <section>
-          <p style={styles.sectionLabel}>Por comprar ({pending.length})</p>
-          <ul style={styles.itemList}>
-            {pending.map((item) => (
-              <ItemRow
-                key={item.id}
-                item={item}
-                onToggle={(id, ch) => { void toggleItem(id, ch); }}
-                onDelete={(id) => { void deleteItem(id); }}
-                onOpenDetail={openItem}
-              />
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {/* Lista comprada */}
-      {checked.length > 0 && (
-        <section>
-          <p style={styles.sectionLabel}>Comprado ({checked.length})</p>
-          <ul style={styles.itemList}>
-            {checked.map((item) => (
-              <ItemRow
-                key={item.id}
-                item={item}
-                onToggle={(id, ch) => { void toggleItem(id, ch); }}
-                onDelete={(id) => { void deleteItem(id); }}
-                onOpenDetail={openItem}
-              />
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {/* Estado vacío */}
-      {!loading && items.length === 0 && (
-        <div style={styles.empty}>
-          <p style={styles.emptyText}>La lista está vacía. ¡Añade el primer artículo!</p>
-        </div>
-      )}
-
-      {/* Sheet de detalle */}
-      {openItemData && (
-        <ItemSheet item={openItemData} onClose={closeItem} />
-      )}
-
-      {/* Diálogo de confirmación de dedup */}
-      {dedupState && (
-        <DedupConfirmDialog
-          existingName={dedupState.existingName}
-          newItemName={dedupState.itemData.name}
-          onConfirm={confirmDedup}
-          onCancel={cancelDedup}
-        />
-      )}
-
-      {/* Overlay festivo al añadir un ítem. `key` fuerza re-mount para obtener frase/gif nuevos. */}
-      <AddSuccessOverlay
-        key={successCount}
-        visible={showSuccessOverlay}
-        onClose={hideSuccessOverlay}
-      />
-    </div>
-  );
+  return <ThemeView screen="shopping_list_detail" props={props} />;
 }
-
-const styles: Record<string, React.CSSProperties> = {
-  page: {
-    maxWidth: '640px',
-    margin: '0 auto',
-    padding: 'var(--space-6)',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 'var(--space-5)',
-  },
-  pageHeader: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 'var(--space-4)',
-    borderBottom: '1px solid var(--color-border)',
-    paddingBottom: 'var(--space-4)',
-  },
-  backBtn: {
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    color: 'var(--color-accent)',
-    fontSize: 'var(--font-size-base)',
-    padding: 0,
-    flexShrink: 0,
-  },
-  pageTitle: {
-    fontSize: 'var(--font-size-2xl)',
-    fontWeight: 'var(--font-weight-bold)',
-    color: 'var(--color-text)',
-  },
-  addSection: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 'var(--space-3)',
-  },
-  addSectionRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 'var(--space-2)',
-  },
-  autoMergeToast: {
-    fontSize: 'var(--font-size-sm)',
-    color: 'var(--color-text-muted)',
-    backgroundColor: 'var(--color-surface-raised)',
-    border: '1px solid var(--color-border)',
-    borderRadius: 'var(--radius-md)',
-    padding: 'var(--space-3) var(--space-4)',
-  },
-  addForm: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 'var(--space-2)',
-  },
-  addRow: {
-    display: 'flex',
-    gap: 'var(--space-2)',
-  },
-  addExtra: {
-    display: 'flex',
-    gap: 'var(--space-2)',
-  },
-  addInput: {
-    flex: 1,
-    padding: 'var(--space-3)',
-    borderRadius: 'var(--radius-md)',
-    border: '1px solid var(--color-border)',
-    backgroundColor: 'var(--color-surface-raised)',
-    color: 'var(--color-text)',
-    fontSize: 'var(--font-size-base)',
-  },
-  addBtn: {
-    padding: 'var(--space-3) var(--space-5)',
-    borderRadius: 'var(--radius-md)',
-    border: 'none',
-    backgroundColor: 'var(--color-accent)',
-    color: 'var(--color-text-inverse)',
-    fontWeight: 'var(--font-weight-semibold)',
-    fontSize: 'var(--font-size-base)',
-    cursor: 'pointer',
-    flexShrink: 0,
-  },
-  sectionLabel: {
-    fontSize: 'var(--font-size-xs)',
-    fontWeight: 'var(--font-weight-semibold)',
-    color: 'var(--color-text-muted)',
-    textTransform: 'uppercase',
-    letterSpacing: '0.08em',
-    marginBottom: 'var(--space-2)',
-  },
-  itemList: {
-    listStyle: 'none',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 'var(--space-2)',
-  },
-  itemRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 'var(--space-3)',
-    padding: 'var(--space-3)',
-    backgroundColor: 'var(--color-surface-raised)',
-    borderRadius: 'var(--radius-md)',
-    border: '1px solid var(--color-border)',
-  },
-  checkbox: {
-    width: '24px',
-    height: '24px',
-    borderRadius: 'var(--radius-sm)',
-    border: '2px solid var(--color-border)',
-    backgroundColor: 'transparent',
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  checkboxChecked: {
-    backgroundColor: 'var(--color-accent)',
-    borderColor: 'var(--color-accent)',
-  },
-  checkmark: {
-    color: 'var(--color-text-inverse)',
-    fontSize: '14px',
-    fontWeight: 'bold',
-  },
-  itemContent: {
-    flex: 1,
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '2px',
-    minWidth: 0,
-  },
-  itemName: {
-    fontSize: 'var(--font-size-base)',
-    color: 'var(--color-text)',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-  },
-  itemNameChecked: {
-    textDecoration: 'line-through',
-    color: 'var(--color-text-muted)',
-  },
-  itemMeta: {
-    fontSize: 'var(--font-size-xs)',
-    color: 'var(--color-text-muted)',
-  },
-  detailBtn: {
-    background: 'none',
-    border: 'none',
-    color: 'var(--color-accent)',
-    fontSize: 'var(--font-size-xs)',
-    cursor: 'pointer',
-    padding: 0,
-    textDecoration: 'underline',
-    alignSelf: 'flex-start',
-  },
-  deleteBtn: {
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    color: 'var(--color-text-muted)',
-    fontSize: 'var(--font-size-sm)',
-    padding: 'var(--space-1)',
-    flexShrink: 0,
-  },
-  muted: {
-    color: 'var(--color-text-muted)',
-    fontSize: 'var(--font-size-sm)',
-  },
-  empty: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 'var(--space-12) 0',
-  },
-  emptyText: {
-    color: 'var(--color-text-muted)',
-    fontSize: 'var(--font-size-base)',
-  },
-  center: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: '60dvh',
-  },
-};

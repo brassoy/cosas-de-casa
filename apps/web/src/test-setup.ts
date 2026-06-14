@@ -6,6 +6,17 @@ if (!Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = function () {};
 }
 
+// jsdom no implementa `ResizeObserver`. Algunas primitivas de Radix (Checkbox,
+// Switch, etc., vía `@radix-ui/react-use-size`) lo usan al montar para medir el
+// indicador, así que lo polirrellenamos con un stub no-op para los tests.
+if (typeof globalThis.ResizeObserver === 'undefined') {
+  globalThis.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  } as unknown as typeof ResizeObserver;
+}
+
 // jsdom no implementa `matchMedia`. Varios módulos lo usan al importarse
 // (p. ej. el bootstrap de theming), así que lo polirrellenamos para los tests.
 Object.defineProperty(window, 'matchMedia', {

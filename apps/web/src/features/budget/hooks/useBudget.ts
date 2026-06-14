@@ -120,6 +120,25 @@ export function useDeleteReceipt(receiptId: string, familyId: string) {
   });
 }
 
+/**
+ * Variante de borrado que recibe el `receiptId` en cada `mutate(id)`.
+ *
+ * El listado de tickets no puede instanciar `useDeleteReceipt(id)` por fila
+ * (sería un hook en bucle, viola las reglas de hooks). Esta variante se
+ * instancia UNA vez por familia en el container y el id viaja en cada llamada
+ * (mismo patrón que las `*ByFamily` de fridge). Invalidado idéntico.
+ */
+export function useDeleteReceiptByFamily(familyId: string) {
+  const qc = useQueryClient();
+  return useMutation<void, ApiRequestError, string>({
+    mutationFn: (receiptId) => api.delete<void>(`/receipts/${receiptId}`),
+    onSuccess: (_data, receiptId) => {
+      void qc.invalidateQueries({ queryKey: budgetKeys.receiptsByFamily(familyId) });
+      qc.removeQueries({ queryKey: budgetKeys.receiptDetail(receiptId) });
+    },
+  });
+}
+
 // ── Helper: comprimir imagen y convertir a base64 ────────────────────────────
 
 import imageCompression from 'browser-image-compression';

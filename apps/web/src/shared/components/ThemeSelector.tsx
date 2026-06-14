@@ -1,27 +1,33 @@
 import { useState, useEffect, useRef } from 'react';
-import { setAesthetic, setMode, getTheme } from '../theme/theme-bootstrap';
-import type { Aesthetic, Mode } from '../theme/theme-bootstrap';
+import { setTheme, setMode, getTheme } from '../theme/theme-bootstrap';
+import type { ThemeName, Mode } from '../theme/theme-bootstrap';
 
-// ── Metadata de estéticas ─────────────────────────────────────────────────────
+// ── Metadata de themes ─────────────────────────────────────────────────────────
 
-const AESTHETICS: { value: Aesthetic; label: string; emoji: string; description: string }[] = [
+const THEMES: { value: ThemeName; label: string; emoji: string; description: string }[] = [
   {
-    value: 'ios',
-    label: 'Moderno',
+    value: 'base',
+    label: 'Clásico',
     emoji: '◉',
-    description: 'Limpio, redondeado, estilo iOS',
+    description: 'Limpio y neutro (shadcn)',
   },
   {
-    value: 'pixel',
-    label: 'Pixel',
-    emoji: '▪',
-    description: 'Retro 8-bit, monospace, cuadrado',
+    value: 'cozy',
+    label: 'Cuaderno',
+    emoji: '✎',
+    description: 'Papel pautado, manuscrito',
   },
   {
-    value: 'okuda',
-    label: 'Okuda',
-    emoji: '◆',
-    description: 'Pop-art geométrico, colores vivos',
+    value: 'cozysitcom',
+    label: 'Sitcom 70s',
+    emoji: '📺',
+    description: 'Retro cálido, madera y mostaza',
+  },
+  {
+    value: 'springfield',
+    label: 'Cómic',
+    emoji: '🍩',
+    description: 'Bordes gruesos, pop comic',
   },
 ];
 
@@ -30,7 +36,7 @@ const AESTHETICS: { value: Aesthetic; label: string; emoji: string; description:
 export function ThemeSelector() {
   const [open, setOpen] = useState(false);
   // Inicializar desde el DOM directamente (no useEffect para evitar re-render en cascada)
-  const [aesthetic, setLocalAesthetic] = useState<Aesthetic>(() => getTheme().aesthetic);
+  const [theme, setLocalTheme] = useState<ThemeName>(() => getTheme().theme);
   const [mode, setLocalMode] = useState<Mode>(() => getTheme().mode);
   const panelRef = useRef<HTMLDivElement>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -64,9 +70,9 @@ export function ThemeSelector() {
     };
   }, [open]);
 
-  function handleAesthetic(a: Aesthetic) {
-    setAesthetic(a);
-    setLocalAesthetic(a);
+  function handleTheme(t: ThemeName) {
+    setTheme({ theme: t });
+    setLocalTheme(t);
   }
 
   function handleMode(m: Mode) {
@@ -122,24 +128,24 @@ export function ThemeSelector() {
             </button>
           </div>
 
-          {/* Estéticas */}
-          <p style={{ ...sectionLabelStyle, marginTop: '12px' }}>Estética</p>
+          {/* Themes */}
+          <p style={{ ...sectionLabelStyle, marginTop: '12px' }}>Tema</p>
           <div style={aestheticListStyle}>
-            {AESTHETICS.map((a) => (
+            {THEMES.map((t) => (
               <button
-                key={a.value}
+                key={t.value}
                 type="button"
-                onClick={() => handleAesthetic(a.value)}
-                aria-pressed={aesthetic === a.value}
+                onClick={() => handleTheme(t.value)}
+                aria-pressed={theme === t.value}
                 style={{
                   ...aestheticBtnStyle,
-                  ...(aesthetic === a.value ? aestheticBtnActiveStyle : {}),
+                  ...(theme === t.value ? aestheticBtnActiveStyle : {}),
                 }}
               >
-                <span style={aestheticEmojiStyle}>{a.emoji}</span>
+                <span style={aestheticEmojiStyle}>{t.emoji}</span>
                 <span>
-                  <strong style={{ display: 'block', fontSize: '0.875rem' }}>{a.label}</strong>
-                  <span style={{ fontSize: '0.75rem', opacity: 0.7 }}>{a.description}</span>
+                  <strong style={{ display: 'block', fontSize: '0.875rem' }}>{t.label}</strong>
+                  <span style={{ fontSize: '0.75rem', opacity: 0.7 }}>{t.description}</span>
                 </span>
               </button>
             ))}

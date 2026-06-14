@@ -1,26 +1,46 @@
+import { useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
-import { AuthForm } from '../components/AuthForm';
+import { ThemeView } from '@/shared/theme/ThemeView';
+import type { AuthViewProps } from '../views/types';
 import { useAuthStore } from '../store/auth.store';
 
+/**
+ * Container de la pantalla de registro (`auth_signup`). Cablea `useAuthStore` y
+ * delega el render en la vista del theme activo vía `ThemeView`.
+ *
+ * Supabase exige confirmar el email por defecto: tras `signUp` mostramos el aviso
+ * (`signupSuccess`) y redirigimos al login tras un breve margen para que el
+ * usuario lo lea.
+ */
 export function SignupPage() {
-  const { signUp, signInWithGoogle } = useAuthStore();
+  const { signUp, signInWithGoogle, loading } = useAuthStore();
   const navigate = useNavigate();
+  const [error, setError] = useState<string | null>(null);
+  const [signupSuccess, setSignupSuccess] = useState(false);
 
-  async function handleSubmit(email: string, password: string) {
-    await signUp(email, password);
-    // Supabase requiere confirmar el email por defecto; redirigimos al login con aviso
-    await navigate({ to: '/login' });
-  }
+  const props: AuthViewProps = {
+    mode: 'signup',
+    isSubmitting: loading,
+    error,
+    signupSuccess,
+    onSubmit: async ({ email, password }) => {
+      setError(null);
+      try {
+        await signUp(email, password);
+        // Email confirmation: avisamos y redirigimos al login con margen de lectura.
+        setSignupSuccess(true);
+        setTimeout(() => {
+          void navigate({ to: '/login' });
+        }, 2500);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Ha ocurrido un error. Inténtalo de nuevo.');
+      }
+    },
+    onGoogle: signInWithGoogle,
+    onSwitchMode: () => {
+      void navigate({ to: '/login' });
+    },
+  };
 
-  return (
-    <>
-      <AuthForm mode="signup" onSubmit={handleSubmit} onGoogleClick={signInWithGoogle} />
-      <p style={{ textAlign: 'center', marginTop: 'var(--space-4)', fontSize: 'var(--font-size-sm)', color: 'var(--color-text-muted)' }}>
-        ¿Ya tienes cuenta?{' '}
-        <a href="/login" style={{ color: 'var(--color-accent)' }}>
-          Inicia sesión
-        </a>
-      </p>
-    </>
-  );
+  return <ThemeView screen="auth_signup" props={props} />;
 }

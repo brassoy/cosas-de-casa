@@ -1,0 +1,327 @@
+/* ─── Springfield — Hoja de estilos decorativos ──────────────────────────────
+ *
+ * Theme "Cómic pop / Springfield": bordes gruesos de tinta, hard shadows con
+ * offset (sin blur), colores planos saturados. Clases utilitarias reutilizables
+ * (.sf-*) extraídas del kit estático (screens/themes/springfield.tsx). Las vistas
+ * las consumen para reproducir el look del theme sin reescribir estilos inline.
+ *
+ * SCOPE: todas las reglas viven bajo html[data-theme="springfield"] para NO
+ * filtrar a otros themes. Cuando existe una var semántica equivalente (resuelta
+ * por [data-theme='springfield'] en tokens.themes.css) se usa var(--color-*) /
+ * var(--radius-*) / var(--shadow-*) / var(--font-*). Los hex sueltos son matices
+ * decorativos propios del theme sin var semántica: el rosa de tarjeta (.sf-card-p),
+ * el grosor exacto de los bordes de cómic (3px / 2px), las hard shadows pequeñas
+ * de stickers/checks y los patrones (zigzag, puntos).
+ *
+ * @keyframes: globales (son inertes sin su clase). Las animaciones (.sf-float,
+ * .sf-wob, .sf-pop) RESPETAN prefers-reduced-motion: solo se aplican bajo
+ * @media (prefers-reduced-motion: no-preference).
+ *
+ * Paleta cruda de referencia (kit):
+ *   yellow #FFD90F · sky #70C5FF · red #E53935 · green #7CB342
+ *   pink #F48FB1 · ink #1A1A1A · cream #FFF3C4 · white #FFFFFF
+ * Fuentes: Nunito (body) · Bangers (heading) · Fredoka (sub)  ← cargadas por
+ * ensureThemeFonts('springfield')
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+/* Tipografía base del theme (cuerpo Nunito). */
+html[data-theme='springfield'] .sf {
+  font-family: var(--font-body);
+  color: var(--color-text);
+}
+
+/* Titulares con la display de cómic (Bangers), con tracking ligero. */
+html[data-theme='springfield'] .sf-bangers {
+  font-family: var(--font-heading);
+  letter-spacing: 0.03em;
+}
+
+/* Subtítulos / labels redondeados (Fredoka 700). */
+html[data-theme='springfield'] .sf-fredoka {
+  font-family: 'Fredoka', system-ui;
+  font-weight: 700;
+}
+
+/* Tarjeta blanca de viñeta: borde grueso de tinta + hard shadow offset. */
+html[data-theme='springfield'] .sf-card {
+  background: var(--color-surface-raised);
+  border: 3px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+/* Variante amarilla (cabeceras / destacados). */
+html[data-theme='springfield'] .sf-card-y {
+  background: var(--color-accent);
+  border: 3px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+/* Variante celeste (paneles informativos). */
+html[data-theme='springfield'] .sf-card-s {
+  background: var(--color-info);
+  border: 3px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+/* Variante rosa (acento lúdico; rosa sin var semántica → hex crudo). */
+html[data-theme='springfield'] .sf-card-p {
+  background: #f48fb1;
+  border: 3px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+/* Variante verde (éxito / confirmación), texto inverso. */
+html[data-theme='springfield'] .sf-card-g {
+  background: var(--color-success);
+  border: 3px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  color: var(--color-text-inverse);
+}
+
+/* Botón primario amarillo: pill, borde de tinta, hard shadow y press físico. */
+html[data-theme='springfield'] .sf-btn {
+  background: var(--color-accent);
+  color: var(--color-text);
+  border: 3px solid var(--color-border);
+  border-radius: var(--radius-full);
+  box-shadow: var(--shadow-md);
+  font-weight: 900;
+  padding: 10px 18px;
+  transition: 0.12s;
+  font-family: var(--font-body);
+}
+html[data-theme='springfield'] .sf-btn:hover {
+  transform: translate(2px, 2px);
+  box-shadow: var(--shadow-sm);
+}
+html[data-theme='springfield'] .sf-btn:active {
+  transform: translate(4px, 4px);
+  box-shadow: 0 0 0 var(--color-border);
+}
+
+/* Botón rojo (acción destacada / destructiva). */
+html[data-theme='springfield'] .sf-btn-r {
+  background: var(--color-error);
+  color: var(--color-text-inverse);
+}
+
+/* Botón verde (confirmación / "¡Hecho!"). */
+html[data-theme='springfield'] .sf-btn-g {
+  background: var(--color-success);
+  color: var(--color-text-inverse);
+}
+
+/* Botón blanco (acción secundaria sobre fondo de color). */
+html[data-theme='springfield'] .sf-btn-w {
+  background: var(--color-surface-raised);
+}
+
+/* Campo de formulario (input/textarea): borde de tinta, hard shadow, foco rojo. */
+html[data-theme='springfield'] .sf-input {
+  background: var(--color-surface-raised);
+  border: 3px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  font-weight: 700;
+  width: 100%;
+  box-shadow: var(--shadow-sm);
+  font-family: var(--font-body);
+}
+html[data-theme='springfield'] .sf-input:focus {
+  outline: none;
+  box-shadow: 5px 5px 0 var(--color-error);
+}
+
+/* Pegatina inclinada (badge "¡Hola!"): borde fino, hard shadow pequeña, rotada. */
+html[data-theme='springfield'] .sf-sticker {
+  display: inline-block;
+  padding: 3px 10px;
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-raised);
+  font-weight: 800;
+  font-size: 11px;
+  box-shadow: var(--shadow-sm);
+  transform: rotate(-3deg);
+}
+
+/* Etiqueta/pill compacta (categoría, estado, contador). */
+html[data-theme='springfield'] .sf-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-raised);
+  font-weight: 800;
+  font-size: 10px;
+}
+
+/* Patrón cintillo zigzag (separador): triángulos de tinta sobre amarillo. */
+html[data-theme='springfield'] .sf-zig {
+  height: 14px;
+  background:
+    linear-gradient(135deg, #1a1a1a 25%, transparent 25%) 0 0 / 14px 14px,
+    linear-gradient(225deg, #1a1a1a 25%, transparent 25%) 0 0 / 14px 14px;
+  background-color: #ffd90f;
+}
+
+/* Patrón de puntos (fondo de cómic) — puntos de tinta semitransparentes. */
+html[data-theme='springfield'] .sf-dot {
+  background-image: radial-gradient(#1a1a1a22 1.5px, transparent 1.5px);
+  background-size: 16px 16px;
+}
+
+/* Casilla de verificación cuadrada (off por defecto, .on = marcada en verde). */
+html[data-theme='springfield'] .sf-check {
+  width: 22px;
+  height: 22px;
+  border: 3px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-sm);
+}
+html[data-theme='springfield'] .sf-check.on {
+  background: var(--color-success);
+}
+
+/* ─── Animaciones (respetan prefers-reduced-motion) ─────────────────────────
+ * Solo se aplican cuando el usuario NO ha pedido reducir el movimiento. Los
+ * @keyframes viven globales pero son inertes sin estas clases.
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Flotación suave continua (nubes, iconos del landing). */
+  html[data-theme='springfield'] .sf-float {
+    animation: sff 4s ease-in-out infinite;
+  }
+
+  /* Bamboleo al pasar el ratón (tarjetas interactivas). */
+  html[data-theme='springfield'] .sf-wob:hover {
+    animation: sfw 0.4s ease-in-out;
+  }
+
+  /* Entrada con rebote (pop) para bloques que aparecen. */
+  html[data-theme='springfield'] .sf-pop {
+    animation: sfp 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.4) both;
+  }
+}
+
+@keyframes sff {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes sfw {
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+  25% {
+    transform: rotate(-2deg);
+  }
+  75% {
+    transform: rotate(2deg);
+  }
+}
+
+@keyframes sfp {
+  0% {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * SPRINGFIELD — DARK MODE REAL (Cómic NOIR)
+ *
+ * El placeholder de tokens.themes.css define springfield bajo
+ * [data-theme='springfield'][data-mode='dark'] (especificidad 0,2,0) con los
+ * MISMOS valores que en light (light-only). Aquí redefinimos las vars
+ * semánticas con el selector html[data-theme="springfield"][data-mode="dark"]
+ * (especificidad 0,3,1): GANA por especificidad (3 atributos + 1 elemento > 2
+ * atributos) y, además, esta hoja se importa DESPUÉS en main.tsx. Doble red.
+ *
+ * Concepto: cómic NOIR. Fondo oscuro tinta, contorno/tinta CLAROS, y los pop
+ * colors (amarillo, celeste, rojo, verde, rosa) siguen vivos sobre oscuro. Las
+ * hard shadows offset pasan a tinta CLARA para verse sobre el fondo negro.
+ *
+ * NO toca la variante light, ni tokens.themes.css, ni otros themes.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+html[data-theme='springfield'][data-mode='dark'] {
+  /* Surface — papel de cómic en negativo (negro tinta) */
+  --color-surface: #16161d;
+  --color-surface-raised: #20212b;
+  --color-surface-overlay: rgba(242, 242, 247, 0.08);
+
+  /* Text — tinta clara sobre oscuro (AA holgado: #f2f2f7 sobre #16161d) */
+  --color-text: #f2f2f7;
+  --color-text-muted: #a9aab8;
+  --color-text-inverse: #16161d;
+
+  /* Accent — amarillo Springfield (sigue vivo sobre oscuro) */
+  --color-accent: #ffd90f;
+  --color-accent-hover: #ffe44d;
+  --color-accent-subtle: #3a3414;
+
+  /* Feedback — pop colors aclarados para legibilidad sobre negro */
+  --color-success: #8bc34a;
+  --color-warning: #ffd90f;
+  --color-error: #ff5a55;
+  --color-info: #70c5ff;
+
+  /* Border — contorno de tinta CLARA (el cómic se dibuja en negativo) */
+  --color-border: #e8e8f0;
+  --color-border-strong: #ffffff;
+
+  /* Hard shadows offset (sin blur): tinta CLARA para verse sobre oscuro */
+  --shadow-sm: 2px 2px 0 #e8e8f0;
+  --shadow-md: 4px 4px 0 #e8e8f0;
+  --shadow-lg: 6px 6px 0 #e8e8f0;
+  --shadow-card: 6px 6px 0 #e8e8f0;
+}
+
+/* ─── Overrides decorativos .sf-* con HEX CRUDOS (papel/patrones) ────────────
+ * Las clases que ya consumen var(--color-*) se adaptan solas con el bloque de
+ * arriba. Aquí solo van las que tenían hex sueltos pensados para light.
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+/* Tarjeta rosa: el rosa pop original es muy claro; lo bajamos a un magenta
+ * vibrante de cómic noir y forzamos texto tinta oscura para contraste. */
+html[data-theme='springfield'][data-mode='dark'] .sf-card-p {
+  background: #c2417a;
+  color: var(--color-text);
+}
+
+/* Cintillo zigzag: invertimos: triángulos de tinta CLARA sobre amarillo pop. */
+html[data-theme='springfield'][data-mode='dark'] .sf-zig {
+  background:
+    linear-gradient(135deg, #e8e8f0 25%, transparent 25%) 0 0 / 14px 14px,
+    linear-gradient(225deg, #e8e8f0 25%, transparent 25%) 0 0 / 14px 14px;
+  background-color: #ffd90f;
+}
+
+/* Patrón de puntos: puntos CLAROS semitransparentes sobre el fondo oscuro. */
+html[data-theme='springfield'][data-mode='dark'] .sf-dot {
+  background-image: radial-gradient(#f2f2f72e 1.5px, transparent 1.5px);
+}
+
+/* Inputs: el foco rojo se aclara solo vía var(--color-error). Subimos un
+ * pelín la sombra de foco para que la tinta clara resalte sobre el campo. */
+html[data-theme='springfield'][data-mode='dark'] .sf-input:focus {
+  box-shadow: 5px 5px 0 var(--color-error);
+}

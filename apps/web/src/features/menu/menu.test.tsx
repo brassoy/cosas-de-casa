@@ -71,6 +71,14 @@ function wrap(ui: React.ReactElement) {
 
 import { MenuPage } from './pages/MenuPage';
 import * as useMenuModule from './hooks/useMenu';
+import { themeRegistry } from '@/shared/theme/registry';
+import MenuView from './views/base/MenuView';
+
+// El container delega el render en ThemeView, que resuelve la vista por theme
+// desde el registry central. El registry de producción lo compone otra fase;
+// aquí registramos la vista base directamente (sin lazy) para que el container
+// se renderice de forma síncrona bajo test.
+themeRegistry.base.menu = MenuView;
 
 // ── Spies accesibles en los tests ─────────────────────────────────────────────
 

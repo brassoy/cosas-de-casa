@@ -1,0 +1,302 @@
+/* ─── Cozysitcom — Hoja de estilos decorativos ───────────────────────────────
+ *
+ * Theme "Sitcom Cozy 70s": retro cálido, madera y mostaza.
+ * Clases utilitarias reutilizables (.cz-*) extraídas del kit estático
+ * (screens/themes/cozysitcom.tsx). Las vistas las consumen para reproducir el
+ * look del theme sin reescribir estilos inline.
+ *
+ * SCOPE: todas las reglas viven bajo html[data-theme="cozysitcom"] para NO
+ * filtrar a otros themes. Cuando existe una var semántica equivalente
+ * (resuelta por [data-theme='cozysitcom'] en tokens.themes.css) se usa
+ * var(--color-*) / var(--radius-*) / var(--shadow-*) / var(--font-*). Los hex
+ * sueltos son matices decorativos propios del theme sin var semántica
+ * (puntos del papel pintado, brillos y bordes inferiores de los botones,
+ * vetas de la madera, dashes del sello).
+ *
+ * Paleta cruda de referencia (kit):
+ *   denim #2F5D8C · mustard #E3B23C · garnet #A63A3A · retro #5F7A4F
+ *   wood #8B5E3C · beige #F4E3C1 · cream #FFF8EA · ink #242424
+ * Fuentes: Nunito (body) · Bree Serif (heading)  ← cargadas por ensureThemeFonts
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+/* Tipografía base del theme. */
+html[data-theme='cozysitcom'] .cz {
+  font-family: var(--font-body);
+  color: var(--color-text);
+}
+
+/* Titulares con la serif retro (Bree Serif). */
+html[data-theme='cozysitcom'] .cz-serif {
+  font-family: var(--font-heading);
+}
+
+/* Superficie de papel crema con borde beige y sombra suave. */
+html[data-theme='cozysitcom'] .cz-paper {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+/* Marco/tarjeta blanca elevada, el contenedor principal de contenido. */
+html[data-theme='cozysitcom'] .cz-frame {
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  padding: 14px;
+  box-shadow: var(--shadow-card);
+}
+
+/* Placa de madera (cabecera/cintillo) con degradado y relieve. */
+html[data-theme='cozysitcom'] .cz-wood {
+  background: linear-gradient(180deg, var(--color-border-strong), #6f4a2c);
+  color: var(--color-text-inverse);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 2px 0 #5b3c25;
+}
+
+/* Fondo de papel pintado: puntos mostaza y granate sobre crema. */
+html[data-theme='cozysitcom'] .cz-wallpaper {
+  background:
+    radial-gradient(#e3b23c40 1px, transparent 1.5px) 0 0 / 14px 14px,
+    radial-gradient(#a63a3a30 1px, transparent 1.5px) 7px 7px / 14px 14px,
+    var(--color-surface);
+}
+
+/* Botón primario (denim) con borde inferior tipo botón físico. */
+html[data-theme='cozysitcom'] .cz-btn-denim {
+  background: var(--color-accent);
+  color: var(--color-text-inverse);
+  border-radius: var(--radius-md);
+  padding: 10px 16px;
+  font-weight: 800;
+  box-shadow: 0 2px 0 #1f426a;
+  transition: 0.12s;
+}
+html[data-theme='cozysitcom'] .cz-btn-denim:hover {
+  transform: translateY(-1px);
+}
+
+/* Botón mostaza (acción secundaria cálida, texto oscuro). */
+html[data-theme='cozysitcom'] .cz-btn-mustard {
+  background: var(--color-warning);
+  color: var(--color-text);
+  border-radius: var(--radius-md);
+  padding: 10px 16px;
+  font-weight: 800;
+  box-shadow: 0 2px 0 #b58a23;
+}
+
+/* Botón granate (acción destacada / destructiva suave). */
+html[data-theme='cozysitcom'] .cz-btn-garnet {
+  background: var(--color-error);
+  color: var(--color-text-inverse);
+  border-radius: var(--radius-md);
+  padding: 10px 16px;
+  font-weight: 800;
+  box-shadow: 0 2px 0 #7b2828;
+}
+
+/* Botón fantasma (acción terciaria sobre superficie clara). */
+html[data-theme='cozysitcom'] .cz-btn-ghost {
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 10px 16px;
+  font-weight: 800;
+}
+
+/* Campo de formulario (input/textarea) con foco granate. */
+html[data-theme='cozysitcom'] .cz-input {
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  font-weight: 600;
+  width: 100%;
+}
+html[data-theme='cozysitcom'] .cz-input:focus {
+  outline: none;
+  border-color: var(--color-error);
+  box-shadow: 0 0 0 3px #a63a3a33;
+}
+
+/* Etiqueta/pill compacta (categoría, estado, contador). */
+html[data-theme='cozysitcom'] .cz-tag {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 800;
+  background: var(--color-border);
+  color: var(--color-text);
+}
+
+/* Sello de goma inclinado con borde de puntos (marca de estado: "EN CURSO"). */
+html[data-theme='cozysitcom'] .cz-stamp {
+  display: inline-block;
+  padding: 4px 10px;
+  border: 2px dashed var(--color-error);
+  color: var(--color-error);
+  border-radius: var(--radius-sm);
+  font-weight: 800;
+  font-size: 11px;
+  transform: rotate(-3deg);
+  letter-spacing: 0.08em;
+}
+
+/* Cinta decorativa a rayas mostaza (separador/cabecera). */
+html[data-theme='cozysitcom'] .cz-stripe {
+  height: 8px;
+  background: repeating-linear-gradient(90deg, var(--color-warning) 0 12px, transparent 12px 24px);
+  border-radius: var(--radius-sm);
+}
+
+/* Animación de entrada (fade + subida) para bloques que aparecen. */
+html[data-theme='cozysitcom'] .cz-pop {
+  animation: czp 0.35s ease-out both;
+}
+@keyframes czp {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Línea divisoria fina de color beige. */
+html[data-theme='cozysitcom'] .cz-divider {
+  height: 1px;
+  background: var(--color-border);
+}
+
+/* Casilla de verificación cuadrada (off por defecto, .on para marcada). */
+html[data-theme='cozysitcom'] .cz-check {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--color-accent);
+  border-radius: 5px;
+  background: var(--color-surface-raised);
+}
+html[data-theme='cozysitcom'] .cz-check.on {
+  background: var(--color-success);
+  border-color: var(--color-success);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * DARK MODE — Salón sitcom NOCTURNO
+ *
+ * Variante OSCURA real del theme cozysitcom. tokens.themes.css define este theme
+ * como light-only: replica los valores light bajo [data-theme='cozysitcom']
+ * [data-mode='dark'] (especificidad 0,2,0). Este bloque usa el selector
+ * html[data-theme='cozysitcom'][data-mode='dark'] (especificidad 0,2,1: añade el
+ * type selector `html`), así que GANA por especificidad; y como esta hoja se
+ * importa DESPUÉS de tokens.themes.css en main.tsx, también ganaría por orden de
+ * cascada. Doble garantía.
+ *
+ * Estrategia de color: en oscuro el acento/feedback se ACLARAN para leerse como
+ * texto/bordes sobre superficie oscura (todos AA). Por eso las clases decorativas
+ * de relleno (.cz-btn-*) llevan etiqueta OSCURA aquí: texto oscuro sobre relleno
+ * claro = patrón estándar dark mode, y todas las parejas pasan AA.
+ *
+ * Paleta oscura (cruda):
+ *   madera oscura  #1d1711 (surface) · #2a2118 (raised)
+ *   crema cálida   #ecdcc4 (text)    · #b6a489 (muted)  · #f6e9d6 (inverse cálido)
+ *   denim claro    #7aa6d4 · mostaza #e3b85a · granate #d06a6a · retro #86a86f
+ *   etiqueta oscura para rellenos claros: #1a130c
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+html[data-theme='cozysitcom'][data-mode='dark'] {
+  /* Surface — madera oscura cálida */
+  --color-surface: #1d1711;
+  --color-surface-raised: #2a2118;
+  --color-surface-overlay: rgba(236, 220, 196, 0.06);
+
+  /* Text — crema cálida tenue */
+  --color-text: #ecdcc4;
+  --color-text-muted: #b6a489;
+  /* Inverso cálido: etiqueta sobre rellenos OSCUROS (madera, hover). */
+  --color-text-inverse: #f6e9d6;
+
+  /* Accent — denim aclarado, legible sobre fondo oscuro */
+  --color-accent: #7aa6d4;
+  --color-accent-hover: #6f9fcf;
+  --color-accent-subtle: #27384a;
+
+  /* Feedback — apagados pero legibles en oscuro */
+  --color-success: #86a86f;
+  --color-warning: #e3b85a;
+  --color-error: #d06a6a;
+  --color-info: #7aa6d4;
+
+  /* Border — marrón madera medio, visible sobre la superficie */
+  --color-border: #473829;
+  --color-border-strong: #8a623f;
+
+  /* Sombras — más profundas, sin el reborde crema del light */
+  --shadow-sm: 0 1px 0 rgba(0, 0, 0, 0.4), 0 4px 12px -10px rgba(0, 0, 0, 0.6);
+  --shadow-md: 0 1px 0 rgba(0, 0, 0, 0.4), 0 8px 20px -12px rgba(0, 0, 0, 0.65);
+  --shadow-lg: 0 1px 0 rgba(0, 0, 0, 0.4), 0 16px 32px -16px rgba(0, 0, 0, 0.7);
+  --shadow-card: 0 1px 0 rgba(0, 0, 0, 0.4), 0 8px 22px -16px rgba(0, 0, 0, 0.65);
+}
+
+/* ── Overrides de clases decorativas con HEX crudos claros ─────────────────── */
+
+/* Papel oscurecido (la base es var(--color-surface), ya oscura; reforzamos el
+ * borde para que la tarjeta se recorte sobre el fondo). */
+html[data-theme='cozysitcom'][data-mode='dark'] .cz-paper {
+  border-color: var(--color-border-strong);
+}
+
+/* Placa de madera: degradado de madera más oscuro y relieve hacia negro. */
+html[data-theme='cozysitcom'][data-mode='dark'] .cz-wood {
+  background: linear-gradient(180deg, #5a3d24, #3c2818);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 2px 0 #2a1c10;
+}
+
+/* Papel pintado: puntos tenues mostaza/granate sobre fondo oscuro. */
+html[data-theme='cozysitcom'][data-mode='dark'] .cz-wallpaper {
+  background:
+    radial-gradient(#e3b85a22 1px, transparent 1.5px) 0 0 / 14px 14px,
+    radial-gradient(#d06a6a1f 1px, transparent 1.5px) 7px 7px / 14px 14px,
+    var(--color-surface);
+}
+
+/* Botón denim: relleno claro → etiqueta OSCURA + reborde inferior más oscuro. */
+html[data-theme='cozysitcom'][data-mode='dark'] .cz-btn-denim {
+  color: #1a130c;
+  box-shadow: 0 2px 0 #3f6a96;
+}
+
+/* Botón mostaza: en dark, var(--color-text) vira a crema y quedaría ilegible
+ * sobre el relleno mostaza claro (ratio 1.38). Forzamos etiqueta OSCURA como en
+ * denim/garnet (ratio 9.87, AA) y ajustamos el reborde inferior. */
+html[data-theme='cozysitcom'][data-mode='dark'] .cz-btn-mustard {
+  color: #1a130c;
+  box-shadow: 0 2px 0 #a8842f;
+}
+
+/* Botón granate: relleno claro → etiqueta OSCURA + reborde más oscuro. */
+html[data-theme='cozysitcom'][data-mode='dark'] .cz-btn-garnet {
+  color: #1a130c;
+  box-shadow: 0 2px 0 #8f3f3f;
+}
+
+/* Input: halo de foco granate adaptado al granate claro del modo oscuro. */
+html[data-theme='cozysitcom'][data-mode='dark'] .cz-input:focus {
+  box-shadow: 0 0 0 3px #d06a6a40;
+}
+
+/* Casilla marcada: el check (success claro) lleva tinte OSCURO si pinta icono. */
+html[data-theme='cozysitcom'][data-mode='dark'] .cz-check.on {
+  color: #1a130c;
+}
