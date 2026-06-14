@@ -28,6 +28,12 @@ export default defineConfig({
   },
   // El .env vive en la raíz del monorepo (compartido con la API), no en apps/web.
   envDir: resolve(__dirname, '../..'),
+  optimizeDeps: {
+    // @cosasdecasa/contracts es un paquete workspace CommonJS linkeado: forzamos su
+    // pre-bundle para que Vite exponga sus named exports al navegador (ESM). Sin esto,
+    // los re-exports CJS vía __exportStar (p. ej. JOIN_PIN_LENGTH) no se detectan.
+    include: ['@cosasdecasa/contracts'],
+  },
   plugins: [
     tailwindcss(),
     react(),

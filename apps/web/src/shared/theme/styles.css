@@ -35,7 +35,7 @@
   --color-destructive: var(--color-error);
   --color-destructive-foreground: var(--color-text-inverse);
 
-  /* ── Feedback (success/warning/info/error) -> utilidades bg-*/text-* ───────── */
+  /* Feedback: success / warning / info / error (utilidades de color) */
   --color-success: var(--color-success);
   --color-success-foreground: var(--color-text-inverse);
   --color-warning: var(--color-warning);
