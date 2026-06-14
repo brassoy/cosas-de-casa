@@ -48,7 +48,7 @@ export default function AuthView(props: AuthViewProps) {
   }
 
   return (
-    <div className="min-h-[100dvh] grid place-items-center px-4 bg-background">
+    <div className="min-h-[100dvh] flex justify-center px-4 py-8 bg-background">
       <div className="w-full max-w-[420px] bg-card text-card-foreground rounded-card shadow-md border border-border p-6 space-y-5">
         <div>
           <h2 className="text-2xl font-bold">{isLogin ? 'Inicia sesión' : 'Regístrate'}</h2>
