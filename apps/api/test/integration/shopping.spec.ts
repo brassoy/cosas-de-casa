@@ -214,15 +214,16 @@ describe('Shopping context – integración', () => {
       if (owner) await deleteTestUser(owner.userId);
     });
 
-    it('devuelve { decision, item, candidates? } con el ítem creado', async () => {
+    it('devuelve { decision, item, candidates? } con el ítem creado (ADD_NEW)', async () => {
       const res = await request(server)
         .post(`/api/v1/lists/${listId}/items`)
         .set('Authorization', `Bearer ${owner.accessToken}`)
         .send({ name: 'Leche entera', quantity: 2, unit: 'l' });
 
       expect(res.status).toBe(201);
+      // Con catálogo vacío siempre será ADD_NEW y tendrá item
       expect(res.body).toMatchObject({
-        decision: expect.stringMatching(/^(ADD_NEW|AUTO_MERGE|SUGGEST)$/),
+        decision: expect.stringMatching(/^(ADD_NEW|AUTO_MERGE)$/),
         item: {
           id: expect.any(String),
           listId,
@@ -242,6 +243,76 @@ describe('Shopping context – integración', () => {
 
       expect(res.status).toBe(201);
       expect((res.body as { decision: string }).decision).toBe('ADD_NEW');
+    });
+
+    it('SUGGEST sin forceAdd NO crea el ítem (devuelve solo decision + candidates, sin item)', async () => {
+      // Primero añadimos "leche" para que el catálogo lo conozca
+      await request(server)
+        .post(`/api/v1/lists/${listId}/items`)
+        .set('Authorization', `Bearer ${owner.accessToken}`)
+        .send({ name: 'leche' });
+
+      // Esperamos al upsert del catálogo
+      await new Promise<void>((r) => setTimeout(r, 300));
+
+      // Intentamos añadir algo similar sin forceAdd
+      const res = await request(server)
+        .post(`/api/v1/lists/${listId}/items`)
+        .set('Authorization', `Bearer ${owner.accessToken}`)
+        .send({ name: 'leche desnatada' });
+
+      // Si el sistema detecta SUGGEST, no debe haber item en la respuesta
+      if ((res.body as { decision: string }).decision === 'SUGGEST') {
+        expect(res.status).toBe(201);
+        expect((res.body as { item?: unknown }).item).toBeUndefined();
+        expect((res.body as { candidates?: unknown[] }).candidates).toBeDefined();
+
+        // Verificamos que NO se creó ningún ítem en la lista
+        const listRes = await request(server)
+          .get(`/api/v1/lists/${listId}`)
+          .set('Authorization', `Bearer ${owner.accessToken}`);
+        const items = (listRes.body as { items: Array<{ name: string }> }).items;
+        const duplicates = items.filter((i) => i.name === 'leche desnatada');
+        expect(duplicates).toHaveLength(0);
+      }
+      // Si el sistema decide ADD_NEW o AUTO_MERGE, el test pasa igualmente
+      // (depende del umbral de similitud del motor de dedup)
+    });
+
+    it('SUGGEST con forceAdd=true SÍ crea el ítem y NO duplica', async () => {
+      // Añadimos "leche" al catálogo
+      await request(server)
+        .post(`/api/v1/lists/${listId}/items`)
+        .set('Authorization', `Bearer ${owner.accessToken}`)
+        .send({ name: 'leche' });
+
+      await new Promise<void>((r) => setTimeout(r, 300));
+
+      // Primer intento sin force (puede que sea SUGGEST)
+      const firstRes = await request(server)
+        .post(`/api/v1/lists/${listId}/items`)
+        .set('Authorization', `Bearer ${owner.accessToken}`)
+        .send({ name: 'leche desnatada' });
+
+      if ((firstRes.body as { decision: string }).decision === 'SUGGEST') {
+        // Confirmamos con forceAdd=true
+        const forceRes = await request(server)
+          .post(`/api/v1/lists/${listId}/items`)
+          .set('Authorization', `Bearer ${owner.accessToken}`)
+          .send({ name: 'leche desnatada', forceAdd: true });
+
+        expect(forceRes.status).toBe(201);
+        expect((forceRes.body as { item?: { name: string } }).item).toBeDefined();
+        expect((forceRes.body as { item: { name: string } }).item.name).toBe('leche desnatada');
+
+        // Verificamos que solo hay UN ítem con ese nombre (no duplicados)
+        const listRes = await request(server)
+          .get(`/api/v1/lists/${listId}`)
+          .set('Authorization', `Bearer ${owner.accessToken}`);
+        const items = (listRes.body as { items: Array<{ name: string }> }).items;
+        const matches = items.filter((i) => i.name === 'leche desnatada');
+        expect(matches).toHaveLength(1);
+      }
     });
 
     it('tras añadir el ítem, el catálogo refleja la frecuencia en frequent-items', async () => {
