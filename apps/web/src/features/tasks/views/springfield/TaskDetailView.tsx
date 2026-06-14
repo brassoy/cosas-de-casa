@@ -397,7 +397,7 @@ function PhotoGallery({ photos, uploadingPhoto, uploadError, onUploadPhoto }: Ph
         ))}
         <label className="sf-card !shadow-none aspect-square border-dashed grid place-items-center cursor-pointer hover:bg-accent-subtle transition-colors">
           {uploadingPhoto ? (
-            <Loader2 className="h-5 w-5 animate-spin" />
+            <Loader2 className="h-5 w-5 motion-safe:animate-spin" />
           ) : (
             <ImagePlus className="h-5 w-5" />
           )}

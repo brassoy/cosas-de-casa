@@ -15,31 +15,17 @@
 
 import { ScreenState } from '@/shared/components/ScreenState';
 import { cn } from '@/shared/lib/cn';
-import type { BadgeDto } from '@cosasdecasa/contracts';
 import type { StatsViewProps } from '../types';
+import { earnedBadgeCount, getMedal, resolveName } from '../stats-helpers';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
-
-const RANK_MEDALS = ['🥇', '🥈', '🥉'] as const;
 
 /** Paleta retro del theme; cicla por posición para teñir avatares y rangos. */
 const ACCENTS = ['#2F5D8C', '#E3B23C', '#A63A3A', '#5F7A4F', '#8B5E3C'] as const;
 
-function getMedal(rank: number): string {
-  return RANK_MEDALS[rank - 1] ?? `#${rank}`;
-}
-
 function accentForIndex(i: number): string {
   // `i % length` siempre está en rango; el `!` solo silencia noUncheckedIndexedAccess.
   return ACCENTS[i % ACCENTS.length]!;
-}
-
-function resolveName(displayName: string | null, email: string): string {
-  return displayName ?? email;
-}
-
-function earnedBadgeCount(badges: BadgeDto[]): number {
-  return badges.filter((b) => b.earnedAt !== null).length;
 }
 
 // ── Vista principal ─────────────────────────────────────────────────────────

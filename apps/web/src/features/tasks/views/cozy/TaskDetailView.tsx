@@ -375,7 +375,7 @@ function PhotoGallery({ photos, uploadingPhoto, uploadError, onUploadPhoto }: Ph
 
       {uploadError && <ErrorNote message={uploadError} />}
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-3 overflow-x-clip">
         {photos.map((photo, i) => (
           <a
             key={photo.id}
@@ -397,7 +397,7 @@ function PhotoGallery({ photos, uploadingPhoto, uploadError, onUploadPhoto }: Ph
         ))}
         <label className="ck-card !p-2 aspect-square grid place-items-center cursor-pointer text-primary">
           {uploadingPhoto ? (
-            <Loader2 className="h-6 w-6 animate-spin" />
+            <Loader2 className="h-6 w-6 motion-safe:animate-spin" />
           ) : (
             <ImagePlus className="h-6 w-6" />
           )}

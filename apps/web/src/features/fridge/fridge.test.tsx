@@ -25,11 +25,17 @@ import type { FridgeListItem, FridgeListViewProps } from './views/types';
 
 // ── Helpers de datos ──────────────────────────────────────────────────────────
 
-/** Fecha ISO (YYYY-MM-DD) relativa a hoy en días. */
+/** Fecha (YYYY-MM-DD) relativa a hoy en días, en hora LOCAL.
+ * Debe ser consistente con getExpiryUrgency, que interpreta 'YYYY-MM-DD' como
+ * medianoche local. Usar toISOString() (UTC) desfasaba el día cerca de medianoche
+ * y hacía el test flaky por zona horaria. */
 function relativeDate(offsetDays: number): string {
   const d = new Date();
   d.setDate(d.getDate() + offsetDays);
-  return d.toISOString().split('T')[0]!;
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
 /** Construye un FridgeListItem con la urgencia precalculada (como hace el container). */

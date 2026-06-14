@@ -184,6 +184,7 @@ export default function AuthView(props: AuthViewProps) {
             className="sf-btn sf-btn-w w-full disabled:opacity-60"
             onClick={onGoogle}
             disabled={isSubmitting}
+            aria-label="Continuar con Google"
           >
             Continuar con Google
           </button>

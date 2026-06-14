@@ -21,12 +21,10 @@
 
 import { ScreenState } from '@/shared/components/ScreenState';
 import { cn } from '@/shared/lib/cn';
-import type { BadgeDto } from '@cosasdecasa/contracts';
 import type { StatsViewProps } from '../types';
+import { earnedBadgeCount, getMedal, resolveName } from '../stats-helpers';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
-
-const RANK_MEDALS = ['🥇', '🥈', '🥉'] as const;
 
 /** Paleta de chinchetas del theme (kit cozy); cicla por posición para teñir
  *  avatares, rangos y barras de contribución. */
@@ -35,21 +33,9 @@ const PINS = ['#c0392b', '#2d4a8a', '#5b8a3a', '#e3a51a', '#8e44ad'] as const;
 /** Tintas crudas del cuaderno (sin var semántica) para acentos manuscritos. */
 const INK = { blue: '#2d4a8a', red: '#c0392b', green: '#5b8a3a', yellow: '#e3a51a' } as const;
 
-function getMedal(rank: number): string {
-  return RANK_MEDALS[rank - 1] ?? `#${rank}`;
-}
-
 function pinForIndex(i: number): string {
   // `i % length` siempre está en rango; el `!` solo silencia noUncheckedIndexedAccess.
   return PINS[i % PINS.length]!;
-}
-
-function resolveName(displayName: string | null, email: string): string {
-  return displayName ?? email;
-}
-
-function earnedBadgeCount(badges: BadgeDto[]): number {
-  return badges.filter((b) => b.earnedAt !== null).length;
 }
 
 // ── Vista principal ─────────────────────────────────────────────────────────

@@ -21,32 +21,18 @@
 
 import { ScreenState } from '@/shared/components/ScreenState';
 import { cn } from '@/shared/lib/cn';
-import type { BadgeDto } from '@cosasdecasa/contracts';
 import type { StatsViewProps } from '../types';
+import { earnedBadgeCount, getMedal, resolveName } from '../stats-helpers';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
-
-const RANK_MEDALS = ['🥇', '🥈', '🥉'] as const;
 
 /** Paleta plana del theme (kit springfield); cicla por posición para teñir
  *  avatares, KPIs y barras de contribución. */
 const SF_COLORS = ['#FFD90F', '#70C5FF', '#F48FB1', '#7CB342', '#E53935'] as const;
 
-function getMedal(rank: number): string {
-  return RANK_MEDALS[rank - 1] ?? `#${rank}`;
-}
-
 function colorForIndex(i: number): string {
   // `i % length` siempre está en rango; el `!` solo silencia noUncheckedIndexedAccess.
   return SF_COLORS[i % SF_COLORS.length]!;
-}
-
-function resolveName(displayName: string | null, email: string): string {
-  return displayName ?? email;
-}
-
-function earnedBadgeCount(badges: BadgeDto[]): number {
-  return badges.filter((b) => b.earnedAt !== null).length;
 }
 
 // ── Vista principal ─────────────────────────────────────────────────────────

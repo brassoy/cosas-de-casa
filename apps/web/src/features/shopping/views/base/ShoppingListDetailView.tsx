@@ -339,7 +339,7 @@ function AddSection({
           {voiceState === 'listening' ? (
             <Square className="h-4 w-4 text-destructive" aria-hidden="true" />
           ) : voiceState === 'processing' ? (
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            <Loader2 className="h-4 w-4 motion-safe:animate-spin" aria-hidden="true" />
           ) : (
             <Mic className="h-4 w-4" aria-hidden="true" />
           )}

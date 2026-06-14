@@ -112,7 +112,7 @@ export default function ReceiptsView(props: ReceiptsViewProps) {
       >
         {extracting ? (
           <>
-            <Loader2 className="mr-2 inline h-5 w-5 animate-spin" aria-hidden="true" />
+            <Loader2 className="mr-2 inline h-5 w-5 motion-safe:animate-spin" aria-hidden="true" />
             Procesando…
           </>
         ) : (

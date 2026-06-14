@@ -355,7 +355,7 @@ function PhotoGallery({ photos, uploadingPhoto, uploadError, onUploadPhoto }: Ph
         ))}
         <label className="aspect-square rounded-md border-2 border-dashed border-border grid place-items-center cursor-pointer hover:bg-muted text-muted-foreground">
           {uploadingPhoto ? (
-            <Loader2 className="h-5 w-5 animate-spin" />
+            <Loader2 className="h-5 w-5 motion-safe:animate-spin" />
           ) : (
             <ImagePlus className="h-5 w-5" />
           )}

@@ -47,7 +47,7 @@ export default function MenuView(props: MenuViewProps) {
         <Button onClick={onSuggest} disabled={isLoading} aria-label="Sugerir menú">
           {isLoading ? (
             <>
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="h-4 w-4 motion-safe:animate-spin" />
               Pensando…
             </>
           ) : (

@@ -16,24 +16,8 @@
 import { Card } from '@/shared/ui/card';
 import { ScreenState } from '@/shared/components/ScreenState';
 import { cn } from '@/shared/lib/cn';
-import type { BadgeDto } from '@cosasdecasa/contracts';
 import type { StatsViewProps } from '../types';
-
-// ── Helpers ─────────────────────────────────────────────────────────────────
-
-const RANK_MEDALS = ['🥇', '🥈', '🥉'] as const;
-
-function getMedal(rank: number): string {
-  return RANK_MEDALS[rank - 1] ?? `#${rank}`;
-}
-
-function resolveName(displayName: string | null, email: string): string {
-  return displayName ?? email;
-}
-
-function earnedBadgeCount(badges: BadgeDto[]): number {
-  return badges.filter((b) => b.earnedAt !== null).length;
-}
+import { earnedBadgeCount, getMedal, resolveName } from '../stats-helpers';
 
 // ── Vista principal ─────────────────────────────────────────────────────────
 
