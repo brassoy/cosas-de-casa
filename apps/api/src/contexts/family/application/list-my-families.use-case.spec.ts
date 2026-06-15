@@ -21,6 +21,10 @@ class FakeFamilyRepository implements FamilyRepository {
     return null;
   }
 
+  async findByIds(): Promise<Family[]> {
+    return [];
+  }
+
   async findByMember(): Promise<Family[]> {
     return this.memberFamilies;
   }

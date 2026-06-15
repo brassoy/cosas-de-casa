@@ -23,6 +23,8 @@ import type { FriendFamilyDto, FriendInviteResponse } from '@cosasdecasa/contrac
 import type { AuthenticatedUser } from '../../identity-access/domain/authenticated-user';
 import { CurrentUser } from '../../identity-access/interface/current-user.decorator';
 import { JwtAuthGuard } from '../../identity-access/interface/jwt-auth.guard';
+import { FamilyScopeGuard } from '../../family/interface/family-scope.guard';
+import { Roles } from '../../family/interface/roles.decorator';
 import { GenerateFriendInviteUseCase } from '../application/generate-friend-invite.use-case';
 import { RedeemFriendInviteUseCase } from '../application/redeem-friend-invite.use-case';
 import { ListFriendFamiliesUseCase } from '../application/list-friend-families.use-case';
@@ -39,6 +41,18 @@ import { RedeemFriendInviteDto } from './dto/redeem-friend-invite.dto';
  *   POST   /friends/redeem                     → FriendFamilyDto
  *   GET    /families/:familyId/friends         → FriendFamilyDto[]
  *   DELETE /friends/:linkId                    → 204
+ *
+ * Seguridad por capas: {@link JwtAuthGuard} autentica; {@link FamilyScopeGuard}
+ * es el enforcement PRIMARIO de las rutas con `:familyId` (exige pertenencia y,
+ * con `@Roles('OWNER')`, rol de propietario). Los casos de uso conservan su
+ * validación como SEGUNDA línea de defensa.
+ *
+ * DELETE /friends/:linkId NO lleva guard de ámbito: el recurso es un vínculo
+ * entre DOS familias y la pertenencia válida es a CUALQUIERA de las dos. Esa
+ * regla (resolver el link → cargar ambas familias → comprobar pertenencia a una
+ * u otra) vive en {@link RemoveFriendFamilyUseCase}. Un guard dedicado solo
+ * duplicaría esa lógica de dos familias sin reducir la superficie de ataque
+ * (mismas consultas, mismo 403/404), añadiendo complejidad sin beneficio.
  */
 @ApiTags('social')
 @ApiBearerAuth()
@@ -54,6 +68,8 @@ export class SocialController {
   ) {}
 
   @Post('families/:familyId/friend-invites')
+  @UseGuards(FamilyScopeGuard)
+  @Roles('OWNER')
   @ApiOperation({ summary: 'Generar un código de invitación de amistad (solo OWNER).' })
   @ApiCreatedResponse({ description: 'Código generado (se muestra una sola vez).' })
   async generateInviteCode(
@@ -96,6 +112,7 @@ export class SocialController {
   }
 
   @Get('families/:familyId/friends')
+  @UseGuards(FamilyScopeGuard)
   @ApiOperation({ summary: 'Listar las familias amigas.' })
   @ApiOkResponse({ description: 'Familias amigas.' })
   async list(

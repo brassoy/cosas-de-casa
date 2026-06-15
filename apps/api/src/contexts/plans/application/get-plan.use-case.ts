@@ -22,13 +22,10 @@ export class GetPlanUseCase {
     if (!plan) throw new PlanNotFoundError();
 
     // Verifica que el usuario pertenezca a una familia con acceso al plan.
+    // Batch en una sola consulta para evitar N+1.
     const familyIds = [plan.ownerFamilyId, ...plan.sharedWithFamilyIds];
-    const memberships = await Promise.all(
-      familyIds.map((fid) => this.families.findById(fid)),
-    );
-    const hasAccess = memberships.some(
-      (f) => f && f.isMember(query.actingUserId),
-    );
+    const memberships = await this.families.findByIds(familyIds);
+    const hasAccess = memberships.some((f) => f.isMember(query.actingUserId));
     if (!hasAccess) throw new PlanAccessDeniedError();
 
     const detail = await this.readModel.getPlanDetail(query.planId);

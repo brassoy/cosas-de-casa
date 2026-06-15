@@ -99,6 +99,10 @@ const fakeFamilyRepo: FamilyRepository = {
     } as unknown as import('../../family/domain/family').Family;
   },
   async save() { /* noop */ },
+  async findByIds(ids: string[]) {
+    const found = await Promise.all(ids.map((id) => this.findById(id)));
+    return found.filter((f): f is NonNullable<typeof f> => f != null);
+  },
   async findByMember() { return []; },
 };
 

@@ -27,6 +27,8 @@ import type { PlanDto, PlanMessageDto, PlanSummaryDto, SavedPlaceDto } from '@co
 import type { AuthenticatedUser } from '../../identity-access/domain/authenticated-user';
 import { CurrentUser } from '../../identity-access/interface/current-user.decorator';
 import { JwtAuthGuard } from '../../identity-access/interface/jwt-auth.guard';
+import { FamilyScopeGuard } from '../../family/interface/family-scope.guard';
+import { PlanScopeGuard } from './plan-scope.guard';
 import { CreatePlanUseCase } from '../application/create-plan.use-case';
 import { ListPlansUseCase } from '../application/list-plans.use-case';
 import { GetPlanUseCase } from '../application/get-plan.use-case';
@@ -74,6 +76,7 @@ export class PlansController {
   // ── Lugares guardados ──────────────────────────────────────────────────────
 
   @Get('families/:familyId/places')
+  @UseGuards(FamilyScopeGuard)
   @ApiOperation({ summary: 'Listar los lugares guardados de la familia.' })
   @ApiOkResponse({ description: 'Lugares guardados.' })
   async listPlaces(
@@ -85,6 +88,7 @@ export class PlansController {
   }
 
   @Post('families/:familyId/places')
+  @UseGuards(FamilyScopeGuard)
   @ApiOperation({ summary: 'Guardar un lugar recordado.' })
   @ApiCreatedResponse({ description: 'Lugar guardado.' })
   async createPlace(
@@ -117,6 +121,7 @@ export class PlansController {
   // ── Planes ─────────────────────────────────────────────────────────────────
 
   @Post('families/:familyId/plans')
+  @UseGuards(FamilyScopeGuard)
   @ApiOperation({ summary: 'Crear un plan.' })
   @ApiCreatedResponse({ description: 'Plan creado.' })
   async create(
@@ -145,6 +150,7 @@ export class PlansController {
   }
 
   @Get('families/:familyId/plans')
+  @UseGuards(FamilyScopeGuard)
   @ApiOperation({ summary: 'Listar planes (propios + compartidos).' })
   @ApiOkResponse({ description: 'Planes.' })
   async list(
@@ -156,6 +162,7 @@ export class PlansController {
   }
 
   @Get('plans/:planId')
+  @UseGuards(PlanScopeGuard)
   @ApiOperation({ summary: 'Obtener detalle de un plan.' })
   @ApiOkResponse({ description: 'Detalle del plan.' })
   async get(
@@ -167,6 +174,7 @@ export class PlansController {
   }
 
   @Patch('plans/:planId')
+  @UseGuards(PlanScopeGuard)
   @ApiOperation({ summary: 'Actualizar un plan (solo owner).' })
   @ApiOkResponse({ description: 'Plan actualizado.' })
   async update(
@@ -195,6 +203,7 @@ export class PlansController {
   }
 
   @Delete('plans/:planId')
+  @UseGuards(PlanScopeGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Eliminar un plan (solo owner).' })
   @ApiNoContentResponse({ description: 'Plan eliminado.' })
@@ -206,6 +215,7 @@ export class PlansController {
   }
 
   @Post('plans/:planId/share')
+  @UseGuards(PlanScopeGuard)
   @ApiOperation({ summary: 'Compartir un plan con una familia amiga.' })
   @ApiOkResponse({ description: 'Plan compartido.' })
   async share(
@@ -223,6 +233,7 @@ export class PlansController {
   }
 
   @Post('plans/:planId/rsvp')
+  @UseGuards(PlanScopeGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Establecer tu RSVP en un plan.' })
   @ApiOkResponse({ description: 'RSVP actualizado.' })
@@ -239,6 +250,7 @@ export class PlansController {
   // ── Chat ───────────────────────────────────────────────────────────────────
 
   @Get('plans/:planId/messages')
+  @UseGuards(PlanScopeGuard)
   @ApiOperation({ summary: 'Listar mensajes del plan (paginado por cursor).' })
   @ApiOkResponse({ description: 'Mensajes del plan.' })
   @ApiQuery({ name: 'before', required: false, type: String, description: 'ISO cursor para paginación hacia atrás.' })
@@ -263,6 +275,7 @@ export class PlansController {
   }
 
   @Post('plans/:planId/messages')
+  @UseGuards(PlanScopeGuard)
   @ApiOperation({ summary: 'Enviar un mensaje al plan.' })
   @ApiCreatedResponse({ description: 'Mensaje enviado.' })
   async postMessage(

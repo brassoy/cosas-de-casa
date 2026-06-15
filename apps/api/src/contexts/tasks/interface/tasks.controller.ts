@@ -121,10 +121,16 @@ export class TasksController {
       },
     });
 
+    // Batch: resuelve los assignees de TODAS las tareas en una sola query
+    // (WHERE id IN (...)) en vez de una por tarea (N+1).
+    const assigneesByTask = await this.assigneesReadModel.findAssigneesByTasks(
+      taskList.map((task) => ({ taskId: task.id, assigneeIds: task.assigneeIds })),
+    );
+
     return Promise.all(
       taskList.map(async (task) => {
         const photos = await this.photoRepo.findByTask(task.id);
-        const assignees = await this.assigneesReadModel.enrichAssignees(task.assigneeIds);
+        const assignees = assigneesByTask.get(task.id) ?? [];
         return TaskPresenter.toTaskDto(task, assignees, photos);
       }),
     );

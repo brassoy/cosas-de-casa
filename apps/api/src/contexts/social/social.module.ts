@@ -38,6 +38,7 @@ import { DrizzleSocialUnitOfWork } from './infrastructure/drizzle-social-unit-of
 
 // ── Interface ─────────────────────────────────────────────────────────────────
 import { SocialController } from './interface/social.controller';
+import { FamilyScopeGuard } from '../family/interface/family-scope.guard';
 
 // Re-export de FAMILY_REPOSITORY para usar en use cases.
 import { FAMILY_REPOSITORY } from '../family/domain/ports/family.repository';
@@ -91,6 +92,12 @@ import { DrizzleFamilyRepository } from '../family/infrastructure/drizzle-family
       inject: [DRIZZLE],
       useFactory: (db: Database) => new DrizzleFriendLinkRepository(db),
     },
+
+    // ── Interface guards ──────────────────────────────────────────────────
+    // Enforcement primario de autorización en rutas con :familyId. Se registra
+    // aquí (igual que en shopping.module) para que resuelva contra el
+    // FAMILY_REPOSITORY de este módulo. El Reflector lo provee NestJS.
+    FamilyScopeGuard,
 
     // ── Use cases ─────────────────────────────────────────────────────────
     GenerateFriendInviteUseCase,

@@ -25,8 +25,8 @@ export class SetRsvpUseCase {
 
     // El usuario debe pertenecer a alguna familia con acceso al plan.
     const familyIds = [plan.ownerFamilyId, ...plan.sharedWithFamilyIds];
-    const memberships = await Promise.all(familyIds.map((fid) => this.families.findById(fid)));
-    const hasAccess = memberships.some((f) => f && f.isMember(command.actingUserId));
+    const memberships = await this.families.findByIds(familyIds);
+    const hasAccess = memberships.some((f) => f.isMember(command.actingUserId));
     if (!hasAccess) throw new PlanAccessDeniedError();
 
     const now = this.clock.now();

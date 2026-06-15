@@ -50,6 +50,32 @@ export class DrizzleFamilyRepository implements FamilyRepository {
     return FamilyMapper.toFamily(familyRow, memberRows);
   }
 
+  async findByIds(familyIds: string[]): Promise<Family[]> {
+    if (familyIds.length === 0) {
+      return [];
+    }
+
+    const familyRows = await this.db.select().from(families).where(inArray(families.id, familyIds));
+    if (familyRows.length === 0) {
+      return [];
+    }
+
+    // Cargamos todas las memberships de esas familias en una sola consulta.
+    const allMembers = await this.db
+      .select()
+      .from(memberships)
+      .where(inArray(memberships.familyId, familyRows.map((row) => row.id)));
+
+    const byFamily = new Map<string, typeof allMembers>();
+    for (const row of allMembers) {
+      const list = byFamily.get(row.familyId) ?? [];
+      list.push(row);
+      byFamily.set(row.familyId, list);
+    }
+
+    return familyRows.map((row) => FamilyMapper.toFamily(row, byFamily.get(row.id) ?? []));
+  }
+
   async findByMember(userId: string): Promise<Family[]> {
     const myMemberships = await this.db
       .select({ familyId: memberships.familyId })

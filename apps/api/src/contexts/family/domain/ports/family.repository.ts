@@ -15,6 +15,13 @@ export interface FamilyRepository {
   /** Carga una familia por id con todas sus memberships, o null si no existe. */
   findById(familyId: string): Promise<Family | null>;
 
+  /**
+   * Carga varias familias por id en una sola consulta (batch), cada una con sus
+   * memberships. Evita el patrón N+1 de hacer un `findById` por id. El orden del
+   * resultado no está garantizado y solo incluye las familias que existen.
+   */
+  findByIds(familyIds: string[]): Promise<Family[]>;
+
   /** Familias a las que pertenece el usuario, con sus memberships cargadas. */
   findByMember(userId: string): Promise<Family[]>;
 }

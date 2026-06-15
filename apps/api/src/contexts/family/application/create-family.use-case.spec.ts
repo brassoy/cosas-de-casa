@@ -39,6 +39,7 @@ class FakeUnitOfWork implements UnitOfWork {
           this.createdFamilies.push(f);
         },
         findById: async () => null,
+        findByIds: async () => [],
         findByMember: async () => [],
       },
       memberships: {

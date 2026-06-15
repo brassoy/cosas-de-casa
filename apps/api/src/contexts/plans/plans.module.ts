@@ -55,6 +55,7 @@ import { DrizzlePlansReadModel } from './infrastructure/drizzle-plans-read-model
 
 // ── Interface ─────────────────────────────────────────────────────────────────
 import { PlansController } from './interface/plans.controller';
+import { PlanScopeGuard } from './interface/plan-scope.guard';
 
 @Module({
   imports: [IdentityAccessModule, FamilyModule, SocialModule],
@@ -112,6 +113,11 @@ import { PlansController } from './interface/plans.controller';
 
     DrizzlePlansReadModel,
     { provide: PLANS_READ_MODEL, useExisting: DrizzlePlansReadModel },
+
+    // ── Interface guards ──────────────────────────────────────────────────
+    // PlanScopeGuard usa PLAN_REPOSITORY + FAMILY_REPOSITORY (ambos provistos arriba).
+    // FamilyScopeGuard llega exportado por FamilyModule (ya importado).
+    PlanScopeGuard,
 
     // ── Use cases ─────────────────────────────────────────────────────────
     CreatePlanUseCase,

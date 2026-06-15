@@ -28,8 +28,8 @@ export class ListPlanMessagesUseCase {
     if (!plan) throw new PlanNotFoundError();
 
     const familyIds = [plan.ownerFamilyId, ...plan.sharedWithFamilyIds];
-    const memberships = await Promise.all(familyIds.map((fid) => this.families.findById(fid)));
-    const hasAccess = memberships.some((f) => f && f.isMember(query.actingUserId));
+    const memberships = await this.families.findByIds(familyIds);
+    const hasAccess = memberships.some((f) => f.isMember(query.actingUserId));
     if (!hasAccess) throw new PlanAccessDeniedError();
 
     return this.messages.listWithUsers({

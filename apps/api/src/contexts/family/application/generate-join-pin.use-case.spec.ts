@@ -74,6 +74,10 @@ class FakeFamilyRepository implements FamilyRepository {
     return this.families.get(id) ?? null;
   }
 
+  async findByIds(ids: string[]): Promise<Family[]> {
+    return ids.map((id) => this.families.get(id)).filter((f): f is Family => f != null);
+  }
+
   async findByMember(): Promise<Family[]> {
     return [];
   }
@@ -93,6 +97,7 @@ class FakeUnitOfWork implements UnitOfWork {
       families: {
         create: async () => {},
         findById: async () => null,
+        findByIds: async () => [],
         findByMember: async () => [],
       },
       memberships: {

@@ -60,6 +60,7 @@ class FakeUnitOfWork implements UnitOfWork {
       families: {
         create: async () => {},
         findById: async () => null,
+        findByIds: async () => [],
         findByMember: async () => [],
       },
       memberships: {
