@@ -168,6 +168,6 @@ No había conflicto real de Supabase (cosasdecasa tenía su propia instancia loc
 
   Lecturas excelentes (<15 ms). El alta de ítem (~344 ms) lo domina el **embedding local del dedup semántico** (síncrono por diseño: la respuesta incluye la decisión SUGGEST/ADD_NEW); en la UX real está **mitigado por el offline-first** (escritura optimista en Dexie + outbox), así que el usuario no espera.
 
-> **Estado tras todos los fixes:** todos los quality gates pasan — tsc/lint api+web, vitest web 334, api unit 318, **integration 229**. Responsive 0 problemas. Seguridad/calidad: CRITICAL/HIGH accionables resueltos; el resto (IDOR latente ya cubierto por use cases, RLS, N+1, JWKS health-check) documentado arriba para siguiente sprint.
+> **Estado tras todos los fixes:** todos los quality gates pasan — tsc/lint api+web, vitest web 334, api unit 318, **integration 229**. Responsive 0 problemas. Seguridad/calidad: CRITICAL/HIGH accionables resueltos, **más los N+1** (plans/tasks, vía batch `findByIds`/`findAssigneesByTasks`) y los **scope guards** (`PlanScopeGuard` en los 7 endpoints `:planId` + `FamilyScopeGuard` en plans/social) — verificados con integration 229. Pendiente para siguiente sprint (menor riesgo/diseño): **RLS en Postgres** y **health-check de JWKS en arranque**.
 
 > Backup de la BD tomado antes del QA dinámico en `/tmp/cosasdecasa-pre-qa.dump` (los tests crean usuarios `*@integration.test` aislados y los limpian; no tocan datos existentes).
