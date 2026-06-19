@@ -25,9 +25,9 @@ const THEMES: { value: ThemeName; label: string; emoji: string; description: str
   },
   {
     value: 'springfield',
-    label: 'Cómic',
+    label: 'Hommer',
     emoji: '🍩',
-    description: 'Bordes gruesos, pop comic',
+    description: 'Amarillo pop, bordes gruesos',
   },
 ];
 

@@ -109,7 +109,7 @@ describe('ThemeSelector', () => {
     render(<ThemeSelector />);
     openPanel();
 
-    const springfieldBtn = screen.getByRole('button', { name: /cómic/i });
+    const springfieldBtn = screen.getByRole('button', { name: /hommer/i });
     fireEvent.click(springfieldBtn);
 
     expect(getHtml().getAttribute('data-theme')).toBe('springfield');
@@ -144,15 +144,16 @@ describe('ThemeSelector', () => {
     expect(stored.mode).toBe('dark');
   });
 
-  it('migra el formato viejo {aesthetic,...} a base sin crash', () => {
+  it('migra el formato viejo {aesthetic,...} al theme por defecto sin crash', () => {
     // Formato legacy en localStorage → loadPrefs no valida (sin `theme`), se
-    // descarta el objeto completo y aplicamos DEFAULT_THEME sin lanzar error.
+    // descarta el objeto completo y aplicamos DEFAULT_THEME ('springfield') sin
+    // lanzar error.
     localStorage.setItem('cosasdecasa:theme', JSON.stringify({ aesthetic: 'pixel', mode: 'dark' }));
     getHtml().removeAttribute('data-theme');
     getHtml().removeAttribute('data-mode');
 
     expect(() => applyTheme()).not.toThrow();
-    expect(getHtml().getAttribute('data-theme')).toBe('base');
+    expect(getHtml().getAttribute('data-theme')).toBe('springfield');
   });
 
   it('el botón activo tiene aria-pressed=true', () => {

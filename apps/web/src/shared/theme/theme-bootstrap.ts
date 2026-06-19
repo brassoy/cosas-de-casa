@@ -25,7 +25,9 @@ export interface ThemePrefs {
 }
 
 const STORAGE_KEY = 'cosasdecasa:theme';
-const DEFAULT_THEME: ThemeName = 'base';
+// Por defecto las cuentas nuevas (sin preferencia guardada) arrancan en el theme
+// "Hommer" (springfield). El usuario puede cambiarlo desde el selector.
+const DEFAULT_THEME: ThemeName = 'springfield';
 
 const VALID_THEMES = ['base', 'cozy', 'cozysitcom', 'springfield'] as const;
 
