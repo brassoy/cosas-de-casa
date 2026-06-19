@@ -32,9 +32,10 @@ export function AppHeader() {
   return (
     <header
       style={{
-        // Barra full-width (de borde a borde) con fondo blanco.
+        // Barra full-width (de borde a borde). El lienzo es blanco en claro y
+        // oscuro en dark mode (token --app-canvas), para que el texto se lea.
         borderBottom: '1px solid var(--color-border)',
-        backgroundColor: '#ffffff',
+        backgroundColor: 'var(--app-canvas)',
       }}
     >
       {/* Contenido centrado a APP_MAX_WIDTH: la barra es full-width pero la marca

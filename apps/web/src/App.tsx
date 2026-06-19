@@ -59,7 +59,7 @@ export function App() {
 
 const shellStyle: React.CSSProperties = {
   minHeight: '100dvh',
-  backgroundColor: '#ffffff',
+  backgroundColor: 'var(--app-canvas)',
 };
 
 const contentStyle: React.CSSProperties = {

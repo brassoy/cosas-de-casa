@@ -83,13 +83,14 @@ export function BottomNav({ familyId }: { familyId: string }) {
 
 const styles: Record<string, React.CSSProperties> = {
   bar: {
-    // Barra full-width (de borde a borde) con fondo blanco.
+    // Barra full-width (de borde a borde). Lienzo mode-aware (--app-canvas):
+    // blanco en claro, oscuro en dark mode.
     position: 'fixed',
     left: 0,
     right: 0,
     bottom: 0,
     zIndex: 100,
-    backgroundColor: '#ffffff',
+    backgroundColor: 'var(--app-canvas)',
     borderTop: '1px solid var(--color-border)',
     boxShadow: 'var(--shadow-lg, 0 -2px 10px rgba(0, 0, 0, 0.08))',
     // Respeta el "notch" inferior de iOS.

@@ -12,6 +12,11 @@
   --color-surface-raised: #f5f5f5;
   --color-surface-overlay: rgba(0, 0, 0, 0.04);
 
+  /* Lienzo de la app (shell + barras). Por defecto sigue al surface, así que en
+     el theme base es blanco en claro y oscuro en dark mode (texto siempre legible).
+     Los themes alternativos (light-only) lo fuerzan a blanco más abajo. */
+  --app-canvas: var(--color-surface);
+
   /* Text */
   --color-text: #111111;
   --color-text-muted: #666666;
@@ -136,9 +141,19 @@ html {
   font-size: var(--font-size-base);
   line-height: var(--line-height-normal);
   color: var(--color-text);
-  background-color: var(--color-surface);
+  background-color: var(--app-canvas);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Themes alternativos (cozy / cozysitcom / springfield) son LIGHT-ONLY: su lienzo
+   es siempre blanco (en vez de su surface de color), pero sus cards y acentos
+   mantienen la identidad del theme. Su texto es oscuro, así que sobre blanco se
+   lee bien en cualquier modo. */
+html[data-theme='cozy'],
+html[data-theme='cozysitcom'],
+html[data-theme='springfield'] {
+  --app-canvas: #ffffff;
 }
 
 body {
