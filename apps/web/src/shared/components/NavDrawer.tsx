@@ -97,6 +97,10 @@ export function NavDrawer() {
     { label: '👯 Familias amigas', path: '/friends', go: () => void navigate({ to: '/friends' }) },
   ];
 
+  const cuenta: NavEntry[] = [
+    { label: '⚙️ Ajustes', path: '/settings', go: () => void navigate({ to: '/settings' }) },
+  ];
+
   const isActive = (entry: NavEntry): boolean =>
     entry.exact
       ? pathname === entry.path
@@ -164,6 +168,7 @@ export function NavDrawer() {
         <p style={styles.panelTitle}>{activeFamily.name}</p>
         {renderGroup('Hogar', hogar)}
         {renderGroup('Social', social)}
+        {renderGroup('Cuenta', cuenta)}
       </nav>
     </>
   );

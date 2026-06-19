@@ -1,0 +1,227 @@
+/* ─── Vista presentacional base — settings ──────────────────────────────────
+ *
+ * Theme `base` (estética shadcn). Pantalla de ajustes del usuario con tres
+ * secciones — Perfil (nombre + email solo lectura), Contraseña (nueva +
+ * confirmar) y Apariencia (selector de theme) — más un botón de cerrar sesión.
+ *
+ * Presentacional puro: solo props in / callbacks out. La validación de los
+ * formularios (nombre no vacío, contraseña ≥ 6 + confirmación) es UI y vive aquí;
+ * el error de negocio (backend / Supabase) llega por props desde el container.
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+import { type FormEvent, useState } from 'react';
+import { Button } from '@/shared/ui/button';
+import { Input } from '@/shared/ui/input';
+import { Label } from '@/shared/ui/label';
+import { Alert, AlertDescription } from '@/shared/ui/alert';
+import { getTheme, setTheme, type ThemeName } from '@/shared/theme/theme-bootstrap';
+import type { SettingsViewProps } from '../types';
+
+const THEMES: { value: ThemeName; label: string; emoji: string; description: string }[] = [
+  { value: 'base', label: 'Clásico', emoji: '◉', description: 'Limpio y neutro (shadcn)' },
+  { value: 'cozy', label: 'Cuaderno', emoji: '✎', description: 'Papel pautado, manuscrito' },
+  { value: 'cozysitcom', label: 'Sitcom 70s', emoji: '📺', description: 'Retro cálido, madera y mostaza' },
+  { value: 'springfield', label: 'Hommer', emoji: '🍩', description: 'Amarillo pop, bordes gruesos' },
+];
+
+export default function SettingsView(props: SettingsViewProps) {
+  const {
+    displayName,
+    email,
+    loading,
+    onSaveName,
+    savingName,
+    nameError,
+    nameOk,
+    onChangePassword,
+    changingPassword,
+    passwordError,
+    passwordOk,
+    onLogout,
+  } = props;
+
+  const [name, setName] = useState(displayName ?? '');
+  const [nameLocalError, setNameLocalError] = useState<string | null>(null);
+
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [passwordLocalError, setPasswordLocalError] = useState<string | null>(null);
+
+  const [theme, setLocalTheme] = useState<ThemeName>(() => getTheme().theme);
+
+  // El nombre del perfil llega de forma asíncrona (carga). Cuando cambia, se
+  // siembra el campo durante el render (patrón recomendado de React para ajustar
+  // estado al cambiar una prop, sin useEffect ni renders en cascada).
+  const [seededFrom, setSeededFrom] = useState(displayName);
+  if (displayName !== seededFrom) {
+    setSeededFrom(displayName);
+    setName(displayName ?? '');
+  }
+
+  const displayedNameError = nameLocalError ?? nameError ?? null;
+  const displayedPasswordError = passwordLocalError ?? passwordError ?? null;
+
+  function handleSaveName(e: FormEvent) {
+    e.preventDefault();
+    setNameLocalError(null);
+    const trimmed = name.trim();
+    if (!trimmed) {
+      setNameLocalError('El nombre no puede estar vacío.');
+      return;
+    }
+    onSaveName(trimmed);
+  }
+
+  function handleChangePassword(e: FormEvent) {
+    e.preventDefault();
+    setPasswordLocalError(null);
+    if (password.length < 6) {
+      setPasswordLocalError('La contraseña debe tener al menos 6 caracteres.');
+      return;
+    }
+    if (password !== confirm) {
+      setPasswordLocalError('Las contraseñas no coinciden.');
+      return;
+    }
+    onChangePassword(password);
+    setPassword('');
+    setConfirm('');
+  }
+
+  function handleTheme(t: ThemeName) {
+    setTheme({ theme: t });
+    setLocalTheme(t);
+  }
+
+  return (
+    <div className="mx-auto max-w-2xl p-6 space-y-8">
+      <header className="border-b border-border pb-4">
+        <p className="text-xs uppercase tracking-wide text-muted-foreground">Tu cuenta</p>
+        <h1 className="text-2xl font-bold">Ajustes</h1>
+      </header>
+
+      {/* ── Perfil ──────────────────────────────────────────────────────── */}
+      <section className="space-y-3">
+        <h2 className="font-semibold">Perfil</h2>
+        <form onSubmit={handleSaveName} noValidate className="space-y-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="settings-name">Nombre</Label>
+            <Input
+              id="settings-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Tu nombre"
+              maxLength={80}
+              disabled={loading || savingName}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="settings-email">Correo electrónico</Label>
+            <Input id="settings-email" type="email" value={email ?? ''} readOnly disabled />
+            <p className="text-xs text-muted-foreground">El correo no se puede cambiar desde aquí.</p>
+          </div>
+
+          {displayedNameError && (
+            <Alert variant="destructive">
+              <AlertDescription>{displayedNameError}</AlertDescription>
+            </Alert>
+          )}
+          {nameOk && !displayedNameError && (
+            <Alert>
+              <AlertDescription>Nombre actualizado.</AlertDescription>
+            </Alert>
+          )}
+
+          <Button type="submit" disabled={savingName || loading} className="h-11">
+            {savingName ? 'Guardando…' : 'Guardar nombre'}
+          </Button>
+        </form>
+      </section>
+
+      {/* ── Contraseña ──────────────────────────────────────────────────── */}
+      <section className="space-y-3">
+        <h2 className="font-semibold">Contraseña</h2>
+        <form onSubmit={handleChangePassword} noValidate className="space-y-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="settings-password">Nueva contraseña</Label>
+            <Input
+              id="settings-password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Mínimo 6 caracteres"
+              autoComplete="new-password"
+              disabled={changingPassword}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="settings-confirm">Confirmar contraseña</Label>
+            <Input
+              id="settings-confirm"
+              type="password"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              placeholder="Repite la contraseña"
+              autoComplete="new-password"
+              disabled={changingPassword}
+            />
+          </div>
+
+          {displayedPasswordError && (
+            <Alert variant="destructive">
+              <AlertDescription>{displayedPasswordError}</AlertDescription>
+            </Alert>
+          )}
+          {passwordOk && !displayedPasswordError && (
+            <Alert>
+              <AlertDescription>Contraseña actualizada.</AlertDescription>
+            </Alert>
+          )}
+
+          <Button type="submit" disabled={changingPassword} className="h-11">
+            {changingPassword ? 'Guardando…' : 'Cambiar contraseña'}
+          </Button>
+        </form>
+      </section>
+
+      {/* ── Apariencia ──────────────────────────────────────────────────── */}
+      <section className="space-y-3">
+        <h2 className="font-semibold">Apariencia</h2>
+        <p className="text-sm text-muted-foreground">Elige el aspecto de la app.</p>
+        <div className="grid gap-2">
+          {THEMES.map((t) => {
+            const active = theme === t.value;
+            return (
+              <button
+                key={t.value}
+                type="button"
+                onClick={() => handleTheme(t.value)}
+                aria-pressed={active}
+                className={`flex items-center gap-3 rounded-card border p-3 text-left transition ${
+                  active ? 'border-primary bg-accent' : 'border-border bg-card hover:bg-accent'
+                }`}
+              >
+                <span className="text-2xl" aria-hidden="true">
+                  {t.emoji}
+                </span>
+                <span className="min-w-0">
+                  <span className="block font-medium">{t.label}</span>
+                  <span className="block text-xs text-muted-foreground">{t.description}</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* ── Cerrar sesión ───────────────────────────────────────────────── */}
+      <section className="border-t border-border pt-6">
+        <Button variant="destructive" onClick={onLogout} className="h-11">
+          Cerrar sesión
+        </Button>
+      </section>
+    </div>
+  );
+}

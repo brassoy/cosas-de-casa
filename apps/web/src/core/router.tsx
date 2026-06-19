@@ -32,6 +32,7 @@ import { ReceiptsPage } from '@/features/budget/pages/ReceiptsPage';
 import { ReceiptDetailPage } from '@/features/budget/pages/ReceiptDetailPage';
 import { SpendPage } from '@/features/budget/pages/SpendPage';
 import { MenuPage } from '@/features/menu/pages/MenuPage';
+import { SettingsPage } from '@/features/settings/pages/SettingsPage';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { useFamilyStore } from '@/features/family/store/family.store';
 import { api } from '@/shared/lib/api';
@@ -379,6 +380,16 @@ const menuRoute = createRoute({
   component: MenuPage,
 });
 
+// ── Settings route ────────────────────────────────────────────────────────────
+// Ajustes del usuario: no depende de `familyId`, solo de sesión.
+
+const settingsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings',
+  beforeLoad: requireAuth,
+  component: SettingsPage,
+});
+
 // ── Route tree ────────────────────────────────────────────────────────────────
 
 const routeTree = rootRoute.addChildren([
@@ -410,6 +421,7 @@ const routeTree = rootRoute.addChildren([
   budgetReceiptDetailRoute,
   budgetSpendRoute,
   menuRoute,
+  settingsRoute,
 ]);
 
 export const router = createRouter({ routeTree });

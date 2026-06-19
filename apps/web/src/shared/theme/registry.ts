@@ -30,6 +30,7 @@ import { shoppingBaseViews, shoppingCozyViews, shoppingCozysitcomViews, shopping
 import { tasksBaseViews, tasksCozyViews, tasksCozysitcomViews, tasksSpringfieldViews } from '@/features/tasks/views';
 import { calendarBaseViews, calendarCozyViews, calendarCozysitcomViews, calendarSpringfieldViews } from '@/features/calendar/views';
 import { budgetBaseViews, budgetCozyViews, budgetCozysitcomViews, budgetSpringfieldViews } from '@/features/budget/views';
+import { settingsBaseViews, settingsCozyViews, settingsCozysitcomViews, settingsSpringfieldViews } from '@/features/settings/views';
 
 /** Identificadores de las 27 pantallas de la app (ver plan §2.2). */
 export type ScreenId =
@@ -59,7 +60,8 @@ export type ScreenId =
   | 'group_join'
   | 'group_home'
   | 'friends'
-  | 'friends_redeem';
+  | 'friends_redeem'
+  | 'settings';
 
 // Las vistas reciben props específicas de cada pantalla (contratos por feature).
 // `any` aquí es intencional: el registry es agnóstico al contrato concreto; el
@@ -83,6 +85,7 @@ export const themeRegistry: Record<ThemeName, Partial<Record<ScreenId, AnyView>>
     ...tasksBaseViews,
     ...calendarBaseViews,
     ...budgetBaseViews,
+    ...settingsBaseViews,
   },
   cozy: {
     ...authCozyViews,
@@ -98,6 +101,7 @@ export const themeRegistry: Record<ThemeName, Partial<Record<ScreenId, AnyView>>
     ...tasksCozyViews,
     ...calendarCozyViews,
     ...budgetCozyViews,
+    ...settingsCozyViews,
   },
   cozysitcom: {
     ...authCozysitcomViews,
@@ -113,6 +117,7 @@ export const themeRegistry: Record<ThemeName, Partial<Record<ScreenId, AnyView>>
     ...tasksCozysitcomViews,
     ...calendarCozysitcomViews,
     ...budgetCozysitcomViews,
+    ...settingsCozysitcomViews,
   },
   springfield: {
     ...authSpringfieldViews,
@@ -128,5 +133,6 @@ export const themeRegistry: Record<ThemeName, Partial<Record<ScreenId, AnyView>>
     ...tasksSpringfieldViews,
     ...calendarSpringfieldViews,
     ...budgetSpringfieldViews,
+    ...settingsSpringfieldViews,
   },
 };
