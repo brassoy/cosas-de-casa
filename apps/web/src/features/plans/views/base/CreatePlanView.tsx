@@ -15,7 +15,6 @@
  */
 
 import { useState } from 'react';
-import { Map as MapIcon } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
@@ -29,6 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/shared/ui/select';
+import PlacePicker, { hasGoogleMapsApiKey } from '../../components/PlacePicker';
 import type { PlanPlaceInput, CreatePlanViewProps } from '../types';
 
 export default function CreatePlanView(props: CreatePlanViewProps) {
@@ -40,15 +40,22 @@ export default function CreatePlanView(props: CreatePlanViewProps) {
   const [useSaved, setUseSaved] = useState('');
   const [placeName, setPlaceName] = useState('');
   const [placeAddress, setPlaceAddress] = useState('');
+  const [placeLat, setPlaceLat] = useState<number | undefined>(undefined);
+  const [placeLng, setPlaceLng] = useState<number | undefined>(undefined);
   const [savePlace, setSavePlace] = useState(false);
 
   function handleSubmit() {
     let place: PlanPlaceInput | undefined;
     if (useSaved) {
       const sp = savedPlaces.find((s) => s.id === useSaved);
-      if (sp) place = { name: sp.name, address: sp.address };
+      if (sp) place = { name: sp.name, address: sp.address, lat: sp.lat, lng: sp.lng };
     } else if (placeName.trim()) {
-      place = { name: placeName.trim(), address: placeAddress.trim() || undefined };
+      place = {
+        name: placeName.trim(),
+        address: placeAddress.trim() || undefined,
+        lat: placeLat,
+        lng: placeLng,
+      };
     }
 
     onSubmit({
@@ -158,13 +165,32 @@ export default function CreatePlanView(props: CreatePlanViewProps) {
             </>
           )}
 
-          {/* TODO(maps): aquí iría el widget de Google Maps para seleccionar el lugar. */}
-          <div className="rounded-md border border-dashed border-border bg-muted h-32 grid place-items-center text-muted-foreground text-sm">
-            <span className="flex items-center gap-2">
-              <MapIcon className="h-4 w-4" />
-              Mapa próximamente
-            </span>
-          </div>
+          {!useSaved && hasGoogleMapsApiKey ? (
+            <div className="space-y-1.5">
+              <Label htmlFor="place-search">Busca en el mapa</Label>
+              <PlacePicker
+                inputClassName="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                placeholder="Busca un lugar y rellenamos el nombre"
+                value={
+                  placeName
+                    ? { name: placeName, address: placeAddress, lat: placeLat, lng: placeLng }
+                    : null
+                }
+                onChange={(p) => {
+                  setPlaceName(p?.name ?? '');
+                  setPlaceAddress(p?.address ?? '');
+                  setPlaceLat(p?.lat);
+                  setPlaceLng(p?.lng);
+                }}
+              />
+            </div>
+          ) : (
+            !useSaved && (
+              <p className="text-xs text-muted-foreground">
+                Configura <code>VITE_GOOGLE_MAPS_API_KEY</code> para el mapa.
+              </p>
+            )
+          )}
         </fieldset>
 
         <Button

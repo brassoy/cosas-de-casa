@@ -18,7 +18,7 @@
  */
 
 import { useState } from 'react';
-import { Map as MapIcon } from 'lucide-react';
+import PlacePicker, { hasGoogleMapsApiKey } from '../../components/PlacePicker';
 import type { PlanPlaceInput, CreatePlanViewProps } from '../types';
 
 export default function CreatePlanView(props: CreatePlanViewProps) {
@@ -30,15 +30,22 @@ export default function CreatePlanView(props: CreatePlanViewProps) {
   const [useSaved, setUseSaved] = useState('');
   const [placeName, setPlaceName] = useState('');
   const [placeAddress, setPlaceAddress] = useState('');
+  const [placeLat, setPlaceLat] = useState<number | undefined>(undefined);
+  const [placeLng, setPlaceLng] = useState<number | undefined>(undefined);
   const [savePlace, setSavePlace] = useState(false);
 
   function handleSubmit() {
     let place: PlanPlaceInput | undefined;
     if (useSaved) {
       const sp = savedPlaces.find((s) => s.id === useSaved);
-      if (sp) place = { name: sp.name, address: sp.address };
+      if (sp) place = { name: sp.name, address: sp.address, lat: sp.lat, lng: sp.lng };
     } else if (placeName.trim()) {
-      place = { name: placeName.trim(), address: placeAddress.trim() || undefined };
+      place = {
+        name: placeName.trim(),
+        address: placeAddress.trim() || undefined,
+        lat: placeLat,
+        lng: placeLng,
+      };
     }
 
     onSubmit({
@@ -185,16 +192,34 @@ export default function CreatePlanView(props: CreatePlanViewProps) {
             </>
           )}
 
-          {/* TODO(maps): aquí iría el widget de Google Maps para seleccionar el lugar. */}
-          <div
-            className="cz-paper h-32 grid place-items-center text-sm opacity-70"
-            style={{ borderStyle: 'dashed' }}
-          >
-            <span className="flex items-center gap-2">
-              <MapIcon className="h-4 w-4" />
-              Mapa próximamente
-            </span>
-          </div>
+          {!useSaved && hasGoogleMapsApiKey ? (
+            <div className="space-y-1.5">
+              <label htmlFor="place-search" className="text-xs font-bold uppercase opacity-70">
+                Busca en el mapa
+              </label>
+              <PlacePicker
+                inputClassName="cz-input"
+                placeholder="Busca un lugar…"
+                value={
+                  placeName
+                    ? { name: placeName, address: placeAddress, lat: placeLat, lng: placeLng }
+                    : null
+                }
+                onChange={(p) => {
+                  setPlaceName(p?.name ?? '');
+                  setPlaceAddress(p?.address ?? '');
+                  setPlaceLat(p?.lat);
+                  setPlaceLng(p?.lng);
+                }}
+              />
+            </div>
+          ) : (
+            !useSaved && (
+              <p className="text-xs opacity-70">
+                Configura <code>VITE_GOOGLE_MAPS_API_KEY</code> para el mapa.
+              </p>
+            )
+          )}
         </fieldset>
 
         <button

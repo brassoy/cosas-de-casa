@@ -33,9 +33,15 @@ export function CreatePlanPage() {
       return;
     }
 
-    // La vista emite place {name,address}; el TODO(maps) de lat/lng vive aquí.
+    // La vista emite place {name,address,lat?,lng?}; el selector de Google Maps
+    // aporta lat/lng cuando hay key configurada (si no, van undefined).
     const place: PlaceDto | undefined = values.place
-      ? { name: values.place.name, address: values.place.address }
+      ? {
+          name: values.place.name,
+          address: values.place.address,
+          lat: values.place.lat,
+          lng: values.place.lng,
+        }
       : undefined;
 
     createPlan.mutate(

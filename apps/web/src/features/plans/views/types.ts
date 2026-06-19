@@ -49,6 +49,9 @@ export interface PlansViewProps {
 export interface PlanPlaceInput {
   name: string;
   address?: string;
+  /** Coordenadas si el selector de Google Maps las aporta (opcionales). */
+  lat?: number;
+  lng?: number;
 }
 
 /** Valores que emite el formulario al enviar. */
