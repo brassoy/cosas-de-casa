@@ -47,8 +47,8 @@ export default defineConfig({
         name: 'Cosas de Casa',
         short_name: 'CosasDeCasa',
         description: 'Gestiona todo lo de tu hogar: listas de la compra, tareas y más',
-        theme_color: '#2563eb',
-        background_color: '#2563eb',
+        theme_color: '#111827',
+        background_color: '#fac739',
         display: 'standalone',
         scope: '/',
         start_url: '/',
@@ -67,6 +67,12 @@ export default defineConfig({
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any',
+          },
+          {
+            src: '/icons/icon-192-maskable.png',
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'maskable',
           },
           {
             src: '/icons/icon-512-maskable.png',
