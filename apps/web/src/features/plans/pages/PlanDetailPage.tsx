@@ -21,9 +21,17 @@ import { ThemeView } from '@/shared/theme/ThemeView';
 import { useFamilyStore } from '@/features/family/store/family.store';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { useFriendFamilies } from '@/features/friends/hooks/useFriends';
-import { usePlan, useSetRsvp, useSharePlan, useDeletePlan } from '../hooks/usePlans';
+import {
+  usePlan,
+  useSetRsvp,
+  useSharePlan,
+  useDeletePlan,
+  useUpdatePlan,
+  useDeletePlace,
+  useSavedPlaces,
+} from '../hooks/usePlans';
 import { usePlanChat, buildParticipantNames } from '../hooks/usePlanChat';
-import type { PlanRsvpStatus } from '../contracts';
+import type { PlanRsvpStatus, UpdatePlanInput } from '../contracts';
 import type { PlanDetailViewProps } from '../views/types';
 import { ApiRequestError } from '@/shared/lib/api';
 
@@ -36,13 +44,18 @@ export function PlanDetailPage() {
   const [rsvpError, setRsvpError] = useState<string | null>(null);
   const [shareError, setShareError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [updateError, setUpdateError] = useState<string | null>(null);
+  const [deletePlaceError, setDeletePlaceError] = useState<string | null>(null);
 
   const { data: plan, isLoading, error } = usePlan(planId);
   const { data: friendFamilies } = useFriendFamilies(activeFamily?.id);
+  const { data: savedPlaces } = useSavedPlaces(activeFamily?.id);
 
   const setRsvp = useSetRsvp(planId);
   const sharePlan = useSharePlan(planId);
   const deletePlan = useDeletePlan(activeFamily?.id);
+  const updatePlan = useUpdatePlan(planId, activeFamily?.id);
+  const deletePlace = useDeletePlace(activeFamily?.id);
 
   // Chat realtime: el mapa de nombres se construye desde los participantes del
   // plan para resolver el displayName de los INSERTs ajenos (la tabla no lo trae).
@@ -110,6 +123,32 @@ export function PlanDetailPage() {
     });
   }
 
+  function handleUpdatePlan(body: UpdatePlanInput) {
+    setUpdateError(null);
+    updatePlan.mutate(body, {
+      onError: (err) => {
+        setUpdateError(
+          err instanceof ApiRequestError
+            ? err.body.message
+            : 'No se ha podido guardar los cambios. Inténtalo de nuevo.',
+        );
+      },
+    });
+  }
+
+  function handleDeletePlace(placeId: string) {
+    setDeletePlaceError(null);
+    deletePlace.mutate(placeId, {
+      onError: (err) => {
+        setDeletePlaceError(
+          err instanceof ApiRequestError
+            ? err.body.message
+            : 'No se ha podido borrar el lugar. Inténtalo de nuevo.',
+        );
+      },
+    });
+  }
+
   if (!planId) {
     return (
       <div style={styles.center}>
@@ -149,11 +188,18 @@ export function PlanDetailPage() {
     rsvpError,
     shareError,
     deleteError,
+    savedPlaces: savedPlaces ?? [],
+    isUpdating: updatePlan.isPending,
+    updateError,
+    isDeletingPlace: deletePlace.isPending,
+    deletePlaceError,
     onBack: () => void navigate({ to: '/plans' }),
     onRsvp: handleRsvp,
     onShare: handleShare,
     onSendMessage: handleSendMessage,
     onDelete: handleDelete,
+    onUpdatePlan: handleUpdatePlan,
+    onDeletePlace: handleDeletePlace,
   };
 
   return <ThemeView screen="plan_detail" props={viewProps} />;

@@ -18,10 +18,12 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { Calendar, MapPin, Send, Trash2 } from 'lucide-react';
+import { Calendar, MapPin, Pencil, Send, Trash2 } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { Input } from '@/shared/ui/input';
+import { Label } from '@/shared/ui/label';
+import { Textarea } from '@/shared/ui/textarea';
 import { Badge } from '@/shared/ui/badge';
 import { Alert, AlertDescription } from '@/shared/ui/alert';
 import {
@@ -34,6 +36,7 @@ import {
 import { cn } from '@/shared/lib/cn';
 import type { PlanRsvpStatus, PlanStatus } from '../../contracts';
 import type { PlanDetailViewProps } from '../types';
+import { buildUpdatePlanBody, initialEditValues } from '../planDetail.helpers';
 
 const STATUS_LABEL: Record<PlanStatus, string> = {
   proposed: 'Propuesto',
@@ -55,6 +58,8 @@ const RSVP_LABEL: Record<PlanRsvpStatus, string> = {
 
 const RSVP_OPTIONS: PlanRsvpStatus[] = ['going', 'maybe', 'declined'];
 
+const STATUS_OPTIONS: PlanStatus[] = ['proposed', 'confirmed', 'cancelled'];
+
 export default function PlanDetailView(props: PlanDetailViewProps) {
   const {
     plan,
@@ -62,25 +67,34 @@ export default function PlanDetailView(props: PlanDetailViewProps) {
     currentUserId,
     isOwner,
     friendFamilies,
+    savedPlaces = [],
     messagesLoading,
     isSavingRsvp,
     isSharing,
     isSendingMessage,
     isDeleting,
+    isUpdating,
+    isDeletingPlace,
     rsvpError,
     shareError,
     deleteError,
+    updateError,
+    deletePlaceError,
     onBack,
     onRsvp,
     onShare,
     onSendMessage,
     onDelete,
+    onUpdatePlan,
+    onDeletePlace,
   } = props;
 
   const myRsvp = plan.participants.find((p) => p.userId === currentUserId)?.status;
   const [shareWith, setShareWith] = useState('');
   const [msg, setMsg] = useState('');
   const [confirm, setConfirm] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [edit, setEdit] = useState(() => initialEditValues(plan));
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll al final cuando llegan mensajes nuevos.
@@ -109,6 +123,24 @@ export default function PlanDetailView(props: PlanDetailViewProps) {
     onDelete();
   }
 
+  function openEdit() {
+    setEdit(initialEditValues(plan));
+    setEditing(true);
+  }
+
+  function handleSaveEdit() {
+    if (!onUpdatePlan || !edit.title.trim()) return;
+    onUpdatePlan(buildUpdatePlanBody(edit, plan));
+    setEditing(false);
+  }
+
+  function handleDeletePlace(placeId: string) {
+    if (!onDeletePlace) return;
+    if (window.confirm('¿Seguro que quieres borrar este lugar?')) {
+      onDeletePlace(placeId);
+    }
+  }
+
   return (
     <div className="mx-auto max-w-2xl space-y-5 p-6">
       <button type="button" onClick={onBack} className="text-sm text-muted-foreground cursor-pointer">
@@ -117,17 +149,89 @@ export default function PlanDetailView(props: PlanDetailViewProps) {
 
       <div className="flex items-start justify-between gap-2">
         <h1 className="text-2xl font-bold">{plan.title}</h1>
-        <span
-          className={cn(
-            'text-xs px-2 py-0.5 rounded-full font-medium shrink-0',
-            STATUS_COLOR[plan.status],
+        <div className="flex items-center gap-2 shrink-0">
+          <span
+            className={cn(
+              'text-xs px-2 py-0.5 rounded-full font-medium',
+              STATUS_COLOR[plan.status],
+            )}
+          >
+            {STATUS_LABEL[plan.status]}
+          </span>
+          {isOwner && onUpdatePlan && !editing && (
+            <Button variant="outline" size="sm" onClick={openEdit}>
+              <Pencil className="h-4 w-4" />
+              Editar
+            </Button>
           )}
-        >
-          {STATUS_LABEL[plan.status]}
-        </span>
+        </div>
       </div>
 
-      {plan.description && <p className="text-muted-foreground">{plan.description}</p>}
+      {/* ── Editar plan (solo owner) ───────────────────────────────────────── */}
+      {isOwner && onUpdatePlan && editing && (
+        <Card className="p-4 space-y-3">
+          <h2 className="font-semibold">Editar plan</h2>
+          <div className="space-y-1.5">
+            <Label htmlFor="edit-title">Título *</Label>
+            <Input
+              id="edit-title"
+              value={edit.title}
+              onChange={(e) => setEdit((s) => ({ ...s, title: e.target.value }))}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="edit-description">Descripción</Label>
+            <Textarea
+              id="edit-description"
+              rows={3}
+              value={edit.description}
+              onChange={(e) => setEdit((s) => ({ ...s, description: e.target.value }))}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="edit-scheduled-at">Cuándo</Label>
+            <Input
+              id="edit-scheduled-at"
+              type="datetime-local"
+              value={edit.scheduledAt}
+              onChange={(e) => setEdit((s) => ({ ...s, scheduledAt: e.target.value }))}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="edit-status">Estado</Label>
+            <Select
+              value={edit.status}
+              onValueChange={(v) => setEdit((s) => ({ ...s, status: v as PlanStatus }))}
+            >
+              <SelectTrigger id="edit-status" aria-label="Estado del plan">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {STATUS_OPTIONS.map((st) => (
+                  <SelectItem key={st} value={st}>
+                    {STATUS_LABEL[st]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {updateError && (
+            <Alert variant="destructive">
+              <AlertDescription>{updateError}</AlertDescription>
+            </Alert>
+          )}
+          <div className="flex gap-2">
+            <Button onClick={handleSaveEdit} disabled={isUpdating || !edit.title.trim()}>
+              {isUpdating ? 'Guardando…' : 'Guardar cambios'}
+            </Button>
+            <Button variant="outline" onClick={() => setEditing(false)} disabled={isUpdating}>
+              Cancelar
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {plan.description && !editing && <p className="text-muted-foreground">{plan.description}</p>}
 
       <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
         {plan.scheduledAt && (
@@ -279,6 +383,40 @@ export default function PlanDetailView(props: PlanDetailViewProps) {
           </Button>
         </div>
       </section>
+
+      {/* ── Lugares guardados de la familia (solo owner, borrado) ──────────── */}
+      {isOwner && onDeletePlace && savedPlaces.length > 0 && (
+        <Card className="p-4 space-y-2">
+          <h2 className="font-semibold">Lugares guardados</h2>
+          {deletePlaceError && (
+            <Alert variant="destructive">
+              <AlertDescription>{deletePlaceError}</AlertDescription>
+            </Alert>
+          )}
+          <ul className="space-y-1.5 list-none p-0 m-0">
+            {savedPlaces.map((sp) => (
+              <li key={sp.id} className="flex items-center gap-3 p-2.5 rounded-md bg-muted">
+                <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <span className="flex-1 truncate">
+                  {sp.name}
+                  {sp.address ? ` — ${sp.address}` : ''}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-error shrink-0"
+                  onClick={() => handleDeletePlace(sp.id)}
+                  disabled={isDeletingPlace}
+                  aria-label={`Borrar lugar ${sp.name}`}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Borrar lugar
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       {/* ── Eliminar plan (solo owner, confirmación de dos toques) ─────────── */}
       {isOwner && (

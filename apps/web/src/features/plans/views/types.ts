@@ -24,6 +24,7 @@ import type {
   PlanMessageDto,
   PlanRsvpStatus,
   SavedPlaceDto,
+  UpdatePlanInput,
 } from '../contracts';
 import type { FriendFamilyDto } from '@cosasdecasa/contracts';
 
@@ -112,6 +113,20 @@ export interface PlanDetailViewProps {
   shareError?: string | null;
   /** Error al eliminar. */
   deleteError?: string | null;
+  /**
+   * Lugares guardados de la familia, para la sección de gestión (borrar) del
+   * detalle. El container los pasa solo para el owner; opcional para no romper
+   * consumidores existentes.
+   */
+  savedPlaces?: SavedPlaceDto[];
+  /** La edición del plan está en curso. */
+  isUpdating?: boolean;
+  /** Error al editar el plan. */
+  updateError?: string | null;
+  /** El borrado de un lugar guardado está en curso. */
+  isDeletingPlace?: boolean;
+  /** Error al borrar un lugar guardado. */
+  deletePlaceError?: string | null;
   /** Vuelve al listado. */
   onBack: () => void;
   /** Cambia mi respuesta de asistencia. */
@@ -122,4 +137,15 @@ export interface PlanDetailViewProps {
   onSendMessage: (body: string) => void;
   /** Elimina el plan (solo owner). */
   onDelete: () => void;
+  /**
+   * Edita el plan (solo owner). El container construye la mutación PATCH; la
+   * vista emite el subset de campos editables (título, descripción, fecha).
+   * Opcional para no romper consumidores/tests existentes.
+   */
+  onUpdatePlan?: (body: UpdatePlanInput) => void;
+  /**
+   * Borra un lugar guardado de la familia (solo owner). El container pide
+   * confirmación y dispara la mutación DELETE. Opcional.
+   */
+  onDeletePlace?: (placeId: string) => void;
 }

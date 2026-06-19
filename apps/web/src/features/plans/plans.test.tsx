@@ -18,7 +18,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
-import type { PlanDto, PlanSummaryDto, PlanMessageDto } from './contracts';
+import type { PlanDto, PlanSummaryDto, PlanMessageDto, SavedPlaceDto } from './contracts';
 import type { FriendFamilyDto } from '@cosasdecasa/contracts';
 import type { PlansViewProps, CreatePlanViewProps, PlanDetailViewProps } from './views/types';
 
@@ -79,6 +79,11 @@ const MOCK_MESSAGES: PlanMessageDto[] = [
   },
 ];
 
+const MOCK_SAVED_PLACES: SavedPlaceDto[] = [
+  { id: 'place-1', name: 'Parque del Retiro', address: 'Madrid' },
+  { id: 'place-2', name: 'Bar Manolo' },
+];
+
 // `Element.prototype.scrollIntoView` (que usa el auto-scroll del chat) lo
 // polirrellena el `test-setup.ts` global, así que aquí no hace falta stubbearlo.
 
@@ -125,11 +130,18 @@ function renderDetail(overrides: Partial<PlanDetailViewProps> = {}) {
     rsvpError: null,
     shareError: null,
     deleteError: null,
+    savedPlaces: MOCK_SAVED_PLACES,
+    isUpdating: false,
+    updateError: null,
+    isDeletingPlace: false,
+    deletePlaceError: null,
     onBack: vi.fn(),
     onRsvp: vi.fn(),
     onShare: vi.fn(),
     onSendMessage: vi.fn(),
     onDelete: vi.fn(),
+    onUpdatePlan: vi.fn(),
+    onDeletePlace: vi.fn(),
     ...overrides,
   };
   return { props, ...render(<PlanDetailView {...props} />) };
@@ -336,5 +348,105 @@ describe('PlanDetailView', () => {
     expect(alerts.some((a) => within(a).queryByText(/no se ha podido guardar tu respuesta/i))).toBe(
       true,
     );
+  });
+
+  // ── Editar plan ───────────────────────────────────────────────────────────
+
+  it('muestra el botón de editar solo para el owner', () => {
+    renderDetail({ isOwner: true });
+    expect(screen.getByRole('button', { name: /editar/i })).toBeInTheDocument();
+  });
+
+  it('oculta editar para quien no es owner', () => {
+    renderDetail({ isOwner: false });
+    expect(screen.queryByRole('button', { name: /^editar$/i })).not.toBeInTheDocument();
+  });
+
+  it('abre el formulario de edición con los valores del plan', async () => {
+    const user = userEvent.setup();
+    renderDetail({ isOwner: true });
+    await user.click(screen.getByRole('button', { name: /editar/i }));
+    expect(screen.getByRole('heading', { name: /editar plan/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/título/i)).toHaveValue('Barbacoa en el parque');
+  });
+
+  it('emite onUpdatePlan con solo los campos cambiados al guardar', async () => {
+    const user = userEvent.setup();
+    const { props } = renderDetail({ isOwner: true });
+
+    await user.click(screen.getByRole('button', { name: /editar/i }));
+    const titleInput = screen.getByLabelText(/título/i);
+    await user.clear(titleInput);
+    await user.type(titleInput, 'Barbacoa renovada');
+    await user.click(screen.getByRole('button', { name: /guardar cambios/i }));
+
+    expect(props.onUpdatePlan).toHaveBeenCalledWith({ title: 'Barbacoa renovada' });
+  });
+
+  it('cierra la edición sin emitir al cancelar', async () => {
+    const user = userEvent.setup();
+    const { props } = renderDetail({ isOwner: true });
+
+    await user.click(screen.getByRole('button', { name: /editar/i }));
+    await user.click(screen.getByRole('button', { name: /cancelar/i }));
+
+    expect(props.onUpdatePlan).not.toHaveBeenCalled();
+    expect(screen.queryByRole('heading', { name: /editar plan/i })).not.toBeInTheDocument();
+  });
+
+  it('muestra el error de edición recibido por props', async () => {
+    const user = userEvent.setup();
+    renderDetail({ isOwner: true, updateError: 'No se ha podido guardar los cambios.' });
+    await user.click(screen.getByRole('button', { name: /editar/i }));
+    const alerts = screen.getAllByRole('alert');
+    expect(alerts.some((a) => within(a).queryByText(/no se ha podido guardar los cambios/i))).toBe(
+      true,
+    );
+  });
+
+  // ── Borrar lugar guardado ─────────────────────────────────────────────────
+
+  it('lista los lugares guardados para el owner', () => {
+    renderDetail({ isOwner: true });
+    expect(screen.getByRole('heading', { name: /lugares guardados/i })).toBeInTheDocument();
+    // "Bar Manolo" (sin dirección) solo aparece en la sección de lugares
+    // guardados; "Parque del Retiro" también está en la cabecera del plan.
+    expect(screen.getByText('Bar Manolo')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /borrar lugar parque del retiro/i }),
+    ).toBeInTheDocument();
+  });
+
+  it('oculta los lugares guardados para quien no es owner', () => {
+    renderDetail({ isOwner: false });
+    expect(screen.queryByRole('heading', { name: /lugares guardados/i })).not.toBeInTheDocument();
+  });
+
+  it('pide confirmación y emite onDeletePlace al confirmar', async () => {
+    const user = userEvent.setup();
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const { props } = renderDetail({ isOwner: true });
+
+    await user.click(screen.getByRole('button', { name: /borrar lugar parque del retiro/i }));
+
+    expect(confirmSpy).toHaveBeenCalledWith('¿Seguro que quieres borrar este lugar?');
+    expect(props.onDeletePlace).toHaveBeenCalledWith('place-1');
+    confirmSpy.mockRestore();
+  });
+
+  it('no emite onDeletePlace si se cancela la confirmación', async () => {
+    const user = userEvent.setup();
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const { props } = renderDetail({ isOwner: true });
+
+    await user.click(screen.getByRole('button', { name: /borrar lugar bar manolo/i }));
+
+    expect(props.onDeletePlace).not.toHaveBeenCalled();
+    confirmSpy.mockRestore();
+  });
+
+  it('no muestra lugares guardados si la lista está vacía', () => {
+    renderDetail({ isOwner: true, savedPlaces: [] });
+    expect(screen.queryByRole('heading', { name: /lugares guardados/i })).not.toBeInTheDocument();
   });
 });
