@@ -81,8 +81,12 @@ export function BottomNav({ familyId }: { familyId: string }) {
 const styles: Record<string, React.CSSProperties> = {
   bar: {
     position: 'fixed',
-    left: 0,
-    right: 0,
+    // Centrada y constreñida al ancho de la columna app (no a todo el viewport),
+    // para que en desktop quede bajo la columna y no de borde a borde.
+    left: '50%',
+    transform: 'translateX(-50%)',
+    width: '100%',
+    maxWidth: '42rem',
     bottom: 0,
     zIndex: 100,
     display: 'flex',
