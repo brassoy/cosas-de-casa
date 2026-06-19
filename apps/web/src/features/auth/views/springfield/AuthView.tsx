@@ -70,7 +70,17 @@ function Donut(props: SVGProps<SVGSVGElement>) {
 }
 
 export default function AuthView(props: AuthViewProps) {
-  const { mode, isSubmitting, error, signupSuccess, onSubmit, onGoogle, onSwitchMode } = props;
+  const {
+    mode,
+    isSubmitting,
+    error,
+    signupSuccess,
+    resetEmailSent,
+    onSubmit,
+    onGoogle,
+    onSwitchMode,
+    onForgotPassword,
+  } = props;
   const isLogin = mode === 'login';
 
   const [email, setEmail] = useState('');
@@ -97,6 +107,16 @@ export default function AuthView(props: AuthViewProps) {
     void onSubmit({ email: email.trim(), password });
   }
 
+  // "He olvidado mi contraseña": solo necesita el email.
+  function handleForgotPassword() {
+    setLocalError(null);
+    if (!email.trim()) {
+      setLocalError('Escribe tu correo electrónico para recuperar la contraseña.');
+      return;
+    }
+    void onForgotPassword?.(email.trim());
+  }
+
   return (
     <div
       className={`sf min-h-[100dvh] px-5 py-8 ${isLogin ? '' : 'sf-dot'}`}
@@ -117,6 +137,12 @@ export default function AuthView(props: AuthViewProps) {
         {signupSuccess && (
           <div role="alert" className="sf-card-g p-3 mb-4 sf-pop sf-fredoka text-sm">
             Revisa tu correo para confirmar la cuenta.
+          </div>
+        )}
+
+        {resetEmailSent && (
+          <div role="alert" className="sf-card-g p-3 mb-4 sf-pop sf-fredoka text-sm">
+            Te hemos enviado un correo para restablecer tu contraseña. Revisa tu bandeja.
           </div>
         )}
 
@@ -164,6 +190,19 @@ export default function AuthView(props: AuthViewProps) {
               disabled={isSubmitting}
             />
           </div>
+
+          {isLogin && onForgotPassword && (
+            <div className="text-right">
+              <button
+                type="button"
+                onClick={handleForgotPassword}
+                disabled={isSubmitting}
+                className="sf-fredoka text-xs underline disabled:opacity-50"
+              >
+                He olvidado mi contraseña
+              </button>
+            </div>
+          )}
 
           <button
             type="submit"

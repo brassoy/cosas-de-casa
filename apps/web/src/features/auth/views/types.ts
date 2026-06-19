@@ -23,10 +23,21 @@ export interface AuthViewProps {
   error?: string | null;
   /** Solo signup: tras `signUp`, avisa de confirmar el correo. */
   signupSuccess?: boolean;
+  /**
+   * Solo login: tras pedir el reset de contraseña, avisa de revisar el correo
+   * de recuperación. Lo setea el container al resolver `onForgotPassword`.
+   */
+  resetEmailSent?: boolean;
   /** Envío del formulario con credenciales ya validadas por la vista. */
   onSubmit: (v: { email: string; password: string }) => void | Promise<void>;
   /** Continuar con Google (OAuth). */
   onGoogle: () => void;
   /** Cambiar entre login/signup (navegación la decide el container). */
   onSwitchMode: () => void;
+  /**
+   * Solo login: "he olvidado mi contraseña". Recibe el email que el usuario ha
+   * escrito en el formulario; el container dispara el correo de recuperación.
+   * Opcional: si no se pasa (p. ej. signup), la vista no muestra el enlace.
+   */
+  onForgotPassword?: (email: string) => void | Promise<void>;
 }

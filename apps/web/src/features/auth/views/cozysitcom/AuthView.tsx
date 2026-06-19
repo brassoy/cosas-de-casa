@@ -24,7 +24,17 @@ import { type FormEvent, useState } from 'react';
 import type { AuthViewProps } from '../types';
 
 export default function AuthView(props: AuthViewProps) {
-  const { mode, isSubmitting, error, signupSuccess, onSubmit, onGoogle, onSwitchMode } = props;
+  const {
+    mode,
+    isSubmitting,
+    error,
+    signupSuccess,
+    resetEmailSent,
+    onSubmit,
+    onGoogle,
+    onSwitchMode,
+    onForgotPassword,
+  } = props;
   const isLogin = mode === 'login';
 
   const [email, setEmail] = useState('');
@@ -51,6 +61,16 @@ export default function AuthView(props: AuthViewProps) {
     void onSubmit({ email: email.trim(), password });
   }
 
+  // "He olvidado mi contraseña": solo necesita el email.
+  function handleForgotPassword() {
+    setLocalError(null);
+    if (!email.trim()) {
+      setLocalError('Escribe tu correo electrónico para recuperar la contraseña.');
+      return;
+    }
+    void onForgotPassword?.(email.trim());
+  }
+
   return (
     <div
       className={`cz min-h-[100dvh] px-4 py-10 ${isLogin ? '' : 'cz-wallpaper'}`}
@@ -74,6 +94,12 @@ export default function AuthView(props: AuthViewProps) {
         {signupSuccess && (
           <div role="alert" className="cz-paper p-3 mb-3 cz-pop text-sm font-bold">
             Revisa tu correo para confirmar la cuenta.
+          </div>
+        )}
+
+        {resetEmailSent && (
+          <div role="alert" className="cz-paper p-3 mb-3 cz-pop text-sm font-bold">
+            Te hemos enviado un correo para restablecer tu contraseña. Revisa tu bandeja.
           </div>
         )}
 
@@ -127,6 +153,19 @@ export default function AuthView(props: AuthViewProps) {
               disabled={isSubmitting}
             />
           </div>
+
+          {isLogin && onForgotPassword && (
+            <div className="text-right">
+              <button
+                type="button"
+                onClick={handleForgotPassword}
+                disabled={isSubmitting}
+                className="text-xs font-bold uppercase opacity-70 underline disabled:opacity-50"
+              >
+                He olvidado mi contraseña
+              </button>
+            </div>
+          )}
 
           <button
             type="submit"

@@ -86,6 +86,60 @@ describe('AuthView (base) — login', () => {
   });
 });
 
+describe('AuthView (base) — recuperar contraseña', () => {
+  it('muestra el enlace "He olvidado mi contraseña" en login cuando hay handler', () => {
+    setup({ onForgotPassword: vi.fn() });
+    expect(
+      screen.getByRole('button', { name: /he olvidado mi contraseña/i }),
+    ).toBeInTheDocument();
+  });
+
+  it('NO muestra el enlace de recuperación si no se pasa onForgotPassword', () => {
+    setup();
+    expect(
+      screen.queryByRole('button', { name: /he olvidado mi contraseña/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('NO muestra el enlace de recuperación en signup', () => {
+    setup({ mode: 'signup', onForgotPassword: vi.fn() });
+    expect(
+      screen.queryByRole('button', { name: /he olvidado mi contraseña/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('exige el email antes de disparar la recuperación', async () => {
+    const user = userEvent.setup();
+    const onForgotPassword = vi.fn();
+    setup({ onForgotPassword });
+
+    await user.click(screen.getByRole('button', { name: /he olvidado mi contraseña/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(/escribe tu correo/i);
+    });
+    expect(onForgotPassword).not.toHaveBeenCalled();
+  });
+
+  it('llama a onForgotPassword con el email (trim) cuando está presente', async () => {
+    const user = userEvent.setup();
+    const onForgotPassword = vi.fn();
+    setup({ onForgotPassword });
+
+    await user.type(screen.getByLabelText(/correo electrónico/i), '  pablo@example.com  ');
+    await user.click(screen.getByRole('button', { name: /he olvidado mi contraseña/i }));
+
+    await waitFor(() => {
+      expect(onForgotPassword).toHaveBeenCalledWith('pablo@example.com');
+    });
+  });
+
+  it('muestra la confirmación de correo de recuperación con resetEmailSent', () => {
+    setup({ onForgotPassword: vi.fn(), resetEmailSent: true });
+    expect(screen.getByText(/te hemos enviado un correo para restablecer/i)).toBeInTheDocument();
+  });
+});
+
 describe('AuthView (base) — signup', () => {
   it('renderiza el formulario de registro', () => {
     setup({ mode: 'signup' });

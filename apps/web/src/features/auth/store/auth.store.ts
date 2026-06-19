@@ -16,6 +16,14 @@ interface AuthState {
   signInWithGoogle: () => Promise<void>;
   /** Cierra la sesión actual */
   signOut: () => Promise<void>;
+  /**
+   * Envía el correo de recuperación de contraseña. Supabase manda un enlace que
+   * deja una sesión de recuperación al volver a `redirectTo`, desde donde el
+   * usuario puede fijar una nueva contraseña con `updatePassword`.
+   */
+  resetPasswordForEmail: (email: string) => Promise<void>;
+  /** Fija una nueva contraseña para la sesión activa (flujo de recuperación). */
+  updatePassword: (password: string) => Promise<void>;
 }
 
 let resolveReady: () => void = () => {};
@@ -67,6 +75,18 @@ export const useAuthStore = create<AuthState>((set) => {
 
     signOut: async () => {
       const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+    },
+
+    resetPasswordForEmail: async (email) => {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (error) throw error;
+    },
+
+    updatePassword: async (password) => {
+      const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
     },
   };

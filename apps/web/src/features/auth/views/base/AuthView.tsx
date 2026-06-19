@@ -20,7 +20,17 @@ import { Alert, AlertDescription } from '@/shared/ui/alert';
 import type { AuthViewProps } from '../types';
 
 export default function AuthView(props: AuthViewProps) {
-  const { mode, isSubmitting, error, signupSuccess, onSubmit, onGoogle, onSwitchMode } = props;
+  const {
+    mode,
+    isSubmitting,
+    error,
+    signupSuccess,
+    resetEmailSent,
+    onSubmit,
+    onGoogle,
+    onSwitchMode,
+    onForgotPassword,
+  } = props;
   const isLogin = mode === 'login';
 
   const [email, setEmail] = useState('');
@@ -47,6 +57,17 @@ export default function AuthView(props: AuthViewProps) {
     void onSubmit({ email: email.trim(), password });
   }
 
+  // "He olvidado mi contraseña": solo necesita el email. Validamos que esté
+  // presente (la contraseña no aplica) y delegamos el envío en el container.
+  function handleForgotPassword() {
+    setLocalError(null);
+    if (!email.trim()) {
+      setLocalError('Escribe tu correo electrónico para recuperar la contraseña.');
+      return;
+    }
+    void onForgotPassword?.(email.trim());
+  }
+
   return (
     <div className="min-h-[100dvh] flex justify-center px-4 py-8 bg-background">
       <div className="w-full max-w-[420px] bg-card text-card-foreground rounded-card shadow-md border border-border p-6 space-y-5">
@@ -60,6 +81,15 @@ export default function AuthView(props: AuthViewProps) {
         {signupSuccess && (
           <Alert>
             <AlertDescription>Revisa tu correo para confirmar la cuenta.</AlertDescription>
+          </Alert>
+        )}
+
+        {resetEmailSent && (
+          <Alert>
+            <AlertDescription>
+              Te hemos enviado un correo para restablecer tu contraseña. Revisa tu bandeja de
+              entrada.
+            </AlertDescription>
           </Alert>
         )}
 
@@ -97,6 +127,19 @@ export default function AuthView(props: AuthViewProps) {
               disabled={isSubmitting}
             />
           </div>
+
+          {isLogin && onForgotPassword && (
+            <div className="text-right">
+              <button
+                type="button"
+                onClick={handleForgotPassword}
+                disabled={isSubmitting}
+                className="text-sm text-muted-foreground hover:text-primary hover:underline disabled:opacity-50"
+              >
+                He olvidado mi contraseña
+              </button>
+            </div>
+          )}
 
           <Button type="submit" className="w-full h-11" disabled={isSubmitting}>
             {isSubmitting ? 'Cargando…' : isLogin ? 'Entrar' : 'Crear cuenta'}

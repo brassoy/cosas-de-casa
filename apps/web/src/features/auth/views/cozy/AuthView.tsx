@@ -31,7 +31,17 @@ import { type FormEvent, useState } from 'react';
 import type { AuthViewProps } from '../types';
 
 export default function AuthView(props: AuthViewProps) {
-  const { mode, isSubmitting, error, signupSuccess, onSubmit, onGoogle, onSwitchMode } = props;
+  const {
+    mode,
+    isSubmitting,
+    error,
+    signupSuccess,
+    resetEmailSent,
+    onSubmit,
+    onGoogle,
+    onSwitchMode,
+    onForgotPassword,
+  } = props;
   const isLogin = mode === 'login';
 
   const [email, setEmail] = useState('');
@@ -58,6 +68,16 @@ export default function AuthView(props: AuthViewProps) {
     void onSubmit({ email: email.trim(), password });
   }
 
+  // "He olvidado mi contraseña": solo necesita el email.
+  function handleForgotPassword() {
+    setLocalError(null);
+    if (!email.trim()) {
+      setLocalError('Escribe tu correo electrónico para recuperar la contraseña.');
+      return;
+    }
+    void onForgotPassword?.(email.trim());
+  }
+
   return (
     <div className="ck ck-page min-h-[100dvh] px-5 py-8">
       <div className="w-full max-w-[420px] mx-auto">
@@ -82,6 +102,18 @@ export default function AuthView(props: AuthViewProps) {
               ¡casi!
             </p>
             <p className="text-base mt-1">Revisa tu correo para confirmar la cuenta.</p>
+          </div>
+        )}
+
+        {resetEmailSent && (
+          <div className="ck-card p-4 mb-4" role="alert">
+            <span className="ck-tape" />
+            <p className="ck-marker text-xl" style={{ color: 'var(--color-success)' }}>
+              ¡correo enviado!
+            </p>
+            <p className="text-base mt-1">
+              Te hemos enviado un correo para restablecer tu contraseña. Revisa tu bandeja.
+            </p>
           </div>
         )}
 
@@ -133,6 +165,19 @@ export default function AuthView(props: AuthViewProps) {
               disabled={isSubmitting}
             />
           </div>
+
+          {isLogin && onForgotPassword && (
+            <div className="text-right -mt-1">
+              <button
+                type="button"
+                onClick={handleForgotPassword}
+                disabled={isSubmitting}
+                className="ck-marker text-base underline opacity-80 disabled:opacity-50"
+              >
+                he olvidado mi contraseña
+              </button>
+            </div>
+          )}
 
           <button
             type="submit"

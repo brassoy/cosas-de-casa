@@ -7,6 +7,7 @@ import {
 import { App } from '../App';
 import { LoginPage } from '@/features/auth/pages/LoginPage';
 import { SignupPage } from '@/features/auth/pages/SignupPage';
+import { ResetPasswordPage } from '@/features/auth/pages/ResetPasswordPage';
 import { CreateFamilyPage } from '@/features/family/pages/CreateFamilyPage';
 import { JoinFamilyPage } from '@/features/family/pages/JoinFamilyPage';
 import { FamilyHomePage } from '@/features/family/pages/FamilyHomePage';
@@ -40,27 +41,96 @@ import type { FamilyDto } from '@cosasdecasa/contracts';
 
 // ── Root ─────────────────────────────────────────────────────────────────────
 
-/** Pantalla de error de ruta: evita el crash pelado y ofrece recuperación. */
-function RouteErrorScreen() {
+const centeredScreenStyle: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  minHeight: '60dvh',
+  gap: '1rem',
+  padding: '2rem',
+  textAlign: 'center',
+};
+
+/**
+ * Heurística para saber si un error es de sesión/autenticación (401 / token
+ * caducado). El cliente API lanza `Error` con el status en el mensaje; Supabase
+ * y otros pueden traer `status`. Distinguimos para no decir SIEMPRE "sesión
+ * caducada" ante cualquier fallo (ese era el bug original).
+ */
+function isSessionError(error: unknown): boolean {
+  if (!error) return false;
+  // Errores con `status` numérico (fetch wrapper, Supabase, HttpError…).
+  const status = (error as { status?: unknown }).status;
+  if (status === 401 || status === 403) return true;
+  const message =
+    error instanceof Error ? error.message : typeof error === 'string' ? error : '';
+  return /\b(401|403)\b|no autorizado|unauthorized|sesi[oó]n|token|jwt/i.test(message);
+}
+
+/**
+ * Pantalla de error de ruta: evita el crash pelado y ofrece recuperación.
+ * Distingue el error de sesión/401 (mensaje de re-login) del resto (mensaje
+ * genérico + reintentar). `reset` lo aporta TanStack Router para reintentar el
+ * render del límite de error sin recargar la página.
+ */
+function RouteErrorScreen({ error, reset }: { error: unknown; reset: () => void }) {
+  if (isSessionError(error)) {
+    return (
+      <div style={centeredScreenStyle}>
+        <h2 style={{ color: 'var(--color-text)' }}>Tu sesión ha caducado</h2>
+        <p style={{ color: 'var(--color-text-muted)' }}>
+          Por seguridad, vuelve a iniciar sesión para continuar.
+        </p>
+        <a href="/login" style={{ color: 'var(--color-accent)', textDecoration: 'underline' }}>
+          Ir a iniciar sesión
+        </a>
+      </div>
+    );
+  }
+
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: '60dvh',
-        gap: '1rem',
-        padding: '2rem',
-        textAlign: 'center',
-      }}
-    >
-      <h2 style={{ color: 'var(--color-text)' }}>Algo ha salido mal</h2>
+    <div style={centeredScreenStyle}>
+      <h2 style={{ color: 'var(--color-text)' }}>Algo ha ido mal</h2>
       <p style={{ color: 'var(--color-text-muted)' }}>
-        Puede que tu sesión haya caducado. Vuelve a iniciar sesión.
+        Ha ocurrido un error inesperado. Puedes reintentar o volver al inicio.
       </p>
-      <a href="/login" style={{ color: 'var(--color-accent)', textDecoration: 'underline' }}>
-        Ir a iniciar sesión
+      <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+        <button
+          type="button"
+          onClick={reset}
+          style={{
+            color: 'var(--color-accent)',
+            textDecoration: 'underline',
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            font: 'inherit',
+          }}
+        >
+          Reintentar
+        </button>
+        <a href="/" style={{ color: 'var(--color-accent)', textDecoration: 'underline' }}>
+          Volver al inicio
+        </a>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Pantalla 404: ruta inexistente (comodín del router). Ofrece volver al inicio
+ * en vez de dejar al usuario en una página en blanco.
+ */
+function NotFoundScreen() {
+  return (
+    <div style={centeredScreenStyle}>
+      <h2 style={{ color: 'var(--color-text)' }}>Página no encontrada</h2>
+      <p style={{ color: 'var(--color-text-muted)' }}>
+        La página que buscas no existe o se ha movido.
+      </p>
+      <a href="/" style={{ color: 'var(--color-accent)', textDecoration: 'underline' }}>
+        Volver al inicio
       </a>
     </div>
   );
@@ -69,6 +139,7 @@ function RouteErrorScreen() {
 const rootRoute = createRootRoute({
   component: App,
   errorComponent: RouteErrorScreen,
+  notFoundComponent: NotFoundScreen,
 });
 
 // ── Rutas públicas ────────────────────────────────────────────────────────────
@@ -93,6 +164,17 @@ const signupRoute = createRoute({
     const { session } = useAuthStore.getState();
     if (session) throw redirect({ to: '/' });
   },
+});
+
+// Callback del enlace de recuperación de contraseña (correo de Supabase).
+// Pública y SIN guard: el usuario llega con una sesión de RECUPERACIÓN (no es la
+// sesión normal); no debe redirigirse a `/` como hacen login/signup, porque
+// aquí el objetivo es fijar la nueva contraseña antes de continuar. No requiere
+// familia.
+const resetPasswordRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/reset-password',
+  component: ResetPasswordPage,
 });
 
 // ── Guard de autenticación ────────────────────────────────────────────────────
@@ -395,6 +477,7 @@ const settingsRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   loginRoute,
   signupRoute,
+  resetPasswordRoute,
   indexRoute,
   onboardingRoute,
   familyCreateRoute,
