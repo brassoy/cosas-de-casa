@@ -117,12 +117,18 @@
 }
 
 /* ─── Global resets ────────────────────────────────────────────────────────── */
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+/* En @layer base para que las utilidades de espaciado de Tailwind (mx-auto,
+ * px-*, p-*, m-*) —que viven en @layer utilities— ganen a este reset. Sin la
+ * capa, este reset quedaría "sin capa" y anularía esas utilidades: en CSS las
+ * reglas no-capadas ganan a las capadas sin importar la especificidad. */
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
 }
 
 html {
