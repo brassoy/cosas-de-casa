@@ -109,7 +109,7 @@ export default function ReceiptDraftEditor(props: ReceiptDraftEditorProps) {
   const canSave = purchasedAt.length > 0 && lines.length > 0 && !isSaving;
 
   return (
-    <div className="sf space-y-5 px-5" role="main" aria-label="Editor de ticket">
+    <div className="sf sf-dot min-h-[80dvh] space-y-5 px-5 py-8" role="main" aria-label="Editor de ticket">
       {/* ── Cabecera amarilla de cómic ── */}
       <header className="sf-card-y p-4 relative sf-pop">
         <h1 className="sf-bangers text-4xl leading-none">{title}</h1>

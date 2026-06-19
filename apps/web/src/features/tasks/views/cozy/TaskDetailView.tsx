@@ -89,7 +89,7 @@ export default function TaskDetailView(props: TaskDetailViewProps) {
 
   return (
     <ScreenState isLoading={isLoading} error={error}>
-      <div className="ck space-y-5 px-5">
+      <div className="ck ck-page min-h-[80dvh] space-y-5 px-5 py-8">
         {/* Cabecera: volver manuscrito + editar. */}
         <div className="flex items-center justify-between">
           <button

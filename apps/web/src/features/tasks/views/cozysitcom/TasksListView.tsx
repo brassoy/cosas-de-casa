@@ -70,7 +70,7 @@ export default function TasksListView(props: TasksListViewProps) {
   } = props;
 
   return (
-    <div className="cz cz-pop space-y-4 px-5">
+    <div className="cz cz-pop min-h-[80dvh] space-y-4 px-5 py-8">
       {/* Cabecera de madera + cinta mostaza (estética sitcom). */}
       <div>
         <div className="cz-wood inline-block mb-2">

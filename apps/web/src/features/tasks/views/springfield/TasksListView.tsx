@@ -87,7 +87,7 @@ export default function TasksListView(props: TasksListViewProps) {
   } = props;
 
   return (
-    <div className="sf space-y-4 px-5">
+    <div className="sf sf-dot min-h-[80dvh] space-y-4 px-5 py-8">
       {/* Cabecera de viñeta amarilla (estética cómic). */}
       <div className="sf-card-y p-4 relative sf-pop">
         <span className="sf-sticker">¡Manos a la obra!</span>

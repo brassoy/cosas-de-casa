@@ -76,7 +76,7 @@ export default function TaskDetailView(props: TaskDetailViewProps) {
 
   return (
     <ScreenState isLoading={isLoading} error={error}>
-      <div className="sf space-y-4 px-5">
+      <div className="sf sf-dot min-h-[80dvh] space-y-4 px-5 py-8">
         {/* Cabecera: volver + viñeta amarilla + título Bangers + estado. */}
         <div className="sf-card-y p-4 relative sf-pop">
           <div className="flex items-center justify-between mb-2">

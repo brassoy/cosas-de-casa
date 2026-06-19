@@ -69,7 +69,7 @@ export default function ReceiptDetailView(props: ReceiptDetailViewProps) {
   const name = receipt.merchant ?? 'Sin establecimiento';
 
   return (
-    <div className="cz space-y-4 px-5">
+    <div className="cz min-h-[80dvh] space-y-4 px-5 py-8">
       {/* ── Cabecera tipo cintillo de sitcom ── */}
       <header className="cz-pop">
         <button type="button" onClick={onBack} className="mb-2 text-xs font-bold opacity-70">

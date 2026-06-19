@@ -155,7 +155,7 @@ export default function FridgeListView(props: FridgeListViewProps) {
       : `${items.length} ${items.length === 1 ? 'cosa' : 'cosas'} en casa`;
 
   return (
-    <div className="ck ck-page min-h-screen">
+    <div className="ck ck-page min-h-[80dvh] px-5 py-8">
       <div className="mx-auto max-w-[520px] space-y-4 px-5 pt-8 pb-24">
         {/* ── Cabecera "diario de la casa" (ck-marker manuscrita) ───────────── */}
         <header className="relative flex items-end justify-between gap-3 border-b border-dashed border-[#d9c79a] pb-4">

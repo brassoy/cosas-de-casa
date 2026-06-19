@@ -76,7 +76,7 @@ export default function ReceiptsView(props: ReceiptsViewProps) {
   const extracting = capture.phase === 'extracting';
 
   return (
-    <div className="ck space-y-4 px-5">
+    <div className="ck ck-page min-h-[80dvh] space-y-4 px-5 py-8">
       {/* ── Cabecera manuscrita ── */}
       <header className="text-center relative mb-2">
         <p className="ck-marker text-base opacity-70">— diario de la casa —</p>

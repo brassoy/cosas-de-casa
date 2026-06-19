@@ -84,7 +84,8 @@ export default function RomanticView(props: RomanticViewProps) {
   }
 
   return (
-    <div className="sf mx-auto max-w-[520px] space-y-4 px-5">
+    <div className="sf sf-dot min-h-[80dvh] px-5 py-8">
+      <div className="mx-auto max-w-[520px] space-y-4">
       <ScreenState isLoading={isLoading} error={error}>
         {/* Cabecera estilo cartel de cómic (tarjeta amarilla con pegatina). */}
         <header className="sf-card-y relative mb-1 p-4 sf-pop">
@@ -168,6 +169,7 @@ export default function RomanticView(props: RomanticViewProps) {
           )}
         </div>
       </ScreenState>
+      </div>
     </div>
   );
 }
@@ -188,7 +190,8 @@ function PairUpScreen({
   const [pick, setPick] = useState('');
 
   return (
-    <div className="sf mx-auto max-w-[480px] px-5">
+    <div className="sf sf-dot min-h-[80dvh] px-5 py-8">
+      <div className="mx-auto max-w-[480px]">
       <div className="sf-card sf-pop space-y-5 p-6 text-center">
         <div className="text-5xl sf-float">💕</div>
         <h1 className="sf-bangers text-3xl leading-none">
@@ -282,6 +285,7 @@ function PairUpScreen({
             </button>
           </>
         )}
+      </div>
       </div>
     </div>
   );

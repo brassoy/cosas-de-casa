@@ -91,7 +91,8 @@ export default function RomanticView(props: RomanticViewProps) {
   }
 
   return (
-    <div className="ck ck-page mx-auto max-w-[520px] space-y-4 rounded-card p-4">
+    <div className="ck ck-page min-h-[80dvh] px-5 py-8">
+      <div className="mx-auto max-w-[520px] space-y-4">
       <ScreenState isLoading={isLoading} error={error}>
         {/* Cabecera manuscrita estilo diario, con el botón de maldad a un lado. */}
         <header className="relative mb-1 text-center">
@@ -178,6 +179,7 @@ export default function RomanticView(props: RomanticViewProps) {
           )}
         </div>
       </ScreenState>
+      </div>
     </div>
   );
 }
@@ -198,7 +200,8 @@ function PairUpScreen({
   const [pick, setPick] = useState('');
 
   return (
-    <div className="ck ck-page mx-auto max-w-[480px] rounded-card p-4">
+    <div className="ck ck-page min-h-[80dvh] px-5 py-8">
+      <div className="mx-auto max-w-[480px]">
       <div className="ck-card space-y-5 p-6 text-center">
         <span className="ck-tape" aria-hidden />
         <div className="text-5xl">💕</div>
@@ -299,6 +302,7 @@ function PairUpScreen({
             </button>
           </>
         )}
+      </div>
       </div>
     </div>
   );

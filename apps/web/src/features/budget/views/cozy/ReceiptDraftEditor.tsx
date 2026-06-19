@@ -110,7 +110,7 @@ export default function ReceiptDraftEditor(props: ReceiptDraftEditorProps) {
   const canSave = purchasedAt.length > 0 && lines.length > 0 && !isSaving;
 
   return (
-    <div className="ck space-y-5 px-5" role="main" aria-label="Editor de ticket">
+    <div className="ck ck-page min-h-[80dvh] space-y-5 px-5 py-8" role="main" aria-label="Editor de ticket">
       {/* ── Cabecera manuscrita ── */}
       <header className="text-center relative">
         <p className="ck-marker text-base opacity-70">— diario de la casa —</p>

@@ -88,7 +88,7 @@ export default function SpendView(props: SpendViewProps) {
   const noData = summary.byCategory.length === 0 && summary.byMonth.length === 0;
 
   return (
-    <div className="ck space-y-4 px-5">
+    <div className="ck ck-page min-h-[80dvh] space-y-4 px-5 py-8">
       {/* ── Cabecera manuscrita ── */}
       <header className="text-center relative mb-2">
         <button

@@ -43,7 +43,7 @@ export default function MenuView(props: MenuViewProps) {
     : [];
 
   return (
-    <div className="cz space-y-4 px-5 pb-28">
+    <div className="cz min-h-[80dvh] space-y-4 px-5 pt-8 pb-28">
       {/* ── Cabecera de madera + cinta mostaza ─────────────────────────── */}
       <div className="cz-pop">
         <div className="flex items-end justify-between gap-3 flex-wrap">

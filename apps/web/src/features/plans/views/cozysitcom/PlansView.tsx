@@ -33,7 +33,7 @@ export default function PlansView(props: PlansViewProps) {
   const { plans, isLoading, error, onCreate, onOpen } = props;
 
   return (
-    <div className="cz px-5">
+    <div className="cz min-h-[80dvh] px-5 py-8">
       {/* ── Cabecera de madera + sello + cinta ─────────────────────────────── */}
       <div className="mb-5 cz-pop">
         <div className="cz-wood inline-block mb-2">

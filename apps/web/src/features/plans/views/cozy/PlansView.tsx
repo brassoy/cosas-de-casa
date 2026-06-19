@@ -46,7 +46,7 @@ export default function PlansView(props: PlansViewProps) {
   const { plans, isLoading, error, onCreate, onOpen } = props;
 
   return (
-    <div className="ck px-5">
+    <div className="ck ck-page min-h-[80dvh] px-5 py-8">
       {/* ── Cabecera del cuaderno ──────────────────────────────────────────── */}
       <div className="text-center mb-6">
         <p className="ck-marker text-base opacity-70">— diario de la casa —</p>

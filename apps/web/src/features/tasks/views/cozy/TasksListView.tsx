@@ -83,7 +83,7 @@ export default function TasksListView(props: TasksListViewProps) {
   } = props;
 
   return (
-    <div className="ck space-y-5 px-5">
+    <div className="ck ck-page min-h-[80dvh] space-y-5 px-5 py-8">
       {/* Cabecera tipo diario manuscrito. */}
       <div className="text-center relative">
         <p className="ck-marker text-base opacity-70">— diario de la casa —</p>

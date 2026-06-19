@@ -140,7 +140,7 @@ export default function PlanDetailView(props: PlanDetailViewProps) {
   }
 
   return (
-    <div className="cz space-y-4 px-5">
+    <div className="cz min-h-[80dvh] space-y-4 px-5 py-8">
       {/* ── Cabecera de madera + sello de estado + cinta ───────────────────── */}
       <div className="cz-pop">
         <button

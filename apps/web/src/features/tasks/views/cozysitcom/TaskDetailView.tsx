@@ -75,7 +75,7 @@ export default function TaskDetailView(props: TaskDetailViewProps) {
 
   return (
     <ScreenState isLoading={isLoading} error={error}>
-      <div className="cz cz-pop space-y-4 px-5">
+      <div className="cz cz-pop min-h-[80dvh] space-y-4 px-5 py-8">
         {/* Cabecera: volver + madera + serif + sello de estado + cinta mostaza. */}
         <div>
           <div className="flex items-center justify-between mb-2">
