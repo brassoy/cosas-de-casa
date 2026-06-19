@@ -30,6 +30,13 @@ export class DrizzleMembershipRepository implements MembershipRepository {
     await this.db.delete(memberships).where(eq(memberships.id, membershipId));
   }
 
+  async updateRole(membershipId: string, role: Membership['role']): Promise<void> {
+    await this.db
+      .update(memberships)
+      .set({ role })
+      .where(eq(memberships.id, membershipId));
+  }
+
   async listByFamily(familyId: string): Promise<Membership[]> {
     const rows = await this.db.select().from(memberships).where(eq(memberships.familyId, familyId));
     return rows.map((row) => FamilyMapper.toMembership(row));

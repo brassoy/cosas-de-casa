@@ -24,4 +24,16 @@ export interface FamilyRepository {
 
   /** Familias a las que pertenece el usuario, con sus memberships cargadas. */
   findByMember(userId: string): Promise<Family[]>;
+
+  /**
+   * Persiste los campos editables de la familia (nombre, descripción,
+   * `updatedAt`). No toca las memberships.
+   */
+  update(family: Family): Promise<void>;
+
+  /**
+   * Borra la familia por id. La BD elimina en cascada sus memberships, PINs,
+   * listas, tareas, etc. (FKs `ON DELETE CASCADE`).
+   */
+  delete(familyId: string): Promise<void>;
 }

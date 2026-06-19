@@ -5,4 +5,6 @@ export const COUPLE_NOTE_REPOSITORY = Symbol('COUPLE_NOTE_REPOSITORY');
 export interface CoupleNoteRepository {
   save(note: CoupleNote): Promise<void>;
   findByCouple(coupleId: string): Promise<CoupleNote[]>;
+  findById(noteId: string): Promise<CoupleNote | null>;
+  delete(noteId: string): Promise<void>;
 }

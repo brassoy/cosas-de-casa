@@ -20,6 +20,9 @@ export interface MembershipRepository {
   /** Elimina una membership por id. */
   deleteById(membershipId: string): Promise<void>;
 
+  /** Actualiza el rol de una membership por id. */
+  updateRole(membershipId: string, role: Membership['role']): Promise<void>;
+
   /** Devuelve las memberships (con rol) de una familia. */
   listByFamily(familyId: string): Promise<Membership[]>;
 }

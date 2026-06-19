@@ -7,6 +7,7 @@ import {
   HttpStatus,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   UseFilters,
   UseGuards,
@@ -27,15 +28,21 @@ import type { AuthenticatedUser } from '../../identity-access/domain/authenticat
 import { CurrentUser } from '../../identity-access/interface/current-user.decorator';
 import { JwtAuthGuard } from '../../identity-access/interface/jwt-auth.guard';
 import { RateLimit, RateLimitGuard } from '../../../common/rate-limit.guard';
+import { ChangeGroupMemberRoleUseCase } from '../application/change-group-member-role.use-case';
 import { CreateGroupUseCase } from '../application/create-group.use-case';
+import { DeleteGroupUseCase } from '../application/delete-group.use-case';
+import { ExpelGroupMemberUseCase } from '../application/expel-group-member.use-case';
 import { GenerateGroupJoinPinUseCase } from '../application/generate-group-join-pin.use-case';
 import { JoinGroupByPinUseCase } from '../application/join-group-by-pin.use-case';
 import { LeaveGroupUseCase } from '../application/leave-group.use-case';
 import { ListGroupMembersUseCase } from '../application/list-group-members.use-case';
 import { ListMyGroupsUseCase } from '../application/list-my-groups.use-case';
 import { RevokeActiveGroupPinUseCase } from '../application/revoke-active-group-pin.use-case';
+import { UpdateGroupUseCase } from '../application/update-group.use-case';
+import { ChangeGroupMemberRoleDto } from './dto/change-group-member-role.dto';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { JoinGroupDto } from './dto/join-group.dto';
+import { UpdateGroupDto } from './dto/update-group.dto';
 import { GroupDomainErrorFilter } from './group-domain-error.filter';
 import { GroupScopeGuard } from './group-scope.guard';
 import { GroupPresenter } from './group.presenter';
@@ -63,6 +70,10 @@ export class GroupsController {
     private readonly listMembers: ListGroupMembersUseCase,
     private readonly leaveGroup: LeaveGroupUseCase,
     private readonly revokeActivePin: RevokeActiveGroupPinUseCase,
+    private readonly updateGroup: UpdateGroupUseCase,
+    private readonly deleteGroup: DeleteGroupUseCase,
+    private readonly expelMember: ExpelGroupMemberUseCase,
+    private readonly changeMemberRole: ChangeGroupMemberRoleUseCase,
   ) {}
 
   @Post()
@@ -148,5 +159,72 @@ export class GroupsController {
     @Param('id', ParseUUIDPipe) groupId: string,
   ): Promise<void> {
     await this.revokeActivePin.execute({ actingUserId: user.id, groupId });
+  }
+
+  @Patch(':groupId')
+  @UseGuards(GroupScopeGuard)
+  @GroupRoles('OWNER')
+  @ApiOperation({ summary: 'Editar nombre y/o descripción de la peña (solo propietario).' })
+  @ApiOkResponse({ description: 'Peña actualizada.' })
+  async update(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('groupId', ParseUUIDPipe) groupId: string,
+    @Body() body: UpdateGroupDto,
+  ): Promise<GroupSummaryDto> {
+    const group = await this.updateGroup.execute({
+      actingUserId: user.id,
+      groupId,
+      name: body.name,
+      description: body.description,
+    });
+    return GroupPresenter.toSummaryDto(group, user.id);
+  }
+
+  @Delete(':groupId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(GroupScopeGuard)
+  @GroupRoles('OWNER')
+  @ApiOperation({ summary: 'Borrar la peña y todo su contenido (solo propietario).' })
+  async remove(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('groupId', ParseUUIDPipe) groupId: string,
+  ): Promise<void> {
+    await this.deleteGroup.execute({ actingUserId: user.id, groupId });
+  }
+
+  @Patch(':groupId/members/:userId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(GroupScopeGuard)
+  @GroupRoles('OWNER')
+  @ApiOperation({ summary: 'Cambiar el rol de un miembro OWNER↔MEMBER (solo propietario).' })
+  async changeRole(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('groupId', ParseUUIDPipe) groupId: string,
+    @Param('userId', ParseUUIDPipe) targetUserId: string,
+    @Body() body: ChangeGroupMemberRoleDto,
+  ): Promise<void> {
+    await this.changeMemberRole.execute({
+      actingUserId: user.id,
+      groupId,
+      targetUserId,
+      role: body.role,
+    });
+  }
+
+  @Delete(':groupId/members/:userId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(GroupScopeGuard)
+  @GroupRoles('OWNER')
+  @ApiOperation({ summary: 'Expulsar a un miembro de la peña (solo propietario).' })
+  async expel(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('groupId', ParseUUIDPipe) groupId: string,
+    @Param('userId', ParseUUIDPipe) targetUserId: string,
+  ): Promise<void> {
+    await this.expelMember.execute({
+      actingUserId: user.id,
+      groupId,
+      targetUserId,
+    });
   }
 }

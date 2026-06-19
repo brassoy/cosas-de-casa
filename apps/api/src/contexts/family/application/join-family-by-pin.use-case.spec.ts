@@ -62,6 +62,8 @@ class FakeUnitOfWork implements UnitOfWork {
         findById: async () => null,
         findByIds: async () => [],
         findByMember: async () => [],
+        update: async () => {},
+        delete: async () => {},
       },
       memberships: {
         insert: async (m: Membership) => {
@@ -69,6 +71,7 @@ class FakeUnitOfWork implements UnitOfWork {
           return self.insertResult;
         },
         deleteById: async () => {},
+        updateRole: async () => {},
         listByFamily: async () => [],
       },
       joinPins: {

@@ -45,6 +45,11 @@ export class DrizzleCoupleRepository implements CoupleRepository {
     return row ? this.toEntity(row) : null;
   }
 
+  async delete(coupleId: string): Promise<void> {
+    // Notas y retos se borran en cascada por la FK (onDelete: 'cascade').
+    await this.db.delete(couples).where(eq(couples.id, coupleId));
+  }
+
   private toEntity(row: typeof couples.$inferSelect): Couple {
     return new Couple({
       id: row.id,

@@ -81,4 +81,21 @@ export class DrizzleGroupRepository implements GroupRepository {
 
     return groupRows.map((row) => GroupMapper.toGroup(row, byGroup.get(row.id) ?? []));
   }
+
+  async update(group: Group): Promise<void> {
+    await this.db
+      .update(groups)
+      .set({
+        name: group.name,
+        description: group.description,
+        updatedAt: group.updatedAt,
+      })
+      .where(eq(groups.id, group.id));
+  }
+
+  async delete(groupId: string): Promise<void> {
+    // Las FKs `ON DELETE CASCADE` (memberships, PINs…) limpian las filas
+    // dependientes; aquí solo borramos la fila de la peña.
+    await this.db.delete(groups).where(eq(groups.id, groupId));
+  }
 }

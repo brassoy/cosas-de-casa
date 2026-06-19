@@ -11,6 +11,9 @@
  *  ✓ POST /api/v1/couples/:coupleId/challenges        → añade reto
  *  ✓ GET  /api/v1/couples/:coupleId/challenges        → lista retos
  *  ✓ POST /api/v1/couples/:coupleId/challenges/done   → marca reto como hecho
+ *  ✓ GET  /api/v1/couples/challenge-catalog           → catálogo de retos
+ *  ✓ DELETE /api/v1/couples/:coupleId/notes/:noteId   → borra nota
+ *  ✓ DELETE /api/v1/couples/:coupleId                 → disuelve pareja
  *  ✓ POST /api/v1/couples/:coupleId/mischief          → 204 (sender stub)
  *  ✓ 401 sin token
  *  ✓ 403 no-miembro de la pareja (couple-scope guard)
@@ -126,6 +129,36 @@ describe('Romantic context – integración', () => {
     });
   });
 
+  describe('GET /api/v1/couples/challenge-catalog', () => {
+    let user: TestUser;
+
+    beforeEach(async () => {
+      user = await createTestUser();
+    });
+
+    afterAll(async () => {
+      if (user) await deleteTestUser(user.userId);
+    });
+
+    it('devuelve el catálogo de retos (key + descripción)', async () => {
+      const res = await request(server)
+        .get('/api/v1/couples/challenge-catalog')
+        .set('Authorization', `Bearer ${user.accessToken}`);
+
+      expect(res.status).toBe(200);
+      const body = res.body as Array<{ key: string; description: string }>;
+      expect(Array.isArray(body)).toBe(true);
+      expect(body.length).toBeGreaterThan(0);
+      expect(body[0]).toHaveProperty('key');
+      expect(body[0]).toHaveProperty('description');
+    });
+
+    it('devuelve 401 sin token', async () => {
+      const res = await request(server).get('/api/v1/couples/challenge-catalog');
+      expect(res.status).toBe(401);
+    });
+  });
+
   describe('Notas, retos y maldad con CoupleScopeGuard', () => {
     let owner: TestUser;
     let partner: TestUser;
@@ -192,6 +225,45 @@ describe('Romantic context – integración', () => {
       const res = await request(server)
         .get(`/api/v1/couples/${coupleId}/notes`);
       expect(res.status).toBe(401);
+    });
+
+    it('DELETE /couples/:coupleId/notes/:noteId → 204 y la nota desaparece', async () => {
+      const created = await request(server)
+        .post(`/api/v1/couples/${coupleId}/notes`)
+        .set('Authorization', `Bearer ${owner.accessToken}`)
+        .send({ body: 'Nota a borrar' });
+      const noteId = (created.body as { id: string }).id;
+
+      const del = await request(server)
+        .delete(`/api/v1/couples/${coupleId}/notes/${noteId}`)
+        .set('Authorization', `Bearer ${partner.accessToken}`);
+      expect(del.status).toBe(204);
+
+      const list = await request(server)
+        .get(`/api/v1/couples/${coupleId}/notes`)
+        .set('Authorization', `Bearer ${owner.accessToken}`);
+      const ids = (list.body as Array<{ id: string }>).map((n) => n.id);
+      expect(ids).not.toContain(noteId);
+    });
+
+    it('DELETE /couples/:coupleId/notes/:noteId → 404 si la nota no existe', async () => {
+      const res = await request(server)
+        .delete(`/api/v1/couples/${coupleId}/notes/00000000-0000-0000-0000-000000000000`)
+        .set('Authorization', `Bearer ${owner.accessToken}`);
+      expect(res.status).toBe(404);
+    });
+
+    it('DELETE /couples/:coupleId/notes/:noteId → 403 si no eres de la pareja', async () => {
+      const created = await request(server)
+        .post(`/api/v1/couples/${coupleId}/notes`)
+        .set('Authorization', `Bearer ${owner.accessToken}`)
+        .send({ body: 'Nota privada' });
+      const noteId = (created.body as { id: string }).id;
+
+      const res = await request(server)
+        .delete(`/api/v1/couples/${coupleId}/notes/${noteId}`)
+        .set('Authorization', `Bearer ${outsider.accessToken}`);
+      expect(res.status).toBe(403);
     });
 
     // ── Retos ──────────────────────────────────────────────────────────────────
@@ -266,6 +338,49 @@ describe('Romantic context – integración', () => {
       const res = await request(server)
         .post(`/api/v1/couples/${coupleId}/mischief`);
       expect(res.status).toBe(401);
+    });
+
+    // ── Disolver pareja ─────────────────────────────────────────────────────────
+
+    it('DELETE /couples/:coupleId → 403 si no eres de la pareja', async () => {
+      const res = await request(server)
+        .delete(`/api/v1/couples/${coupleId}`)
+        .set('Authorization', `Bearer ${outsider.accessToken}`);
+      expect(res.status).toBe(403);
+    });
+
+    it('DELETE /couples/:coupleId → 401 sin token', async () => {
+      const res = await request(server).delete(`/api/v1/couples/${coupleId}`);
+      expect(res.status).toBe(401);
+    });
+
+    it('DELETE /couples/:coupleId → 204 y la pareja deja de existir (cascada de notas/retos)', async () => {
+      // Sembramos una nota y un reto para comprobar la cascada.
+      await request(server)
+        .post(`/api/v1/couples/${coupleId}/notes`)
+        .set('Authorization', `Bearer ${owner.accessToken}`)
+        .send({ body: 'Adiós' });
+      await request(server)
+        .post(`/api/v1/couples/${coupleId}/challenges`)
+        .set('Authorization', `Bearer ${owner.accessToken}`)
+        .send({ challengeKey: 'COCINAMOS_JUNTOS' });
+
+      const del = await request(server)
+        .delete(`/api/v1/couples/${coupleId}`)
+        .set('Authorization', `Bearer ${partner.accessToken}`);
+      expect(del.status).toBe(204);
+
+      // Tras disolver, el CoupleScopeGuard ya no encuentra la pareja → 404.
+      const after = await request(server)
+        .get(`/api/v1/couples/${coupleId}/notes`)
+        .set('Authorization', `Bearer ${owner.accessToken}`);
+      expect(after.status).toBe(404);
+
+      // Y el usuario ya no tiene pareja en la familia.
+      const myCouple = await request(server)
+        .get(`/api/v1/families/${familyId}/couple`)
+        .set('Authorization', `Bearer ${owner.accessToken}`);
+      expect(myCouple.status).toBe(404);
     });
   });
 });

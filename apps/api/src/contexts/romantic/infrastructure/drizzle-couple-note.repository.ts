@@ -33,4 +33,26 @@ export class DrizzleCoupleNoteRepository implements CoupleNoteRepository {
       createdAt: row.createdAt,
     }));
   }
+
+  async findById(noteId: string): Promise<CoupleNote | null> {
+    const rows = await this.db
+      .select()
+      .from(coupleNotes)
+      .where(eq(coupleNotes.id, noteId))
+      .limit(1);
+
+    const row = rows[0];
+    if (!row) return null;
+    return new CoupleNote({
+      id: row.id,
+      coupleId: row.coupleId,
+      authorId: row.authorId,
+      body: row.body,
+      createdAt: row.createdAt,
+    });
+  }
+
+  async delete(noteId: string): Promise<void> {
+    await this.db.delete(coupleNotes).where(eq(coupleNotes.id, noteId));
+  }
 }

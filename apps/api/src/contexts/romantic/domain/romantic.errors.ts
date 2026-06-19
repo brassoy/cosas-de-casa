@@ -84,3 +84,11 @@ export class CoupleNoteBodyEmptyError extends RomanticDomainError {
     super('El mensaje no puede estar vacío.');
   }
 }
+
+/** La nota solicitada no existe o no pertenece a esta pareja. */
+export class CoupleNoteNotFoundError extends RomanticDomainError {
+  readonly code = 'ROMANTIC_NOTE_NOT_FOUND';
+  constructor() {
+    super('La nota no existe.');
+  }
+}

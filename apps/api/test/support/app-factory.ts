@@ -49,6 +49,10 @@ import { JoinFamilyByPinUseCase } from '../../src/contexts/family/application/jo
 import { ListMembersUseCase } from '../../src/contexts/family/application/list-members.use-case';
 import { LeaveFamilyUseCase } from '../../src/contexts/family/application/leave-family.use-case';
 import { RevokeActivePinUseCase } from '../../src/contexts/family/application/revoke-active-pin.use-case';
+import { UpdateFamilyUseCase } from '../../src/contexts/family/application/update-family.use-case';
+import { DeleteFamilyUseCase } from '../../src/contexts/family/application/delete-family.use-case';
+import { ExpelMemberUseCase } from '../../src/contexts/family/application/expel-member.use-case';
+import { ChangeMemberRoleUseCase } from '../../src/contexts/family/application/change-member-role.use-case';
 
 import {
   FAMILY_REPOSITORY,
@@ -182,6 +186,10 @@ import { JoinGroupByPinUseCase } from '../../src/contexts/groups/application/joi
 import { ListGroupMembersUseCase } from '../../src/contexts/groups/application/list-group-members.use-case';
 import { LeaveGroupUseCase } from '../../src/contexts/groups/application/leave-group.use-case';
 import { RevokeActiveGroupPinUseCase } from '../../src/contexts/groups/application/revoke-active-group-pin.use-case';
+import { UpdateGroupUseCase } from '../../src/contexts/groups/application/update-group.use-case';
+import { DeleteGroupUseCase } from '../../src/contexts/groups/application/delete-group.use-case';
+import { ExpelGroupMemberUseCase } from '../../src/contexts/groups/application/expel-group-member.use-case';
+import { ChangeGroupMemberRoleUseCase } from '../../src/contexts/groups/application/change-group-member-role.use-case';
 
 // ── social ─────────────────────────────────────────────────────────────────
 import { SocialController } from '../../src/contexts/social/interface/social.controller';
@@ -234,10 +242,13 @@ import { DrizzleCoupleNoteRepository } from '../../src/contexts/romantic/infrast
 import { DrizzleCoupleChallengeRepository } from '../../src/contexts/romantic/infrastructure/drizzle-couple-challenge.repository';
 import { CreateCoupleUseCase } from '../../src/contexts/romantic/application/create-couple.use-case';
 import { GetMyCoupleUseCase } from '../../src/contexts/romantic/application/get-my-couple.use-case';
+import { DissolveCoupleUseCase } from '../../src/contexts/romantic/application/dissolve-couple.use-case';
 import { CreateCoupleNoteUseCase } from '../../src/contexts/romantic/application/create-couple-note.use-case';
 import { ListCoupleNotesUseCase } from '../../src/contexts/romantic/application/list-couple-notes.use-case';
+import { DeleteCoupleNoteUseCase } from '../../src/contexts/romantic/application/delete-couple-note.use-case';
 import { AddChallengeUseCase } from '../../src/contexts/romantic/application/add-challenge.use-case';
 import { ListChallengesUseCase } from '../../src/contexts/romantic/application/list-challenges.use-case';
+import { ListChallengeCatalogUseCase } from '../../src/contexts/romantic/application/list-challenge-catalog.use-case';
 import { MarkChallengeDoneUseCase } from '../../src/contexts/romantic/application/mark-challenge-done.use-case';
 import { DoMischiefUseCase } from '../../src/contexts/romantic/application/do-mischief.use-case';
 
@@ -424,6 +435,10 @@ export async function createTestApp(): Promise<TestApp> {
       ListMembersUseCase,
       LeaveFamilyUseCase,
       RevokeActivePinUseCase,
+      UpdateFamilyUseCase,
+      DeleteFamilyUseCase,
+      ExpelMemberUseCase,
+      ChangeMemberRoleUseCase,
 
       // ── groups: infraestructura ────────────────────────────────────────
       DrizzleGroupUnitOfWork,
@@ -449,6 +464,10 @@ export async function createTestApp(): Promise<TestApp> {
       ListGroupMembersUseCase,
       LeaveGroupUseCase,
       RevokeActiveGroupPinUseCase,
+      UpdateGroupUseCase,
+      DeleteGroupUseCase,
+      ExpelGroupMemberUseCase,
+      ChangeGroupMemberRoleUseCase,
 
       // ── shopping: repositorios ─────────────────────────────────────────
       {
@@ -729,10 +748,13 @@ export async function createTestApp(): Promise<TestApp> {
       // ── romantic: casos de uso ─────────────────────────────────────────
       CreateCoupleUseCase,
       GetMyCoupleUseCase,
+      DissolveCoupleUseCase,
       CreateCoupleNoteUseCase,
       ListCoupleNotesUseCase,
+      DeleteCoupleNoteUseCase,
       AddChallengeUseCase,
       ListChallengesUseCase,
+      ListChallengeCatalogUseCase,
       MarkChallengeDoneUseCase,
       DoMischiefUseCase,
 

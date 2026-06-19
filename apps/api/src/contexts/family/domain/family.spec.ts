@@ -4,6 +4,7 @@ import { Membership } from './membership';
 import { MembershipRole } from './membership-role';
 import {
   AlreadyMemberError,
+  CannotRemoveSelfError,
   LastOwnerError,
   NotAMemberError,
 } from './family.errors';
@@ -152,5 +153,142 @@ describe('Family.removeMember', () => {
     });
     expect(() => family.removeMember('owner-1')).not.toThrow();
     expect(family.isOwner('owner-2')).toBe(true);
+  });
+});
+
+// ─── expelMember ──────────────────────────────────────────────────────────────
+
+function familyWithTwoOwners(): Family {
+  const m1 = new Membership({
+    id: 'mo1',
+    familyId: 'fam-1',
+    userId: 'owner-1',
+    role: MembershipRole.OWNER,
+    joinedAt: NOW,
+  });
+  const m2 = new Membership({
+    id: 'mo2',
+    familyId: 'fam-1',
+    userId: 'owner-2',
+    role: MembershipRole.OWNER,
+    joinedAt: NOW,
+  });
+  return new Family({
+    id: 'fam-1',
+    name: 'Dos Owners',
+    description: null,
+    imageUrl: null,
+    createdBy: 'owner-1',
+    createdAt: NOW,
+    updatedAt: NOW,
+    memberships: [m1, m2],
+  });
+}
+
+describe('Family.expelMember', () => {
+  it('el OWNER expulsa a un MEMBER', () => {
+    const family = createFamily('owner');
+    family.addMember({ membershipId: 'm2', userId: 'member', now: NOW });
+    const removed = family.expelMember('owner', 'member');
+    expect(removed.userId).toBe('member');
+    expect(family.isMember('member')).toBe(false);
+  });
+
+  it('no puede expulsarse a sí mismo: lanza CannotRemoveSelfError', () => {
+    const family = createFamily('owner');
+    family.addMember({ membershipId: 'm2', userId: 'member', now: NOW });
+    expect(() => family.expelMember('owner', 'owner')).toThrow(CannotRemoveSelfError);
+  });
+
+  it('lanza NotAMemberError si el objetivo no pertenece', () => {
+    const family = createFamily('owner');
+    expect(() => family.expelMember('owner', 'stranger')).toThrow(NotAMemberError);
+  });
+
+  it('un OWNER puede expulsar a otro OWNER si queda al menos uno', () => {
+    const family = familyWithTwoOwners();
+    // owner-1 expulsa a owner-2 → queda 1 OWNER (válido)
+    expect(() => family.expelMember('owner-1', 'owner-2')).not.toThrow();
+    expect(family.isMember('owner-2')).toBe(false);
+    expect(family.isOwner('owner-1')).toBe(true);
+  });
+});
+
+// ─── changeMemberRole ─────────────────────────────────────────────────────────
+
+describe('Family.changeMemberRole', () => {
+  it('asciende un MEMBER a OWNER', () => {
+    const family = createFamily('owner');
+    family.addMember({ membershipId: 'm2', userId: 'member', now: NOW });
+    family.changeMemberRole('member', MembershipRole.OWNER, NOW);
+    expect(family.isOwner('member')).toBe(true);
+  });
+
+  it('degrada un OWNER a MEMBER cuando hay otro OWNER', () => {
+    const family = familyWithTwoOwners();
+    family.changeMemberRole('owner-2', MembershipRole.MEMBER, NOW);
+    expect(family.isOwner('owner-2')).toBe(false);
+  });
+
+  it('protección del último OWNER: degradar al único OWNER lanza LastOwnerError', () => {
+    const family = createFamily('owner');
+    family.addMember({ membershipId: 'm2', userId: 'member', now: NOW });
+    expect(() => family.changeMemberRole('owner', MembershipRole.MEMBER, NOW)).toThrow(
+      LastOwnerError,
+    );
+  });
+
+  it('lanza NotAMemberError si el objetivo no pertenece', () => {
+    const family = createFamily('owner');
+    expect(() => family.changeMemberRole('stranger', MembershipRole.OWNER, NOW)).toThrow(
+      NotAMemberError,
+    );
+  });
+
+  it('es idempotente: cambiar al mismo rol no falla ni altera nada', () => {
+    const family = createFamily('owner');
+    family.addMember({ membershipId: 'm2', userId: 'member', now: NOW });
+    expect(() => family.changeMemberRole('member', MembershipRole.MEMBER, NOW)).not.toThrow();
+    expect(family.isOwner('member')).toBe(false);
+  });
+
+  it('actualiza updatedAt al cambiar un rol', () => {
+    const family = createFamily('owner');
+    family.addMember({ membershipId: 'm2', userId: 'member', now: NOW });
+    const later = new Date('2026-02-01T00:00:00.000Z');
+    family.changeMemberRole('member', MembershipRole.OWNER, later);
+    expect(family.updatedAt).toEqual(later);
+  });
+});
+
+// ─── rename ──────────────────────────────────────────────────────────────────
+
+describe('Family.rename', () => {
+  it('cambia el nombre y refresca updatedAt', () => {
+    const family = createFamily('owner');
+    const later = new Date('2026-03-01T00:00:00.000Z');
+    family.rename({ name: 'Nuevo nombre', now: later });
+    expect(family.name).toBe('Nuevo nombre');
+    expect(family.updatedAt).toEqual(later);
+  });
+
+  it('cambia solo la descripción si no se pasa nombre', () => {
+    const family = createFamily('owner');
+    family.rename({ description: 'Una descripción', now: NOW });
+    expect(family.name).toBe('Mi Familia');
+    expect(family.description).toBe('Una descripción');
+  });
+
+  it('una descripción vacía deja description a null', () => {
+    const family = createFamily('owner');
+    family.rename({ description: '', now: NOW });
+    expect(family.description).toBeNull();
+  });
+
+  it('no toca campos que no se envían', () => {
+    const family = createFamily('owner');
+    family.rename({ name: 'X', now: NOW });
+    // description seguía null
+    expect(family.description).toBeNull();
   });
 });

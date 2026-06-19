@@ -15,10 +15,13 @@ import { ROMANTIC_ID_GENERATOR } from './application/ports/id-generator';
 // ── Use cases ─────────────────────────────────────────────────────────────────
 import { CreateCoupleUseCase } from './application/create-couple.use-case';
 import { GetMyCoupleUseCase } from './application/get-my-couple.use-case';
+import { DissolveCoupleUseCase } from './application/dissolve-couple.use-case';
 import { CreateCoupleNoteUseCase } from './application/create-couple-note.use-case';
 import { ListCoupleNotesUseCase } from './application/list-couple-notes.use-case';
+import { DeleteCoupleNoteUseCase } from './application/delete-couple-note.use-case';
 import { AddChallengeUseCase } from './application/add-challenge.use-case';
 import { ListChallengesUseCase } from './application/list-challenges.use-case';
+import { ListChallengeCatalogUseCase } from './application/list-challenge-catalog.use-case';
 import { MarkChallengeDoneUseCase } from './application/mark-challenge-done.use-case';
 import { DoMischiefUseCase } from './application/do-mischief.use-case';
 
@@ -113,10 +116,13 @@ import { UuidIdGenerator } from '../family/infrastructure/uuid-id-generator';
     // ── Casos de uso ──────────────────────────────────────────────────────
     CreateCoupleUseCase,
     GetMyCoupleUseCase,
+    DissolveCoupleUseCase,
     CreateCoupleNoteUseCase,
     ListCoupleNotesUseCase,
+    DeleteCoupleNoteUseCase,
     AddChallengeUseCase,
     ListChallengesUseCase,
+    ListChallengeCatalogUseCase,
     MarkChallengeDoneUseCase,
     DoMischiefUseCase,
   ],

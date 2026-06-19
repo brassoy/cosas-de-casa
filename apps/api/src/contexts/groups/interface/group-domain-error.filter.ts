@@ -9,6 +9,7 @@ import type { Response } from 'express';
 import { AuthDomainError } from '../../identity-access/domain/auth.errors';
 import {
   AlreadyGroupMemberError,
+  CannotRemoveGroupSelfError,
   GroupDomainError,
   GroupNotFoundError,
   InvalidGroupJoinPinError,
@@ -43,7 +44,11 @@ export class GroupDomainErrorFilter implements ExceptionFilter {
     if (error instanceof GroupNotFoundError) {
       return HttpStatus.NOT_FOUND;
     }
-    if (error instanceof NotAGroupMemberError || error instanceof NotAGroupOwnerError) {
+    if (
+      error instanceof NotAGroupMemberError ||
+      error instanceof NotAGroupOwnerError ||
+      error instanceof CannotRemoveGroupSelfError
+    ) {
       return HttpStatus.FORBIDDEN;
     }
     if (error instanceof AlreadyGroupMemberError) {

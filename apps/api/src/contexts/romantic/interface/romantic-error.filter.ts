@@ -17,6 +17,7 @@ import {
   ChallengeNotFoundError,
   ChallengeAlreadyExistsError,
   CoupleNoteBodyEmptyError,
+  CoupleNoteNotFoundError,
 } from '../domain/romantic.errors';
 
 /**
@@ -38,6 +39,7 @@ export class RomanticErrorFilter implements ExceptionFilter {
 
   private statusFor(error: RomanticDomainError): number {
     if (error instanceof CoupleNotFoundError) return HttpStatus.NOT_FOUND;
+    if (error instanceof CoupleNoteNotFoundError) return HttpStatus.NOT_FOUND;
     if (error instanceof ChallengeNotFoundError) return HttpStatus.NOT_FOUND;
     if (error instanceof NotCoupleMemberError) return HttpStatus.FORBIDDEN;
     if (error instanceof NotFamilyMemberError) return HttpStatus.FORBIDDEN;

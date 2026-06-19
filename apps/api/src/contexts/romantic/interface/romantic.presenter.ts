@@ -1,8 +1,13 @@
-import type { CoupleDto, CoupleNoteDto, CoupleChallengeDto } from '@cosasdecasa/contracts';
+import type {
+  CoupleDto,
+  CoupleNoteDto,
+  CoupleChallengeDto,
+  ChallengeCatalogEntryDto,
+} from '@cosasdecasa/contracts';
 import type { Couple } from '../domain/couple';
 import type { CoupleNote } from '../domain/couple-note';
 import type { CoupleChallenge } from '../domain/couple-challenge';
-import { CHALLENGE_CATALOG_MAP } from '../domain/challenge-catalog';
+import { CHALLENGE_CATALOG_MAP, type ChallengeDefinition } from '../domain/challenge-catalog';
 
 /** Traduce entidades de dominio a DTOs del contrato público. */
 export const RomanticPresenter = {
@@ -23,6 +28,13 @@ export const RomanticPresenter = {
       authorId: note.authorId,
       body: note.body,
       createdAt: note.createdAt.toISOString(),
+    };
+  },
+
+  toCatalogEntryDto(entry: ChallengeDefinition): ChallengeCatalogEntryDto {
+    return {
+      key: entry.key,
+      description: entry.description,
     };
   },
 

@@ -37,6 +37,10 @@ class FakeFamilyRepository implements FamilyRepository {
   }
 
   async create(): Promise<void> {}
+
+  async update(): Promise<void> {}
+
+  async delete(): Promise<void> {}
 }
 
 class FakeClock implements Clock {
@@ -61,10 +65,13 @@ class FakeUnitOfWork implements UnitOfWork {
         findById: async () => null,
         findByIds: async () => [],
         findByMember: async () => [],
+        update: async () => {},
+        delete: async () => {},
       },
       memberships: {
         insert: async () => true,
         deleteById: async () => {},
+        updateRole: async () => {},
         listByFamily: async () => [],
       },
       joinPins: {

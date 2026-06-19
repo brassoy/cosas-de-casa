@@ -24,6 +24,10 @@ import { JoinFamilyByPinUseCase } from './application/join-family-by-pin.use-cas
 import { ListMembersUseCase } from './application/list-members.use-case';
 import { LeaveFamilyUseCase } from './application/leave-family.use-case';
 import { RevokeActivePinUseCase } from './application/revoke-active-pin.use-case';
+import { UpdateFamilyUseCase } from './application/update-family.use-case';
+import { DeleteFamilyUseCase } from './application/delete-family.use-case';
+import { ExpelMemberUseCase } from './application/expel-member.use-case';
+import { ChangeMemberRoleUseCase } from './application/change-member-role.use-case';
 
 // ── Infrastructure ──────────────────────────────────────────────────────────
 import { DrizzleFamilyRepository } from './infrastructure/drizzle-family.repository';
@@ -88,6 +92,10 @@ import { RateLimitGuard } from '../../common/rate-limit.guard';
     ListMembersUseCase,
     LeaveFamilyUseCase,
     RevokeActivePinUseCase,
+    UpdateFamilyUseCase,
+    DeleteFamilyUseCase,
+    ExpelMemberUseCase,
+    ChangeMemberRoleUseCase,
   ],
   exports: [FAMILY_REPOSITORY, FamilyScopeGuard],
 })

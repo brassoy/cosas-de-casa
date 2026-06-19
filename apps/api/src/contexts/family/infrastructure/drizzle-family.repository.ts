@@ -102,4 +102,21 @@ export class DrizzleFamilyRepository implements FamilyRepository {
 
     return familyRows.map((row) => FamilyMapper.toFamily(row, byFamily.get(row.id) ?? []));
   }
+
+  async update(family: Family): Promise<void> {
+    await this.db
+      .update(families)
+      .set({
+        name: family.name,
+        description: family.description,
+        updatedAt: family.updatedAt,
+      })
+      .where(eq(families.id, family.id));
+  }
+
+  async delete(familyId: string): Promise<void> {
+    // Las FKs `ON DELETE CASCADE` (memberships, PINs, listas, tareas…) limpian
+    // las filas dependientes; aquí solo borramos la fila de la familia.
+    await this.db.delete(families).where(eq(families.id, familyId));
+  }
 }

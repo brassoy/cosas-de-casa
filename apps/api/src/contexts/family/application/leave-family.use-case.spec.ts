@@ -63,6 +63,10 @@ class FakeFamilyRepository implements FamilyRepository {
   }
 
   async create(): Promise<void> {}
+
+  async update(): Promise<void> {}
+
+  async delete(): Promise<void> {}
 }
 
 class FakeUnitOfWork implements UnitOfWork {
@@ -78,12 +82,15 @@ class FakeUnitOfWork implements UnitOfWork {
         findById: async () => null,
         findByIds: async () => [],
         findByMember: async () => [],
+        update: async () => {},
+        delete: async () => {},
       },
       memberships: {
         insert: async () => true,
         deleteById: async (id: string) => {
           self.deletedMembershipIds.push(id);
         },
+        updateRole: async () => {},
         listByFamily: async () => [],
       },
       joinPins: {

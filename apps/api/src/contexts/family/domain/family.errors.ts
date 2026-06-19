@@ -61,3 +61,14 @@ export class InvalidJoinPinError extends FamilyDomainError {
     super('El código no es válido o ha caducado.');
   }
 }
+
+/**
+ * El propietario intenta expulsarse a sí mismo desde la ruta de administración
+ * de miembros. Para salir de la familia debe usar `DELETE /members/me`.
+ */
+export class CannotRemoveSelfError extends FamilyDomainError {
+  readonly code = 'CANNOT_REMOVE_SELF';
+  constructor() {
+    super('No puedes expulsarte a ti mismo desde aquí. Usa "salir de la familia".');
+  }
+}

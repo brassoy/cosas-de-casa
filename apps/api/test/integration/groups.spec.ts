@@ -17,6 +17,10 @@
  *  ✓ MEMBER no puede generar PIN → 403
  *  ✓ DELETE /:id/members/me → MEMBER sale de la peña
  *  ✓ Último OWNER no puede salir → 409
+ *  ✓ PATCH /:groupId → OWNER edita nombre/desc; MEMBER → 403; body vacío → 400
+ *  ✓ PATCH /:groupId/members/:userId → cambio de rol (asciende/degrada); LAST_GROUP_OWNER → 409
+ *  ✓ DELETE /:groupId/members/:userId → expulsar MEMBER; auto-expulsión → 403; MEMBER → 403
+ *  ✓ DELETE /:groupId → OWNER borra peña; MEMBER → 403
  */
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -367,6 +371,248 @@ describe('Groups context – integración', () => {
 
       expect(res.status).toBe(409);
       expect(res.body.error).toBe('LAST_GROUP_OWNER');
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Administración de la peña: editar/borrar peña y gestionar miembros (cambiar
+  // rol / expulsar). Solo OWNER. Reusa el helper de unión.
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /** Une a `member` a la peña `groupId` (vía PIN generado por `owner`). */
+  async function joinGroup(
+    ownerToken: string,
+    memberToken: string,
+    targetGroupId: string,
+  ): Promise<void> {
+    const pinRes = await request(server)
+      .post(`/api/v1/groups/${targetGroupId}/join-pins`)
+      .set('Authorization', `Bearer ${ownerToken}`);
+    const pinCode = (pinRes.body as { code: string }).code;
+    const joinRes = await request(server)
+      .post('/api/v1/groups/join')
+      .set('Authorization', `Bearer ${memberToken}`)
+      .send({ code: pinCode });
+    expect(joinRes.status).toBe(200);
+  }
+
+  describe('PATCH /api/v1/groups/:groupId', () => {
+    let owner: TestUser;
+    let member: TestUser;
+    let groupId: string;
+
+    beforeEach(async () => {
+      [owner, member] = await Promise.all([createTestUser(), createTestUser()]);
+      const group = await createGroup(owner.accessToken);
+      groupId = group.id;
+      await joinGroup(owner.accessToken, member.accessToken, groupId);
+    });
+
+    afterAll(async () => {
+      await Promise.all([
+        owner ? deleteTestUser(owner.userId) : Promise.resolve(),
+        member ? deleteTestUser(member.userId) : Promise.resolve(),
+      ]);
+    });
+
+    it('OWNER edita nombre y descripción', async () => {
+      const res = await request(server)
+        .patch(`/api/v1/groups/${groupId}`)
+        .set('Authorization', `Bearer ${owner.accessToken}`)
+        .send({ name: 'La Otra Peña', description: 'Otra desc' });
+
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ id: groupId, name: 'La Otra Peña', description: 'Otra desc' });
+    });
+
+    it('MEMBER no puede editar la peña → 403', async () => {
+      const res = await request(server)
+        .patch(`/api/v1/groups/${groupId}`)
+        .set('Authorization', `Bearer ${member.accessToken}`)
+        .send({ name: 'Hackeada' });
+
+      expect(res.status).toBe(403);
+    });
+
+    it('body vacío → 400 (debe enviar al menos un campo)', async () => {
+      const res = await request(server)
+        .patch(`/api/v1/groups/${groupId}`)
+        .set('Authorization', `Bearer ${owner.accessToken}`)
+        .send({});
+
+      expect(res.status).toBe(400);
+    });
+
+    it('sin token → 401', async () => {
+      const res = await request(server)
+        .patch(`/api/v1/groups/${groupId}`)
+        .send({ name: 'X' });
+      expect(res.status).toBe(401);
+    });
+  });
+
+  describe('PATCH /api/v1/groups/:groupId/members/:userId', () => {
+    let owner: TestUser;
+    let member: TestUser;
+    let groupId: string;
+
+    beforeEach(async () => {
+      [owner, member] = await Promise.all([createTestUser(), createTestUser()]);
+      const group = await createGroup(owner.accessToken);
+      groupId = group.id;
+      await joinGroup(owner.accessToken, member.accessToken, groupId);
+    });
+
+    afterAll(async () => {
+      await Promise.all([
+        owner ? deleteTestUser(owner.userId) : Promise.resolve(),
+        member ? deleteTestUser(member.userId) : Promise.resolve(),
+      ]);
+    });
+
+    it('OWNER asciende un MEMBER a OWNER → 204 y queda como OWNER', async () => {
+      const res = await request(server)
+        .patch(`/api/v1/groups/${groupId}/members/${member.userId}`)
+        .set('Authorization', `Bearer ${owner.accessToken}`)
+        .send({ role: 'OWNER' });
+
+      expect(res.status).toBe(204);
+
+      const membersRes = await request(server)
+        .get(`/api/v1/groups/${groupId}/members`)
+        .set('Authorization', `Bearer ${owner.accessToken}`);
+      const entry = (membersRes.body as Array<{ userId: string; role: string }>).find(
+        (m) => m.userId === member.userId,
+      );
+      expect(entry?.role).toBe('OWNER');
+    });
+
+    it('degradar al único OWNER (a sí mismo) → 409 LAST_GROUP_OWNER', async () => {
+      const res = await request(server)
+        .patch(`/api/v1/groups/${groupId}/members/${owner.userId}`)
+        .set('Authorization', `Bearer ${owner.accessToken}`)
+        .send({ role: 'MEMBER' });
+
+      expect(res.status).toBe(409);
+      expect(res.body.error).toBe('LAST_GROUP_OWNER');
+    });
+
+    it('MEMBER no puede cambiar roles → 403', async () => {
+      const res = await request(server)
+        .patch(`/api/v1/groups/${groupId}/members/${owner.userId}`)
+        .set('Authorization', `Bearer ${member.accessToken}`)
+        .send({ role: 'MEMBER' });
+
+      expect(res.status).toBe(403);
+    });
+
+    it('rol inválido → 400', async () => {
+      const res = await request(server)
+        .patch(`/api/v1/groups/${groupId}/members/${member.userId}`)
+        .set('Authorization', `Bearer ${owner.accessToken}`)
+        .send({ role: 'KING' });
+
+      expect(res.status).toBe(400);
+    });
+  });
+
+  describe('DELETE /api/v1/groups/:groupId/members/:userId', () => {
+    let owner: TestUser;
+    let member: TestUser;
+    let groupId: string;
+
+    beforeEach(async () => {
+      [owner, member] = await Promise.all([createTestUser(), createTestUser()]);
+      const group = await createGroup(owner.accessToken);
+      groupId = group.id;
+      await joinGroup(owner.accessToken, member.accessToken, groupId);
+    });
+
+    afterAll(async () => {
+      await Promise.all([
+        owner ? deleteTestUser(owner.userId) : Promise.resolve(),
+        member ? deleteTestUser(member.userId) : Promise.resolve(),
+      ]);
+    });
+
+    it('OWNER expulsa a un MEMBER → 204 y desaparece de la lista', async () => {
+      const res = await request(server)
+        .delete(`/api/v1/groups/${groupId}/members/${member.userId}`)
+        .set('Authorization', `Bearer ${owner.accessToken}`);
+
+      expect(res.status).toBe(204);
+
+      const membersRes = await request(server)
+        .get(`/api/v1/groups/${groupId}/members`)
+        .set('Authorization', `Bearer ${owner.accessToken}`);
+      const stillThere = (membersRes.body as Array<{ userId: string }>).some(
+        (m) => m.userId === member.userId,
+      );
+      expect(stillThere).toBe(false);
+    });
+
+    it('OWNER no puede expulsarse a sí mismo → 403 CANNOT_REMOVE_GROUP_SELF', async () => {
+      const res = await request(server)
+        .delete(`/api/v1/groups/${groupId}/members/${owner.userId}`)
+        .set('Authorization', `Bearer ${owner.accessToken}`);
+
+      expect(res.status).toBe(403);
+      expect(res.body.error).toBe('CANNOT_REMOVE_GROUP_SELF');
+    });
+
+    it('MEMBER no puede expulsar a nadie → 403', async () => {
+      const res = await request(server)
+        .delete(`/api/v1/groups/${groupId}/members/${owner.userId}`)
+        .set('Authorization', `Bearer ${member.accessToken}`);
+
+      expect(res.status).toBe(403);
+    });
+  });
+
+  describe('DELETE /api/v1/groups/:groupId', () => {
+    let owner: TestUser;
+    let member: TestUser;
+    let groupId: string;
+
+    beforeEach(async () => {
+      [owner, member] = await Promise.all([createTestUser(), createTestUser()]);
+      const group = await createGroup(owner.accessToken);
+      groupId = group.id;
+      await joinGroup(owner.accessToken, member.accessToken, groupId);
+    });
+
+    afterAll(async () => {
+      await Promise.all([
+        owner ? deleteTestUser(owner.userId) : Promise.resolve(),
+        member ? deleteTestUser(member.userId) : Promise.resolve(),
+      ]);
+    });
+
+    it('MEMBER no puede borrar la peña → 403', async () => {
+      const res = await request(server)
+        .delete(`/api/v1/groups/${groupId}`)
+        .set('Authorization', `Bearer ${member.accessToken}`);
+
+      expect(res.status).toBe(403);
+    });
+
+    it('OWNER borra la peña → 204 y deja de listarse', async () => {
+      const res = await request(server)
+        .delete(`/api/v1/groups/${groupId}`)
+        .set('Authorization', `Bearer ${owner.accessToken}`);
+
+      expect(res.status).toBe(204);
+
+      const listRes = await request(server)
+        .get('/api/v1/groups')
+        .set('Authorization', `Bearer ${owner.accessToken}`);
+      const found = (listRes.body as Array<{ id: string }>).find((g) => g.id === groupId);
+      expect(found).toBeUndefined();
+    });
+
+    it('sin token → 401', async () => {
+      const res = await request(server).delete(`/api/v1/groups/${groupId}`);
+      expect(res.status).toBe(401);
     });
   });
 });

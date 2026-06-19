@@ -20,6 +20,9 @@ export interface GroupMembershipRepository {
   /** Elimina una membership por id. */
   deleteById(membershipId: string): Promise<void>;
 
+  /** Actualiza el rol de una membership por id. */
+  updateRole(membershipId: string, role: GroupMembership['role']): Promise<void>;
+
   /** Devuelve las memberships (con rol) de una peña. */
   listByGroup(groupId: string): Promise<GroupMembership[]>;
 }

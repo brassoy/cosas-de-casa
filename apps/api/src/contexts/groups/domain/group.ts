@@ -1,5 +1,6 @@
 import {
   AlreadyGroupMemberError,
+  CannotRemoveGroupSelfError,
   LastGroupOwnerError,
   NotAGroupMemberError,
 } from './group.errors';
@@ -150,5 +151,60 @@ export class Group {
     const index = this._memberships.indexOf(membership);
     this._memberships.splice(index, 1);
     return membership;
+  }
+
+  /**
+   * Expulsa a OTRO miembro (acción de administración del OWNER). A diferencia de
+   * {@link removeMember}, prohíbe expulsarse a uno mismo: para eso existe la ruta
+   * "salir de la peña". Mantiene la protección del último OWNER.
+   *
+   * @param actingUserId quién ejecuta la expulsión (el OWNER autenticado).
+   * @param targetUserId a quién se expulsa.
+   */
+  expelMember(actingUserId: string, targetUserId: string): GroupMembership {
+    if (actingUserId === targetUserId) {
+      throw new CannotRemoveGroupSelfError();
+    }
+    return this.removeMember(targetUserId);
+  }
+
+  /**
+   * Cambia el rol de un miembro (OWNER ↔ MEMBER). Protege la invariante "al menos
+   * un OWNER": si se intenta degradar al único OWNER a MEMBER, lanza
+   * {@link LastGroupOwnerError}.
+   *
+   * Es idempotente: si el rol ya coincide, no hace nada. Devuelve la membership
+   * afectada para que el repo persista el cambio.
+   */
+  changeMemberRole(targetUserId: string, newRole: GroupRole, now: Date): GroupMembership {
+    const membership = this.membershipOf(targetUserId);
+    if (!membership) {
+      throw new NotAGroupMemberError();
+    }
+    if (membership.role === newRole) {
+      return membership;
+    }
+    // Degradar al único OWNER dejaría la peña sin propietario.
+    if (membership.isOwner && newRole === GroupRole.MEMBER && this.ownerCount() === 1) {
+      throw new LastGroupOwnerError();
+    }
+    membership.changeRole(newRole);
+    this._updatedAt = now;
+    return membership;
+  }
+
+  /**
+   * Edita los datos de la peña (nombre y/o descripción). Actualización parcial:
+   * solo toca los campos `!== undefined`. Una `description` vacía (`''`) la deja
+   * a `null`. Refresca `updatedAt`.
+   */
+  rename(params: { name?: string; description?: string; now: Date }): void {
+    if (params.name !== undefined) {
+      this._name = params.name;
+    }
+    if (params.description !== undefined) {
+      this._description = params.description === '' ? null : params.description;
+    }
+    this._updatedAt = params.now;
   }
 }

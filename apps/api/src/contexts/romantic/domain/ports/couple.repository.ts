@@ -7,4 +7,9 @@ export interface CoupleRepository {
   findById(coupleId: string): Promise<Couple | null>;
   /** Devuelve la pareja del usuario en una familia (un usuario tiene como mucho una). */
   findByFamilyAndUser(familyId: string, userId: string): Promise<Couple | null>;
+  /**
+   * Disuelve (elimina) la pareja. Notas y retos se borran en cascada por FK
+   * (`onDelete: 'cascade'` en el schema).
+   */
+  delete(coupleId: string): Promise<void>;
 }

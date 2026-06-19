@@ -36,6 +36,10 @@ class FakeFamilyRepository implements FamilyRepository {
   }
 
   async create(): Promise<void> {}
+
+  async update(): Promise<void> {}
+
+  async delete(): Promise<void> {}
 }
 
 class FakeMembersReadModel implements MembersReadModel {

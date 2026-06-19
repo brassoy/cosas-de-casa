@@ -9,6 +9,7 @@ import type { Response } from 'express';
 import { AuthDomainError } from '../../identity-access/domain/auth.errors';
 import {
   AlreadyMemberError,
+  CannotRemoveSelfError,
   FamilyDomainError,
   FamilyNotFoundError,
   InvalidJoinPinError,
@@ -45,7 +46,11 @@ export class DomainErrorFilter implements ExceptionFilter {
     if (error instanceof FamilyNotFoundError) {
       return HttpStatus.NOT_FOUND;
     }
-    if (error instanceof NotAMemberError || error instanceof NotAnOwnerError) {
+    if (
+      error instanceof NotAMemberError ||
+      error instanceof NotAnOwnerError ||
+      error instanceof CannotRemoveSelfError
+    ) {
       return HttpStatus.FORBIDDEN;
     }
     if (error instanceof AlreadyMemberError) {

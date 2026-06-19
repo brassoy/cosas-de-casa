@@ -35,15 +35,22 @@ import {
   ChallengeAlreadyExistsError,
   ChallengeNotFoundError,
   CoupleNotFoundError,
+  CoupleNoteNotFoundError,
+  NotCoupleMemberError,
   NotFamilyMemberError,
   PartnerAlreadyInCoupleError,
 } from '../domain/romantic.errors';
 import { CreateCoupleUseCase } from './create-couple.use-case';
 import { GetMyCoupleUseCase } from './get-my-couple.use-case';
+import { DissolveCoupleUseCase } from './dissolve-couple.use-case';
 import { AddChallengeUseCase } from './add-challenge.use-case';
 import { ListChallengesUseCase } from './list-challenges.use-case';
+import { ListChallengeCatalogUseCase } from './list-challenge-catalog.use-case';
 import { MarkChallengeDoneUseCase } from './mark-challenge-done.use-case';
+import { DeleteCoupleNoteUseCase } from './delete-couple-note.use-case';
 import { DoMischiefUseCase } from './do-mischief.use-case';
+import { CoupleNote } from '../domain/couple-note';
+import { CHALLENGE_CATALOG } from '../domain/challenge-catalog';
 import { PushSubscription } from '../../notifications/domain/push-subscription';
 
 // ── Fakes ──────────────────────────────────────────────────────────────────
@@ -61,6 +68,7 @@ const OUTSIDER = 'user-outsider';
 
 let coupleStore: Couple[] = [];
 let challengeStore: CoupleChallenge[] = [];
+let noteStore: CoupleNote[] = [];
 
 const fakeCoupleRepo: CoupleRepository = {
   async save(couple) { coupleStore.push(couple); },
@@ -70,11 +78,14 @@ const fakeCoupleRepo: CoupleRepository = {
       (c) => c.familyId === familyId && (c.userA === userId || c.userB === userId),
     ) ?? null;
   },
+  async delete(id) { coupleStore = coupleStore.filter((c) => c.id !== id); },
 };
 
 const fakeNoteRepo: CoupleNoteRepository = {
-  async save() { /* noop */ },
-  async findByCouple() { return []; },
+  async save(note) { noteStore.push(note); },
+  async findByCouple(coupleId) { return noteStore.filter((n) => n.coupleId === coupleId); },
+  async findById(id) { return noteStore.find((n) => n.id === id) ?? null; },
+  async delete(id) { noteStore = noteStore.filter((n) => n.id !== id); },
 };
 
 const fakeChallengeRepo: CoupleChallengeRepository = {
@@ -104,6 +115,8 @@ const fakeFamilyRepo: FamilyRepository = {
     return found.filter((f): f is NonNullable<typeof f> => f != null);
   },
   async findByMember() { return []; },
+  async update() { /* noop */ },
+  async delete() { /* noop */ },
 };
 
 // ── Setup ──────────────────────────────────────────────────────────────────
@@ -111,6 +124,7 @@ const fakeFamilyRepo: FamilyRepository = {
 beforeEach(() => {
   coupleStore = [];
   challengeStore = [];
+  noteStore = [];
   idCounter = 0;
 });
 
@@ -191,6 +205,93 @@ describe('GetMyCoupleUseCase', () => {
   it('lanza CoupleNotFoundError si no existe pareja', async () => {
     const uc = new GetMyCoupleUseCase(fakeCoupleRepo);
     await expect(uc.execute({ familyId: FAMILY_ID, userId: USER_A })).rejects.toThrow(CoupleNotFoundError);
+  });
+});
+
+// ── DissolveCouple ──────────────────────────────────────────────────────────────
+
+describe('DissolveCoupleUseCase', () => {
+  const COUPLE_ID = 'c-1';
+
+  function seedCouple() {
+    coupleStore.push(
+      Couple.create({ id: COUPLE_ID, familyId: FAMILY_ID, userA: USER_A, userB: USER_B, now: FIXED_NOW }),
+    );
+  }
+
+  it('disuelve la pareja cuando lo pide un miembro', async () => {
+    seedCouple();
+    const uc = new DissolveCoupleUseCase(fakeCoupleRepo);
+    await uc.execute({ coupleId: COUPLE_ID, userId: USER_A });
+    expect(coupleStore).toHaveLength(0);
+  });
+
+  it('lanza CoupleNotFoundError si la pareja no existe', async () => {
+    const uc = new DissolveCoupleUseCase(fakeCoupleRepo);
+    await expect(uc.execute({ coupleId: 'ghost', userId: USER_A })).rejects.toThrow(CoupleNotFoundError);
+  });
+
+  it('lanza NotCoupleMemberError si quien lo pide no es miembro', async () => {
+    seedCouple();
+    const uc = new DissolveCoupleUseCase(fakeCoupleRepo);
+    await expect(
+      uc.execute({ coupleId: COUPLE_ID, userId: OUTSIDER }),
+    ).rejects.toThrow(NotCoupleMemberError);
+    expect(coupleStore).toHaveLength(1);
+  });
+});
+
+// ── ListChallengeCatalog ────────────────────────────────────────────────────────
+
+describe('ListChallengeCatalogUseCase', () => {
+  it('devuelve el catálogo completo de retos', () => {
+    const uc = new ListChallengeCatalogUseCase();
+    const catalog = uc.execute();
+    expect(catalog).toEqual(CHALLENGE_CATALOG);
+    expect(catalog.length).toBeGreaterThan(0);
+    expect(catalog[0]).toHaveProperty('key');
+    expect(catalog[0]).toHaveProperty('description');
+  });
+});
+
+// ── DeleteCoupleNote ────────────────────────────────────────────────────────────
+
+describe('DeleteCoupleNoteUseCase', () => {
+  const COUPLE_ID = 'c-1';
+
+  function seedNote(id: string, coupleId: string): CoupleNote {
+    const note = CoupleNote.create({
+      id,
+      coupleId,
+      authorId: USER_A,
+      body: 'Te quiero',
+      now: FIXED_NOW,
+    });
+    noteStore.push(note);
+    return note;
+  }
+
+  it('borra la nota de la pareja', async () => {
+    seedNote('n-1', COUPLE_ID);
+    const uc = new DeleteCoupleNoteUseCase(fakeNoteRepo);
+    await uc.execute({ coupleId: COUPLE_ID, noteId: 'n-1' });
+    expect(noteStore).toHaveLength(0);
+  });
+
+  it('lanza CoupleNoteNotFoundError si la nota no existe', async () => {
+    const uc = new DeleteCoupleNoteUseCase(fakeNoteRepo);
+    await expect(
+      uc.execute({ coupleId: COUPLE_ID, noteId: 'ghost' }),
+    ).rejects.toThrow(CoupleNoteNotFoundError);
+  });
+
+  it('lanza CoupleNoteNotFoundError si la nota es de otra pareja', async () => {
+    seedNote('n-1', 'otra-pareja');
+    const uc = new DeleteCoupleNoteUseCase(fakeNoteRepo);
+    await expect(
+      uc.execute({ coupleId: COUPLE_ID, noteId: 'n-1' }),
+    ).rejects.toThrow(CoupleNoteNotFoundError);
+    expect(noteStore).toHaveLength(1);
   });
 });
 

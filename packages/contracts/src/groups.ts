@@ -88,3 +88,30 @@ export const JoinGroupInputSchema = z.object({
     ),
 });
 export type JoinGroupInput = z.infer<typeof JoinGroupInputSchema>;
+
+/**
+ * Payload para editar una peña (`PATCH /groups/:groupId`, solo OWNER).
+ * Ambos campos son opcionales (actualización parcial), pero debe enviarse al
+ * menos uno. `description` admite cadena vacía para *vaciar* la descripción.
+ */
+export const UpdateGroupInputSchema = z
+  .object({
+    name: z.string().trim().min(1).max(100).optional(),
+    description: z.string().trim().max(500).optional(),
+  })
+  .strict()
+  .refine((data) => data.name !== undefined || data.description !== undefined, {
+    message: 'Debes enviar al menos un campo para actualizar.',
+  });
+export type UpdateGroupInput = z.infer<typeof UpdateGroupInputSchema>;
+
+/**
+ * Payload para cambiar el rol de un miembro
+ * (`PATCH /groups/:groupId/members/:userId`, solo OWNER). Permite ascender un
+ * MEMBER a OWNER o degradar un OWNER a MEMBER, siempre que quede al menos un
+ * OWNER en la peña.
+ */
+export const ChangeGroupMemberRoleInputSchema = z.object({
+  role: GroupRoleSchema,
+});
+export type ChangeGroupMemberRoleInput = z.infer<typeof ChangeGroupMemberRoleInputSchema>;

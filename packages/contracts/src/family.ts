@@ -104,6 +104,33 @@ export const CreateFamilyInputSchema = z.object({
 });
 export type CreateFamilyInput = z.infer<typeof CreateFamilyInputSchema>;
 
+/**
+ * Payload para editar una familia (`PATCH /families/:familyId`, solo OWNER).
+ * Ambos campos son opcionales (actualización parcial), pero debe enviarse al
+ * menos uno. `description` admite cadena vacía para *vaciar* la descripción.
+ */
+export const UpdateFamilyInputSchema = z
+  .object({
+    name: z.string().trim().min(1).max(100).optional(),
+    description: z.string().trim().max(500).optional(),
+  })
+  .strict()
+  .refine((data) => data.name !== undefined || data.description !== undefined, {
+    message: 'Debes enviar al menos un campo para actualizar.',
+  });
+export type UpdateFamilyInput = z.infer<typeof UpdateFamilyInputSchema>;
+
+/**
+ * Payload para cambiar el rol de un miembro
+ * (`PATCH /families/:familyId/members/:userId`, solo OWNER). Permite ascender un
+ * MEMBER a OWNER o degradar un OWNER a MEMBER, siempre que quede al menos un
+ * OWNER en la familia.
+ */
+export const ChangeMemberRoleInputSchema = z.object({
+  role: MembershipRoleSchema,
+});
+export type ChangeMemberRoleInput = z.infer<typeof ChangeMemberRoleInputSchema>;
+
 // ── /auth/me ───────────────────────────────────────────────────────────────
 
 /**

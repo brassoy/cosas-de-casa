@@ -39,6 +39,22 @@ export const CoupleChallengeDtoSchema = z.object({
 });
 export type CoupleChallengeDto = z.infer<typeof CoupleChallengeDtoSchema>;
 
+// ── Catálogo de retos ──────────────────────────────────────────────────────────
+
+/**
+ * Entrada del catálogo de retos disponibles (datos en código en el backend).
+ * El frontend la usa para listar qué retos puede añadir la pareja.
+ */
+export const ChallengeCatalogEntryDtoSchema = z.object({
+  key: z.string().min(1),
+  description: z.string().min(1),
+});
+export type ChallengeCatalogEntryDto = z.infer<typeof ChallengeCatalogEntryDtoSchema>;
+
+/** Catálogo completo de retos disponibles. */
+export const ChallengeCatalogDtoSchema = z.array(ChallengeCatalogEntryDtoSchema);
+export type ChallengeCatalogDto = z.infer<typeof ChallengeCatalogDtoSchema>;
+
 // ── Payloads de entrada ───────────────────────────────────────────────────────
 
 /** Payload para crear una pareja dentro de una familia. */

@@ -385,4 +385,246 @@ describe('Family context – integración', () => {
       expect(found?.role).toBe('MEMBER');
     });
   });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Administración de la familia (auditoría): editar/borrar familia y gestionar
+  // miembros (cambiar rol / expulsar). Solo OWNER. Reusa el helper de unión.
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /** Une a `member` a la familia `familyId` (vía PIN generado por `owner`). */
+  async function joinFamily(
+    ownerToken: string,
+    memberToken: string,
+    familyId: string,
+  ): Promise<void> {
+    const pinRes = await request(server)
+      .post(`/api/v1/families/${familyId}/join-pins`)
+      .set('Authorization', `Bearer ${ownerToken}`);
+    const pinCode = (pinRes.body as { code: string }).code;
+    const joinRes = await request(server)
+      .post('/api/v1/families/join')
+      .set('Authorization', `Bearer ${memberToken}`)
+      .send({ code: pinCode });
+    expect(joinRes.status).toBe(200);
+  }
+
+  describe('PATCH /api/v1/families/:familyId', () => {
+    let owner: TestUser;
+    let member: TestUser;
+    let familyId: string;
+
+    beforeEach(async () => {
+      [owner, member] = await Promise.all([createTestUser(), createTestUser()]);
+      const family = await createFamily(owner.accessToken);
+      familyId = family.id;
+      await joinFamily(owner.accessToken, member.accessToken, familyId);
+    });
+
+    afterAll(async () => {
+      await Promise.all([
+        owner ? deleteTestUser(owner.userId) : Promise.resolve(),
+        member ? deleteTestUser(member.userId) : Promise.resolve(),
+      ]);
+    });
+
+    it('OWNER edita nombre y descripción', async () => {
+      const res = await request(server)
+        .patch(`/api/v1/families/${familyId}`)
+        .set('Authorization', `Bearer ${owner.accessToken}`)
+        .send({ name: 'Los Nuevos', description: 'Otra desc' });
+
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ id: familyId, name: 'Los Nuevos', description: 'Otra desc' });
+    });
+
+    it('MEMBER no puede editar la familia → 403', async () => {
+      const res = await request(server)
+        .patch(`/api/v1/families/${familyId}`)
+        .set('Authorization', `Bearer ${member.accessToken}`)
+        .send({ name: 'Hackeada' });
+
+      expect(res.status).toBe(403);
+    });
+
+    it('body vacío → 400 (debe enviar al menos un campo)', async () => {
+      const res = await request(server)
+        .patch(`/api/v1/families/${familyId}`)
+        .set('Authorization', `Bearer ${owner.accessToken}`)
+        .send({});
+
+      expect(res.status).toBe(400);
+    });
+
+    it('sin token → 401', async () => {
+      const res = await request(server)
+        .patch(`/api/v1/families/${familyId}`)
+        .send({ name: 'X' });
+      expect(res.status).toBe(401);
+    });
+  });
+
+  describe('PATCH /api/v1/families/:familyId/members/:userId', () => {
+    let owner: TestUser;
+    let member: TestUser;
+    let familyId: string;
+
+    beforeEach(async () => {
+      [owner, member] = await Promise.all([createTestUser(), createTestUser()]);
+      const family = await createFamily(owner.accessToken);
+      familyId = family.id;
+      await joinFamily(owner.accessToken, member.accessToken, familyId);
+    });
+
+    afterAll(async () => {
+      await Promise.all([
+        owner ? deleteTestUser(owner.userId) : Promise.resolve(),
+        member ? deleteTestUser(member.userId) : Promise.resolve(),
+      ]);
+    });
+
+    it('OWNER asciende un MEMBER a OWNER → 204 y queda como OWNER', async () => {
+      const res = await request(server)
+        .patch(`/api/v1/families/${familyId}/members/${member.userId}`)
+        .set('Authorization', `Bearer ${owner.accessToken}`)
+        .send({ role: 'OWNER' });
+
+      expect(res.status).toBe(204);
+
+      const membersRes = await request(server)
+        .get(`/api/v1/families/${familyId}/members`)
+        .set('Authorization', `Bearer ${owner.accessToken}`);
+      const entry = (membersRes.body as Array<{ userId: string; role: string }>).find(
+        (m) => m.userId === member.userId,
+      );
+      expect(entry?.role).toBe('OWNER');
+    });
+
+    it('degradar al único OWNER (a sí mismo) → 409 LAST_OWNER', async () => {
+      const res = await request(server)
+        .patch(`/api/v1/families/${familyId}/members/${owner.userId}`)
+        .set('Authorization', `Bearer ${owner.accessToken}`)
+        .send({ role: 'MEMBER' });
+
+      expect(res.status).toBe(409);
+      expect(res.body.error).toBe('LAST_OWNER');
+    });
+
+    it('MEMBER no puede cambiar roles → 403', async () => {
+      const res = await request(server)
+        .patch(`/api/v1/families/${familyId}/members/${owner.userId}`)
+        .set('Authorization', `Bearer ${member.accessToken}`)
+        .send({ role: 'MEMBER' });
+
+      expect(res.status).toBe(403);
+    });
+
+    it('rol inválido → 400', async () => {
+      const res = await request(server)
+        .patch(`/api/v1/families/${familyId}/members/${member.userId}`)
+        .set('Authorization', `Bearer ${owner.accessToken}`)
+        .send({ role: 'KING' });
+
+      expect(res.status).toBe(400);
+    });
+  });
+
+  describe('DELETE /api/v1/families/:familyId/members/:userId', () => {
+    let owner: TestUser;
+    let member: TestUser;
+    let familyId: string;
+
+    beforeEach(async () => {
+      [owner, member] = await Promise.all([createTestUser(), createTestUser()]);
+      const family = await createFamily(owner.accessToken);
+      familyId = family.id;
+      await joinFamily(owner.accessToken, member.accessToken, familyId);
+    });
+
+    afterAll(async () => {
+      await Promise.all([
+        owner ? deleteTestUser(owner.userId) : Promise.resolve(),
+        member ? deleteTestUser(member.userId) : Promise.resolve(),
+      ]);
+    });
+
+    it('OWNER expulsa a un MEMBER → 204 y desaparece de la lista', async () => {
+      const res = await request(server)
+        .delete(`/api/v1/families/${familyId}/members/${member.userId}`)
+        .set('Authorization', `Bearer ${owner.accessToken}`);
+
+      expect(res.status).toBe(204);
+
+      const membersRes = await request(server)
+        .get(`/api/v1/families/${familyId}/members`)
+        .set('Authorization', `Bearer ${owner.accessToken}`);
+      const stillThere = (membersRes.body as Array<{ userId: string }>).some(
+        (m) => m.userId === member.userId,
+      );
+      expect(stillThere).toBe(false);
+    });
+
+    it('OWNER no puede expulsarse a sí mismo → 403 CANNOT_REMOVE_SELF', async () => {
+      const res = await request(server)
+        .delete(`/api/v1/families/${familyId}/members/${owner.userId}`)
+        .set('Authorization', `Bearer ${owner.accessToken}`);
+
+      expect(res.status).toBe(403);
+      expect(res.body.error).toBe('CANNOT_REMOVE_SELF');
+    });
+
+    it('MEMBER no puede expulsar a nadie → 403', async () => {
+      const res = await request(server)
+        .delete(`/api/v1/families/${familyId}/members/${owner.userId}`)
+        .set('Authorization', `Bearer ${member.accessToken}`);
+
+      expect(res.status).toBe(403);
+    });
+  });
+
+  describe('DELETE /api/v1/families/:familyId', () => {
+    let owner: TestUser;
+    let member: TestUser;
+    let familyId: string;
+
+    beforeEach(async () => {
+      [owner, member] = await Promise.all([createTestUser(), createTestUser()]);
+      const family = await createFamily(owner.accessToken);
+      familyId = family.id;
+      await joinFamily(owner.accessToken, member.accessToken, familyId);
+    });
+
+    afterAll(async () => {
+      await Promise.all([
+        owner ? deleteTestUser(owner.userId) : Promise.resolve(),
+        member ? deleteTestUser(member.userId) : Promise.resolve(),
+      ]);
+    });
+
+    it('MEMBER no puede borrar la familia → 403', async () => {
+      const res = await request(server)
+        .delete(`/api/v1/families/${familyId}`)
+        .set('Authorization', `Bearer ${member.accessToken}`);
+
+      expect(res.status).toBe(403);
+    });
+
+    it('OWNER borra la familia → 204 y deja de listarse', async () => {
+      const res = await request(server)
+        .delete(`/api/v1/families/${familyId}`)
+        .set('Authorization', `Bearer ${owner.accessToken}`);
+
+      expect(res.status).toBe(204);
+
+      const listRes = await request(server)
+        .get('/api/v1/families')
+        .set('Authorization', `Bearer ${owner.accessToken}`);
+      const found = (listRes.body as Array<{ id: string }>).find((f) => f.id === familyId);
+      expect(found).toBeUndefined();
+    });
+
+    it('sin token → 401', async () => {
+      const res = await request(server).delete(`/api/v1/families/${familyId}`);
+      expect(res.status).toBe(401);
+    });
+  });
 });

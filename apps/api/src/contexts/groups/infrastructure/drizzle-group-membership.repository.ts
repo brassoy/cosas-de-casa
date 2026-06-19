@@ -28,6 +28,13 @@ export class DrizzleGroupMembershipRepository implements GroupMembershipReposito
     await this.db.delete(groupMemberships).where(eq(groupMemberships.id, membershipId));
   }
 
+  async updateRole(membershipId: string, role: GroupMembership['role']): Promise<void> {
+    await this.db
+      .update(groupMemberships)
+      .set({ role })
+      .where(eq(groupMemberships.id, membershipId));
+  }
+
   async listByGroup(groupId: string): Promise<GroupMembership[]> {
     const rows = await this.db
       .select()

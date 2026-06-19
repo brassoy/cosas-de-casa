@@ -36,4 +36,13 @@ export class GroupMembership {
   get isOwner(): boolean {
     return this._role === GroupRole.OWNER;
   }
+
+  /**
+   * Cambia el rol de la membership. La invariante "al menos un OWNER" la decide
+   * el aggregate {@link Group}, que conoce el conjunto; esta entidad solo aplica
+   * el cambio sobre sí misma.
+   */
+  changeRole(role: GroupRole): void {
+    this._role = role;
+  }
 }

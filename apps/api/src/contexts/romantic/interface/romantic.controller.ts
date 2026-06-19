@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -18,7 +19,12 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
-import type { CoupleDto, CoupleNoteDto, CoupleChallengeDto } from '@cosasdecasa/contracts';
+import type {
+  CoupleDto,
+  CoupleNoteDto,
+  CoupleChallengeDto,
+  ChallengeCatalogDto,
+} from '@cosasdecasa/contracts';
 import type { AuthenticatedUser } from '../../identity-access/domain/authenticated-user';
 import { CurrentUser } from '../../identity-access/interface/current-user.decorator';
 import { JwtAuthGuard } from '../../identity-access/interface/jwt-auth.guard';
@@ -26,10 +32,13 @@ import { FamilyScopeGuard } from '../../family/interface/family-scope.guard';
 
 import { CreateCoupleUseCase } from '../application/create-couple.use-case';
 import { GetMyCoupleUseCase } from '../application/get-my-couple.use-case';
+import { DissolveCoupleUseCase } from '../application/dissolve-couple.use-case';
 import { CreateCoupleNoteUseCase } from '../application/create-couple-note.use-case';
 import { ListCoupleNotesUseCase } from '../application/list-couple-notes.use-case';
+import { DeleteCoupleNoteUseCase } from '../application/delete-couple-note.use-case';
 import { AddChallengeUseCase } from '../application/add-challenge.use-case';
 import { ListChallengesUseCase } from '../application/list-challenges.use-case';
+import { ListChallengeCatalogUseCase } from '../application/list-challenge-catalog.use-case';
 import { MarkChallengeDoneUseCase } from '../application/mark-challenge-done.use-case';
 import { DoMischiefUseCase } from '../application/do-mischief.use-case';
 
@@ -56,13 +65,25 @@ export class RomanticController {
   constructor(
     private readonly createCouple: CreateCoupleUseCase,
     private readonly getMyCouple: GetMyCoupleUseCase,
+    private readonly dissolveCouple: DissolveCoupleUseCase,
     private readonly createNote: CreateCoupleNoteUseCase,
     private readonly listNotes: ListCoupleNotesUseCase,
+    private readonly deleteNote: DeleteCoupleNoteUseCase,
     private readonly addChallenge: AddChallengeUseCase,
     private readonly listChallenges: ListChallengesUseCase,
+    private readonly listChallengeCatalog: ListChallengeCatalogUseCase,
     private readonly markDone: MarkChallengeDoneUseCase,
     private readonly doMischief: DoMischiefUseCase,
   ) {}
+
+  // ── Catálogo de retos (estático, sin pareja) ──────────────────────────────
+
+  @Get('couples/challenge-catalog')
+  @ApiOperation({ summary: 'Listar el catálogo de retos disponibles para añadir.' })
+  @ApiOkResponse({ description: 'Catálogo de retos (key + descripción).' })
+  getChallengeCatalogHandler(): ChallengeCatalogDto {
+    return this.listChallengeCatalog.execute().map(RomanticPresenter.toCatalogEntryDto);
+  }
 
   // ── Rutas de familia ──────────────────────────────────────────────────────
 
@@ -97,6 +118,18 @@ export class RomanticController {
 
   // ── Rutas de pareja (CoupleScopeGuard) ────────────────────────────────────
 
+  @Delete('couples/:coupleId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(CoupleScopeGuard)
+  @ApiOperation({ summary: 'Disolver la pareja (solo sus miembros). Borra notas y retos.' })
+  @ApiNoContentResponse({ description: 'Pareja disuelta.' })
+  async dissolveCoupleHandler(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('coupleId', ParseUUIDPipe) coupleId: string,
+  ): Promise<void> {
+    await this.dissolveCouple.execute({ coupleId, userId: user.id });
+  }
+
   @Post('couples/:coupleId/notes')
   @UseGuards(CoupleScopeGuard)
   @ApiOperation({ summary: 'Añadir una nota de pareja.' })
@@ -123,6 +156,18 @@ export class RomanticController {
   ): Promise<CoupleNoteDto[]> {
     const notes = await this.listNotes.execute({ coupleId });
     return notes.map(RomanticPresenter.toNoteDto);
+  }
+
+  @Delete('couples/:coupleId/notes/:noteId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(CoupleScopeGuard)
+  @ApiOperation({ summary: 'Borrar una nota de la pareja.' })
+  @ApiNoContentResponse({ description: 'Nota borrada.' })
+  async deleteNoteHandler(
+    @Param('coupleId', ParseUUIDPipe) coupleId: string,
+    @Param('noteId', ParseUUIDPipe) noteId: string,
+  ): Promise<void> {
+    await this.deleteNote.execute({ coupleId, noteId });
   }
 
   @Post('couples/:coupleId/challenges')

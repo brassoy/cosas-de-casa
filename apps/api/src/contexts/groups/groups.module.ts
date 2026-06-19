@@ -30,6 +30,10 @@ import { JoinGroupByPinUseCase } from './application/join-group-by-pin.use-case'
 import { ListGroupMembersUseCase } from './application/list-group-members.use-case';
 import { LeaveGroupUseCase } from './application/leave-group.use-case';
 import { RevokeActiveGroupPinUseCase } from './application/revoke-active-group-pin.use-case';
+import { UpdateGroupUseCase } from './application/update-group.use-case';
+import { DeleteGroupUseCase } from './application/delete-group.use-case';
+import { ExpelGroupMemberUseCase } from './application/expel-group-member.use-case';
+import { ChangeGroupMemberRoleUseCase } from './application/change-group-member-role.use-case';
 
 // ── Infrastructure ──────────────────────────────────────────────────────────
 import { DrizzleGroupRepository } from './infrastructure/drizzle-group.repository';
@@ -90,6 +94,10 @@ import { RateLimitGuard } from '../../common/rate-limit.guard';
     ListGroupMembersUseCase,
     LeaveGroupUseCase,
     RevokeActiveGroupPinUseCase,
+    UpdateGroupUseCase,
+    DeleteGroupUseCase,
+    ExpelGroupMemberUseCase,
+    ChangeGroupMemberRoleUseCase,
   ],
   exports: [GROUP_REPOSITORY, GroupScopeGuard],
 })

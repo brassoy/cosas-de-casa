@@ -17,4 +17,16 @@ export interface GroupRepository {
 
   /** Peñas a las que pertenece el usuario, con sus memberships cargadas. */
   findByMember(userId: string): Promise<Group[]>;
+
+  /**
+   * Persiste los campos editables de la peña (nombre, descripción,
+   * `updatedAt`). No toca las memberships.
+   */
+  update(group: Group): Promise<void>;
+
+  /**
+   * Borra la peña por id. La BD elimina en cascada sus memberships, PINs,
+   * etc. (FKs `ON DELETE CASCADE`).
+   */
+  delete(groupId: string): Promise<void>;
 }

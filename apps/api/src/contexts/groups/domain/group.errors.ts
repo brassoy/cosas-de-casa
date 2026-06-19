@@ -61,3 +61,14 @@ export class InvalidGroupJoinPinError extends GroupDomainError {
     super('El código no es válido o ha caducado.');
   }
 }
+
+/**
+ * El propietario intenta expulsarse a sí mismo desde la ruta de administración
+ * de miembros. Para salir de la peña debe usar `DELETE /members/me`.
+ */
+export class CannotRemoveGroupSelfError extends GroupDomainError {
+  readonly code = 'CANNOT_REMOVE_GROUP_SELF';
+  constructor() {
+    super('No puedes expulsarte a ti mismo desde aquí. Usa "salir de la peña".');
+  }
+}
