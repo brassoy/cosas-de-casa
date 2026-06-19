@@ -6,6 +6,13 @@ if (!Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = function () {};
 }
 
+// jsdom tampoco implementa `Element.prototype.scrollTo`. El ItemSheet de shopping
+// lo usa para auto-scrollear el hilo de comentarios al final; lo polirrellenamos
+// con un no-op para que los tests no lancen errores al montar.
+if (!Element.prototype.scrollTo) {
+  Element.prototype.scrollTo = function () {};
+}
+
 // jsdom no implementa `ResizeObserver`. Algunas primitivas de Radix (Checkbox,
 // Switch, etc., vía `@radix-ui/react-use-size`) lo usan al montar para medir el
 // indicador, así que lo polirrellenamos con un stub no-op para los tests.
