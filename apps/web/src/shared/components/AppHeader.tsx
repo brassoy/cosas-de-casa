@@ -3,6 +3,7 @@ import { useAuthStore } from '@/features/auth/store/auth.store';
 import { useFamilyStore } from '@/features/family/store/family.store';
 import { ThemeSelector } from './ThemeSelector';
 import { NavDrawer } from './NavDrawer';
+import { APP_MAX_WIDTH } from '@/shared/layout';
 
 export function AppHeader() {
   const session = useAuthStore((s) => s.session);
@@ -31,20 +32,29 @@ export function AppHeader() {
   return (
     <header
       style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: 'var(--space-2)',
-        // Padding lateral contenido para que en móvil (≈360-390px) entren marca
-        // + acciones sin que el texto salte de línea.
-        padding: 'var(--space-3) var(--space-4)',
+        // Barra full-width (de borde a borde) con fondo blanco.
         borderBottom: '1px solid var(--color-border)',
-        backgroundColor: 'var(--color-surface)',
+        backgroundColor: '#ffffff',
       }}
     >
-      {/* minWidth:0 permite que este grupo (la marca) se encoja y la marca se
-          recorte con elipsis antes de forzar un salto de línea o un overflow. */}
-      <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', minWidth: 0 }}>
+      {/* Contenido centrado a APP_MAX_WIDTH: la barra es full-width pero la marca
+          y las acciones no se pegan a los extremos en pantallas anchas. */}
+      <div
+        style={{
+          maxWidth: APP_MAX_WIDTH,
+          marginInline: 'auto',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 'var(--space-2)',
+          // Padding lateral contenido para que en móvil (≈360-390px) entren marca
+          // + acciones sin que el texto salte de línea.
+          padding: 'var(--space-3) var(--space-4)',
+        }}
+      >
+        {/* minWidth:0 permite que este grupo (la marca) se encoja y la marca se
+            recorte con elipsis antes de forzar un salto de línea o un overflow. */}
+        <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', minWidth: 0 }}>
         {/* El drawer se renderiza a sí mismo solo si hay sesión + familia activa. */}
         <NavDrawer />
 
@@ -86,6 +96,7 @@ export function AppHeader() {
             Salir
           </button>
         )}
+        </div>
       </div>
     </header>
   );

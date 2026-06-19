@@ -1,4 +1,5 @@
 import { useNavigate, useRouterState } from '@tanstack/react-router';
+import { APP_MAX_WIDTH } from '@/shared/layout';
 
 /**
  * Barra de navegación inferior (solo móvil).
@@ -56,6 +57,7 @@ export function BottomNav({ familyId }: { familyId: string }) {
 
   return (
     <nav aria-label="Navegación rápida" style={styles.bar}>
+      <div style={styles.inner}>
       {items.map((item) => {
         const active = isActive(item);
         return (
@@ -74,29 +76,33 @@ export function BottomNav({ familyId }: { familyId: string }) {
           </button>
         );
       })}
+      </div>
     </nav>
   );
 }
 
 const styles: Record<string, React.CSSProperties> = {
   bar: {
+    // Barra full-width (de borde a borde) con fondo blanco.
     position: 'fixed',
-    // Centrada y constreñida al ancho de la columna app (no a todo el viewport),
-    // para que en desktop quede bajo la columna y no de borde a borde.
-    left: '50%',
-    transform: 'translateX(-50%)',
-    width: '100%',
-    maxWidth: '42rem',
+    left: 0,
+    right: 0,
     bottom: 0,
     zIndex: 100,
-    display: 'flex',
-    justifyContent: 'space-around',
-    alignItems: 'stretch',
-    backgroundColor: 'var(--color-surface)',
+    backgroundColor: '#ffffff',
     borderTop: '1px solid var(--color-border)',
     boxShadow: 'var(--shadow-lg, 0 -2px 10px rgba(0, 0, 0, 0.08))',
     // Respeta el "notch" inferior de iOS.
     paddingBottom: 'env(safe-area-inset-bottom)',
+  },
+  inner: {
+    // Iconos centrados a APP_MAX_WIDTH: no se pegan a los extremos en desktop.
+    maxWidth: APP_MAX_WIDTH,
+    marginInline: 'auto',
+    width: '100%',
+    display: 'flex',
+    justifyContent: 'space-around',
+    alignItems: 'stretch',
   },
   item: {
     flex: 1,
