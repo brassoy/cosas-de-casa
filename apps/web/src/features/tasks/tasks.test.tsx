@@ -308,4 +308,63 @@ describe('TaskDetailView', () => {
     await user.click(screen.getByRole('button', { name: /generar lista de la compra/i }));
     expect(onGenerateShoppingList).toHaveBeenCalled();
   });
+
+  it('emite onDeleteTask al pulsar "Borrar tarea"', async () => {
+    const user = userEvent.setup();
+    const onDeleteTask = vi.fn();
+    render(<TaskDetailView {...detailProps({ onDeleteTask })} />);
+    await user.click(screen.getByRole('button', { name: /borrar tarea/i }));
+    expect(onDeleteTask).toHaveBeenCalled();
+  });
+
+  it('no muestra "Borrar tarea" cuando no se pasa onDeleteTask', () => {
+    render(<TaskDetailView {...detailProps()} />);
+    expect(screen.queryByRole('button', { name: /borrar tarea/i })).not.toBeInTheDocument();
+  });
+
+  it('emite onDeletePhoto con el id de la foto al pulsar su botón de borrar', async () => {
+    const user = userEvent.setup();
+    const onDeletePhoto = vi.fn();
+    render(
+      <TaskDetailView
+        {...detailProps({
+          onDeletePhoto,
+          task: makeTaskView({
+            photos: [
+              {
+                id: 'photo-1',
+                taskId: 'task-1',
+                storagePath: 'tasks/task-1/a.jpg',
+                createdAt: new Date().toISOString(),
+                url: 'https://storage.example.com/a.jpg',
+              },
+            ],
+          }),
+        })}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: /borrar foto/i }));
+    expect(onDeletePhoto).toHaveBeenCalledWith('photo-1');
+  });
+
+  it('no muestra el botón de borrar foto cuando no se pasa onDeletePhoto', () => {
+    render(
+      <TaskDetailView
+        {...detailProps({
+          task: makeTaskView({
+            photos: [
+              {
+                id: 'photo-1',
+                taskId: 'task-1',
+                storagePath: 'tasks/task-1/a.jpg',
+                createdAt: new Date().toISOString(),
+                url: 'https://storage.example.com/a.jpg',
+              },
+            ],
+          }),
+        })}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: /borrar foto/i })).not.toBeInTheDocument();
+  });
 });

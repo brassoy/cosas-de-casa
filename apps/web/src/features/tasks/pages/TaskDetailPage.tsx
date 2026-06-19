@@ -28,6 +28,8 @@ import {
   useUpdateTask,
   useUpdateTaskAssignees,
   useUploadTaskPhoto,
+  useDeleteTask,
+  useDeleteTaskPhoto,
   useGenerateShoppingList,
   getPhotoPublicUrl,
 } from '../hooks/useTasks';
@@ -45,11 +47,14 @@ export function TaskDetailPage() {
   const updateTask = useUpdateTask(taskId, familyId);
   const updateAssignees = useUpdateTaskAssignees(taskId, familyId);
   const uploadPhoto = useUploadTaskPhoto(taskId, familyId);
+  const deleteTask = useDeleteTask(familyId);
+  const deletePhoto = useDeleteTaskPhoto(taskId, familyId);
   const generateList = useGenerateShoppingList(taskId);
 
   const [editMode, setEditMode] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [generateError, setGenerateError] = useState<string | null>(null);
 
   // Enriquece las fotos con su URL pública resuelta desde Supabase Storage.
@@ -90,6 +95,9 @@ export function TaskDetailPage() {
     uploadError,
     isGeneratingList: generateList.isPending,
     generateError,
+    isDeleting: deleteTask.isPending,
+    deleteError,
+    isDeletingPhoto: deletePhoto.isPending,
     onBack: () =>
       void navigate({ to: '/family/$familyId/tasks', params: { familyId } }),
     onToggleEdit: () => {
@@ -137,6 +145,38 @@ export function TaskDetailPage() {
       setUploadError(null);
       uploadPhoto.mutate(file, {
         onError: (err) => setUploadError(err.message ?? 'Error al subir la foto.'),
+      });
+    },
+    onDeletePhoto: (photoId) => {
+      // Confirmación bloqueante: no hay un AlertDialog compartido en el repo
+      // (mismo patrón que el borrado de listas en shopping).
+      if (!window.confirm('¿Seguro que quieres borrar esta foto?')) return;
+      setUploadError(null);
+      deletePhoto.mutate(photoId, {
+        onError: (err) => {
+          const msg =
+            err instanceof ApiRequestError
+              ? err.body.message
+              : 'No se ha podido borrar la foto.';
+          setUploadError(msg);
+        },
+      });
+    },
+    onDeleteTask: () => {
+      if (!window.confirm('¿Seguro que quieres borrar esta tarea? Esta acción no se puede deshacer.')) {
+        return;
+      }
+      setDeleteError(null);
+      deleteTask.mutate(taskId, {
+        onSuccess: () =>
+          void navigate({ to: '/family/$familyId/tasks', params: { familyId } }),
+        onError: (err) => {
+          const msg =
+            err instanceof ApiRequestError
+              ? err.body.message
+              : 'No se ha podido borrar la tarea.';
+          setDeleteError(msg);
+        },
       });
     },
     onGenerateShoppingList: () => {

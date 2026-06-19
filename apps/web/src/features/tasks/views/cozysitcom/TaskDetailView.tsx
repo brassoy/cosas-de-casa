@@ -22,7 +22,7 @@
  */
 
 import { useRef, useState } from 'react';
-import { ImagePlus, ListPlus, Loader2 } from 'lucide-react';
+import { ImagePlus, ListPlus, Loader2, Trash2, X } from 'lucide-react';
 import { Checkbox } from '@/shared/ui/checkbox';
 import { ScreenState } from '@/shared/components/ScreenState';
 import { cn } from '@/shared/lib/cn';
@@ -59,12 +59,17 @@ export default function TaskDetailView(props: TaskDetailViewProps) {
     uploadError,
     isGeneratingList,
     generateError,
+    isDeleting,
+    deleteError,
+    isDeletingPhoto,
     onBack,
     onToggleEdit,
     onSave,
     onSetAssignees,
     onSetStatus,
     onUploadPhoto,
+    onDeletePhoto,
+    onDeleteTask,
     onGenerateShoppingList,
   } = props;
 
@@ -175,7 +180,9 @@ export default function TaskDetailView(props: TaskDetailViewProps) {
           photos={task.photos}
           uploadingPhoto={uploadingPhoto}
           uploadError={uploadError}
+          isDeletingPhoto={isDeletingPhoto}
           onUploadPhoto={onUploadPhoto}
+          onDeletePhoto={onDeletePhoto}
         />
 
         {/* Generar lista de la compra */}
@@ -195,6 +202,23 @@ export default function TaskDetailView(props: TaskDetailViewProps) {
           </button>
           {generateError && <ErrorNote message={generateError} />}
         </section>
+
+        {/* Zona peligrosa: borrar tarea. */}
+        {onDeleteTask && (
+          <section className="cz-frame !border-error space-y-2">
+            <p className="cz-serif text-lg text-error">Zona peligrosa</p>
+            <button
+              type="button"
+              className="cz-btn-ghost !border-error !text-error w-full flex items-center justify-center gap-1.5 disabled:opacity-50"
+              onClick={onDeleteTask}
+              disabled={isDeleting}
+            >
+              <Trash2 className="h-4 w-4" />
+              {isDeleting ? 'Borrando…' : 'Borrar tarea'}
+            </button>
+            {deleteError && <ErrorNote message={deleteError} />}
+          </section>
+        )}
       </div>
     </ScreenState>
   );
@@ -351,10 +375,19 @@ interface PhotoGalleryProps {
   photos: TaskPhotoView[];
   uploadingPhoto?: boolean;
   uploadError?: string | null;
+  isDeletingPhoto?: boolean;
   onUploadPhoto: (file: File) => void;
+  onDeletePhoto?: (photoId: string) => void;
 }
 
-function PhotoGallery({ photos, uploadingPhoto, uploadError, onUploadPhoto }: PhotoGalleryProps) {
+function PhotoGallery({
+  photos,
+  uploadingPhoto,
+  uploadError,
+  isDeletingPhoto,
+  onUploadPhoto,
+  onDeletePhoto,
+}: PhotoGalleryProps) {
   return (
     <section className="cz-frame space-y-2">
       <p className="cz-serif text-lg">Fotos</p>
@@ -363,21 +396,33 @@ function PhotoGallery({ photos, uploadingPhoto, uploadError, onUploadPhoto }: Ph
 
       <div className="grid grid-cols-3 gap-2">
         {photos.map((photo) => (
-          <a
-            key={photo.id}
-            href={photo.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="aspect-square rounded-md overflow-hidden bg-surface border border-border block"
-            aria-label="Ver foto de la tarea"
-          >
-            <img
-              src={photo.url}
-              alt="Foto de la tarea"
-              className="h-full w-full object-cover"
-              loading="lazy"
-            />
-          </a>
+          <div key={photo.id} className="relative">
+            <a
+              href={photo.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="aspect-square rounded-md overflow-hidden bg-surface border border-border block"
+              aria-label="Ver foto de la tarea"
+            >
+              <img
+                src={photo.url}
+                alt="Foto de la tarea"
+                className="h-full w-full object-cover"
+                loading="lazy"
+              />
+            </a>
+            {onDeletePhoto && (
+              <button
+                type="button"
+                onClick={() => onDeletePhoto(photo.id)}
+                disabled={isDeletingPhoto}
+                aria-label="Borrar foto"
+                className="absolute right-1 top-1 grid h-7 w-7 place-items-center rounded-full bg-surface/90 text-error border border-error shadow-sm cursor-pointer disabled:opacity-50"
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </button>
+            )}
+          </div>
         ))}
         <label className="aspect-square rounded-md border-2 border-dashed border-accent grid place-items-center cursor-pointer hover:bg-surface text-accent transition-colors">
           {uploadingPhoto ? (

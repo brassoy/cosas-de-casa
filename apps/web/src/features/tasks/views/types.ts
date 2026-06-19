@@ -150,6 +150,23 @@ export interface TaskDetailViewProps {
   onUploadPhoto: (file: File) => void;
   /** Genera una lista de la compra a partir de la tarea (navega el container). */
   onGenerateShoppingList: () => void;
+  /**
+   * Borra la tarea (con confirmación en el container). Opcional para no romper
+   * consumidores/tests existentes; si no se pasa, la vista oculta la acción.
+   */
+  onDeleteTask?: () => void;
+  /** El borrado de la tarea está en curso. */
+  isDeleting?: boolean;
+  /** Error al borrar la tarea. */
+  deleteError?: string | null;
+  /**
+   * Borra una foto de la tarea por id (con confirmación en el container).
+   * Opcional para no romper consumidores/tests existentes; si no se pasa, la
+   * galería no muestra el botón de borrar foto.
+   */
+  onDeletePhoto?: (photoId: string) => void;
+  /** El borrado de alguna foto está en curso. */
+  isDeletingPhoto?: boolean;
 }
 
 export type { TaskDto, TaskStatus, TaskPhotoDto, FamilyMemberDto };

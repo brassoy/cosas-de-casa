@@ -8,6 +8,8 @@
  *   PATCH /tasks/:taskId                    → TaskDto
  *   PATCH /tasks/:taskId/assignees          → TaskDto  (body: AssigneesInput)
  *   POST /tasks/:taskId/photos              → 201 TaskDto  (photos[] actualizado)
+ *   DELETE /tasks/:taskId                   → 204 No Content
+ *   DELETE /tasks/:taskId/photos/:photoId   → 204 No Content
  *   POST /tasks/:taskId/generate-list       → 201 ShoppingListSummaryDto
  */
 
@@ -80,6 +82,42 @@ export function useUpdateTaskAssignees(taskId: string, familyId: string) {
     mutationFn: (input) => api.patch<TaskDto>(`/tasks/${taskId}/assignees`, input),
     onSuccess: (updated) => {
       qc.setQueryData<TaskDto>(taskKeys.detail(taskId), updated);
+      void qc.invalidateQueries({ queryKey: taskKeys.byFamily(familyId) });
+    },
+  });
+}
+
+/**
+ * DELETE /tasks/:taskId → 204 No Content
+ * El backend no devuelve cuerpo; quitamos la tarea del cache de detalle y
+ * refrescamos el listado de la familia. El container navega de vuelta al listado
+ * tras el éxito.
+ */
+export function useDeleteTask(familyId: string) {
+  const qc = useQueryClient();
+  return useMutation<void, ApiRequestError, string>({
+    mutationFn: (taskId) => api.delete<void>(`/tasks/${taskId}`),
+    onSuccess: (_void, taskId) => {
+      qc.removeQueries({ queryKey: taskKeys.detail(taskId) });
+      void qc.invalidateQueries({ queryKey: taskKeys.byFamily(familyId) });
+    },
+  });
+}
+
+/**
+ * DELETE /tasks/:taskId/photos/:photoId → 204 No Content
+ * Como el backend no devuelve la tarea, actualizamos el cache de detalle
+ * optimistamente filtrando la foto borrada y refrescamos el listado de la
+ * familia (por si el listado muestra contadores/miniaturas).
+ */
+export function useDeleteTaskPhoto(taskId: string, familyId: string) {
+  const qc = useQueryClient();
+  return useMutation<void, ApiRequestError, string>({
+    mutationFn: (photoId) => api.delete<void>(`/tasks/${taskId}/photos/${photoId}`),
+    onSuccess: (_void, photoId) => {
+      qc.setQueryData<TaskDto>(taskKeys.detail(taskId), (prev) =>
+        prev ? { ...prev, photos: prev.photos.filter((p) => p.id !== photoId) } : prev,
+      );
       void qc.invalidateQueries({ queryKey: taskKeys.byFamily(familyId) });
     },
   });

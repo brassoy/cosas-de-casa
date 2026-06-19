@@ -23,7 +23,7 @@
  */
 
 import { useRef, useState } from 'react';
-import { ImagePlus, ListPlus, Loader2 } from 'lucide-react';
+import { ImagePlus, ListPlus, Loader2, Trash2, X } from 'lucide-react';
 import { Checkbox } from '@/shared/ui/checkbox';
 import { ScreenState } from '@/shared/components/ScreenState';
 import { cn } from '@/shared/lib/cn';
@@ -60,12 +60,17 @@ export default function TaskDetailView(props: TaskDetailViewProps) {
     uploadError,
     isGeneratingList,
     generateError,
+    isDeleting,
+    deleteError,
+    isDeletingPhoto,
     onBack,
     onToggleEdit,
     onSave,
     onSetAssignees,
     onSetStatus,
     onUploadPhoto,
+    onDeletePhoto,
+    onDeleteTask,
     onGenerateShoppingList,
   } = props;
 
@@ -174,7 +179,9 @@ export default function TaskDetailView(props: TaskDetailViewProps) {
           photos={task.photos}
           uploadingPhoto={uploadingPhoto}
           uploadError={uploadError}
+          isDeletingPhoto={isDeletingPhoto}
           onUploadPhoto={onUploadPhoto}
+          onDeletePhoto={onDeletePhoto}
         />
 
         {/* Generar lista de la compra */}
@@ -194,6 +201,23 @@ export default function TaskDetailView(props: TaskDetailViewProps) {
           </button>
           {generateError && <ErrorNote message={generateError} />}
         </section>
+
+        {/* Zona peligrosa: borrar tarea (viñeta roja). */}
+        {onDeleteTask && (
+          <section className="sf-card p-4 space-y-2">
+            <p className="sf-bangers text-xl text-error">¡Cuidado!</p>
+            <button
+              type="button"
+              className="sf-btn sf-btn-r w-full flex items-center justify-center gap-1.5 disabled:opacity-50"
+              onClick={onDeleteTask}
+              disabled={isDeleting}
+            >
+              <Trash2 className="h-4 w-4" />
+              {isDeleting ? 'Borrando…' : 'Borrar tarea'}
+            </button>
+            {deleteError && <ErrorNote message={deleteError} />}
+          </section>
+        )}
       </div>
     </ScreenState>
   );
@@ -367,10 +391,19 @@ interface PhotoGalleryProps {
   photos: TaskPhotoView[];
   uploadingPhoto?: boolean;
   uploadError?: string | null;
+  isDeletingPhoto?: boolean;
   onUploadPhoto: (file: File) => void;
+  onDeletePhoto?: (photoId: string) => void;
 }
 
-function PhotoGallery({ photos, uploadingPhoto, uploadError, onUploadPhoto }: PhotoGalleryProps) {
+function PhotoGallery({
+  photos,
+  uploadingPhoto,
+  uploadError,
+  isDeletingPhoto,
+  onUploadPhoto,
+  onDeletePhoto,
+}: PhotoGalleryProps) {
   return (
     <section className="sf-card p-4 space-y-2">
       <p className="sf-bangers text-xl">Fotos</p>
@@ -379,21 +412,33 @@ function PhotoGallery({ photos, uploadingPhoto, uploadError, onUploadPhoto }: Ph
 
       <div className="grid grid-cols-3 gap-2">
         {photos.map((photo) => (
-          <a
-            key={photo.id}
-            href={photo.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="sf-card !p-0 aspect-square overflow-hidden block"
-            aria-label="Ver foto de la tarea"
-          >
-            <img
-              src={photo.url}
-              alt="Foto de la tarea"
-              className="h-full w-full object-cover"
-              loading="lazy"
-            />
-          </a>
+          <div key={photo.id} className="relative">
+            <a
+              href={photo.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="sf-card !p-0 aspect-square overflow-hidden block"
+              aria-label="Ver foto de la tarea"
+            >
+              <img
+                src={photo.url}
+                alt="Foto de la tarea"
+                className="h-full w-full object-cover"
+                loading="lazy"
+              />
+            </a>
+            {onDeletePhoto && (
+              <button
+                type="button"
+                onClick={() => onDeletePhoto(photo.id)}
+                disabled={isDeletingPhoto}
+                aria-label="Borrar foto"
+                className="absolute -right-1.5 -top-1.5 grid h-7 w-7 place-items-center rounded-full bg-error text-text-inverse border-2 border-text shadow-[2px_2px_0_var(--color-text)] cursor-pointer disabled:opacity-50"
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </button>
+            )}
+          </div>
         ))}
         <label className="sf-card !shadow-none aspect-square border-dashed grid place-items-center cursor-pointer hover:bg-accent-subtle transition-colors">
           {uploadingPhoto ? (

@@ -25,7 +25,7 @@
  */
 
 import { useRef, useState } from 'react';
-import { ImagePlus, ListPlus, Loader2 } from 'lucide-react';
+import { ImagePlus, ListPlus, Loader2, Trash2, X } from 'lucide-react';
 import { Checkbox } from '@/shared/ui/checkbox';
 import { ScreenState } from '@/shared/components/ScreenState';
 import { cn } from '@/shared/lib/cn';
@@ -73,12 +73,17 @@ export default function TaskDetailView(props: TaskDetailViewProps) {
     uploadError,
     isGeneratingList,
     generateError,
+    isDeleting,
+    deleteError,
+    isDeletingPhoto,
     onBack,
     onToggleEdit,
     onSave,
     onSetAssignees,
     onSetStatus,
     onUploadPhoto,
+    onDeletePhoto,
+    onDeleteTask,
     onGenerateShoppingList,
   } = props;
 
@@ -188,7 +193,9 @@ export default function TaskDetailView(props: TaskDetailViewProps) {
           photos={task.photos}
           uploadingPhoto={uploadingPhoto}
           uploadError={uploadError}
+          isDeletingPhoto={isDeletingPhoto}
           onUploadPhoto={onUploadPhoto}
+          onDeletePhoto={onDeletePhoto}
         />
 
         {/* Generar lista de la compra. */}
@@ -208,6 +215,23 @@ export default function TaskDetailView(props: TaskDetailViewProps) {
           </button>
           {generateError && <ErrorNote message={generateError} />}
         </section>
+
+        {/* Zona peligrosa: tachar la entrada del diario. */}
+        {onDeleteTask && (
+          <section className="space-y-2 border-t border-dashed border-[#d9c79a] pt-4">
+            <p className="ck-marker text-2xl text-destructive">tachar tarea</p>
+            <button
+              type="button"
+              className="ck-btn ck-btn-red w-full inline-flex items-center justify-center gap-1.5 disabled:opacity-50"
+              onClick={onDeleteTask}
+              disabled={isDeleting}
+            >
+              <Trash2 className="h-4 w-4" />
+              {isDeleting ? 'borrando…' : 'borrar tarea'}
+            </button>
+            {deleteError && <ErrorNote message={deleteError} />}
+          </section>
+        )}
       </div>
     </ScreenState>
   );
@@ -365,10 +389,19 @@ interface PhotoGalleryProps {
   photos: TaskPhotoView[];
   uploadingPhoto?: boolean;
   uploadError?: string | null;
+  isDeletingPhoto?: boolean;
   onUploadPhoto: (file: File) => void;
+  onDeletePhoto?: (photoId: string) => void;
 }
 
-function PhotoGallery({ photos, uploadingPhoto, uploadError, onUploadPhoto }: PhotoGalleryProps) {
+function PhotoGallery({
+  photos,
+  uploadingPhoto,
+  uploadError,
+  isDeletingPhoto,
+  onUploadPhoto,
+  onDeletePhoto,
+}: PhotoGalleryProps) {
   return (
     <section className="space-y-2 border-t border-dashed border-[#d9c79a] pt-4">
       <p className="ck-marker text-2xl text-primary">fotos pegadas</p>
@@ -377,23 +410,38 @@ function PhotoGallery({ photos, uploadingPhoto, uploadError, onUploadPhoto }: Ph
 
       <div className="grid grid-cols-2 gap-3 overflow-x-clip">
         {photos.map((photo, i) => (
-          <a
+          <div
             key={photo.id}
-            href={photo.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="ck-card !p-2 block"
+            className="relative"
             style={{ transform: `rotate(${i % 2 ? 2 : -2}deg)` }}
-            aria-label="Ver foto de la tarea"
           >
-            <span className="ck-tape" />
-            <img
-              src={photo.url}
-              alt="Foto de la tarea"
-              className="w-full aspect-square object-cover rounded-sm"
-              loading="lazy"
-            />
-          </a>
+            <a
+              href={photo.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="ck-card !p-2 block"
+              aria-label="Ver foto de la tarea"
+            >
+              <span className="ck-tape" />
+              <img
+                src={photo.url}
+                alt="Foto de la tarea"
+                className="w-full aspect-square object-cover rounded-sm"
+                loading="lazy"
+              />
+            </a>
+            {onDeletePhoto && (
+              <button
+                type="button"
+                onClick={() => onDeletePhoto(photo.id)}
+                disabled={isDeletingPhoto}
+                aria-label="Borrar foto"
+                className="absolute -right-2 -top-2 grid h-7 w-7 place-items-center rounded-full bg-[#c0392b] text-white shadow-md ck-marker cursor-pointer disabled:opacity-50"
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </button>
+            )}
+          </div>
         ))}
         <label className="ck-card !p-2 aspect-square grid place-items-center cursor-pointer text-primary">
           {uploadingPhoto ? (
