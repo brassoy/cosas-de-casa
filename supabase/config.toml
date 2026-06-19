@@ -118,6 +118,13 @@ file_size_limit = "50MiB"
 # allowed_mime_types = ["image/png", "image/jpeg"]
 # objects_path = "./images"
 
+# Fotos de tareas (feature tasks). Las políticas RLS de storage.objects viven en
+# la migración supabase/migrations/*_task_photos_storage.sql.
+[storage.buckets.task-photos]
+public = true
+file_size_limit = "2MiB"
+allowed_mime_types = ["image/png", "image/jpeg", "image/webp"]
+
 # Allow connections via S3 compatible clients
 [storage.s3_protocol]
 enabled = true

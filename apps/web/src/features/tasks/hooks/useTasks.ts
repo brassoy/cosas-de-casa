@@ -94,20 +94,11 @@ export interface UploadPhotoParams {
   file: File;
 }
 
-async function ensureBucketExists(): Promise<void> {
-  // Comprueba si el bucket existe; si no, intenta crearlo con acceso público.
-  // Nota: esta operación requiere que el anon key tenga permiso de storage admin,
-  // lo que en producción NO es habitual. Si falla, el bucket debe crearse
-  // manualmente desde el panel de Supabase o mediante una migración SQL.
-  const { data: buckets } = await supabase.storage.listBuckets();
-  const exists = buckets?.some((b) => b.name === PHOTO_BUCKET);
-  if (!exists) {
-    await supabase.storage.createBucket(PHOTO_BUCKET, { public: true });
-  }
-}
-
 async function uploadPhotoToStorage(taskId: string, file: File): Promise<string> {
-  await ensureBucketExists();
+  // El bucket `task-photos` se aprovisiona como infraestructura (config.toml +
+  // migración de Storage), NO desde el cliente: crear buckets con el anon key es
+  // un anti-patrón y enmascara el error real. Si no existiera, el upload falla
+  // con un mensaje claro.
 
   // Compresión: máx 1 MB, máx 1600 px en cualquier dimensión.
   const compressed = await imageCompression(file, {
