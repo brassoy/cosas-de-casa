@@ -1,12 +1,14 @@
 /* ─── Vista presentacional base — settings ──────────────────────────────────
  *
- * Theme `base` (estética shadcn). Pantalla de ajustes del usuario con tres
- * secciones — Perfil (nombre + email solo lectura), Contraseña (nueva +
- * confirmar) y Apariencia (selector de theme) — más un botón de cerrar sesión.
+ * Theme `base` (estética shadcn). Pantalla de ajustes del usuario con cuatro
+ * secciones — Perfil (nombre + email editable con verificación), Contraseña
+ * (nueva + confirmar), Familias (familia activa + salir) y Apariencia (selector
+ * de theme) — más un botón de cerrar sesión.
  *
  * Presentacional puro: solo props in / callbacks out. La validación de los
- * formularios (nombre no vacío, contraseña ≥ 6 + confirmación) es UI y vive aquí;
- * el error de negocio (backend / Supabase) llega por props desde el container.
+ * formularios (nombre no vacío, email con formato, contraseña ≥ 6 + confirmación)
+ * es UI y vive aquí; el error de negocio (backend / Supabase) llega por props
+ * desde el container.
  * ─────────────────────────────────────────────────────────────────────────── */
 
 import { type FormEvent, useState } from 'react';
@@ -15,7 +17,7 @@ import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
 import { Alert, AlertDescription } from '@/shared/ui/alert';
 import { getTheme, setTheme, type ThemeName } from '@/shared/theme/theme-bootstrap';
-import type { SettingsViewProps } from '../types';
+import { isValidEmail, type SettingsViewProps } from '../types';
 
 const THEMES: { value: ThemeName; label: string; emoji: string; description: string }[] = [
   { value: 'base', label: 'Clásico', emoji: '◉', description: 'Limpio y neutro (shadcn)' },
@@ -33,15 +35,26 @@ export default function SettingsView(props: SettingsViewProps) {
     savingName,
     nameError,
     nameOk,
+    onChangeEmail,
+    changingEmail,
+    emailError,
+    emailOk,
     onChangePassword,
     changingPassword,
     passwordError,
     passwordOk,
+    families,
+    onLeaveFamily,
+    leavingFamily,
+    leaveError,
     onLogout,
   } = props;
 
   const [name, setName] = useState(displayName ?? '');
   const [nameLocalError, setNameLocalError] = useState<string | null>(null);
+
+  const [emailValue, setEmailValue] = useState(email ?? '');
+  const [emailLocalError, setEmailLocalError] = useState<string | null>(null);
 
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -58,7 +71,15 @@ export default function SettingsView(props: SettingsViewProps) {
     setName(displayName ?? '');
   }
 
+  // Mismo patrón para el email (siembra el campo al cargar el perfil).
+  const [seededEmail, setSeededEmail] = useState(email);
+  if (email !== seededEmail) {
+    setSeededEmail(email);
+    setEmailValue(email ?? '');
+  }
+
   const displayedNameError = nameLocalError ?? nameError ?? null;
+  const displayedEmailError = emailLocalError ?? emailError ?? null;
   const displayedPasswordError = passwordLocalError ?? passwordError ?? null;
 
   function handleSaveName(e: FormEvent) {
@@ -70,6 +91,21 @@ export default function SettingsView(props: SettingsViewProps) {
       return;
     }
     onSaveName(trimmed);
+  }
+
+  function handleChangeEmail(e: FormEvent) {
+    e.preventDefault();
+    setEmailLocalError(null);
+    const trimmed = emailValue.trim();
+    if (!isValidEmail(trimmed)) {
+      setEmailLocalError('Introduce un correo electrónico válido.');
+      return;
+    }
+    if (trimmed === (email ?? '')) {
+      setEmailLocalError('El correo es el mismo que ya tienes.');
+      return;
+    }
+    onChangeEmail(trimmed);
   }
 
   function handleChangePassword(e: FormEvent) {
@@ -116,12 +152,6 @@ export default function SettingsView(props: SettingsViewProps) {
             />
           </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="settings-email">Correo electrónico</Label>
-            <Input id="settings-email" type="email" value={email ?? ''} readOnly disabled />
-            <p className="text-xs text-muted-foreground">El correo no se puede cambiar desde aquí.</p>
-          </div>
-
           {displayedNameError && (
             <Alert variant="destructive">
               <AlertDescription>{displayedNameError}</AlertDescription>
@@ -135,6 +165,43 @@ export default function SettingsView(props: SettingsViewProps) {
 
           <Button type="submit" disabled={savingName || loading} className="h-11">
             {savingName ? 'Guardando…' : 'Guardar nombre'}
+          </Button>
+        </form>
+
+        {/* Cambio de email: separado del nombre porque requiere verificación. */}
+        <form onSubmit={handleChangeEmail} noValidate className="space-y-3 pt-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="settings-email">Correo electrónico</Label>
+            <Input
+              id="settings-email"
+              type="email"
+              value={emailValue}
+              onChange={(e) => setEmailValue(e.target.value)}
+              placeholder="tu@correo.com"
+              autoComplete="email"
+              disabled={loading || changingEmail}
+            />
+            <p className="text-xs text-muted-foreground">
+              Al cambiarlo, te enviaremos un correo de verificación. El cambio no se aplica hasta que lo
+              confirmes.
+            </p>
+          </div>
+
+          {displayedEmailError && (
+            <Alert variant="destructive">
+              <AlertDescription>{displayedEmailError}</AlertDescription>
+            </Alert>
+          )}
+          {emailOk && !displayedEmailError && (
+            <Alert>
+              <AlertDescription>
+                Te hemos enviado un correo de verificación. Revisa tu bandeja para confirmar el cambio.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          <Button type="submit" disabled={changingEmail || loading} className="h-11">
+            {changingEmail ? 'Enviando…' : 'Cambiar correo'}
           </Button>
         </form>
       </section>
@@ -184,6 +251,47 @@ export default function SettingsView(props: SettingsViewProps) {
             {changingPassword ? 'Guardando…' : 'Cambiar contraseña'}
           </Button>
         </form>
+      </section>
+
+      {/* ── Familias ────────────────────────────────────────────────────── */}
+      <section className="space-y-3">
+        <h2 className="font-semibold">Familias</h2>
+        {families && families.length > 0 ? (
+          <ul className="space-y-2">
+            {families.map((f) => (
+              <li
+                key={f.id}
+                className="flex items-center justify-between gap-3 rounded-card border border-border bg-card p-3"
+              >
+                <span className="min-w-0">
+                  <span className="block truncate font-medium">{f.name}</span>
+                  {f.active && (
+                    <span className="block text-xs text-muted-foreground">Familia activa</span>
+                  )}
+                </span>
+                {f.active && (
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    onClick={() => onLeaveFamily(f.id)}
+                    disabled={leavingFamily}
+                    className="h-10 shrink-0"
+                  >
+                    {leavingFamily ? 'Saliendo…' : 'Salir'}
+                  </Button>
+                )}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-muted-foreground">No perteneces a ninguna familia.</p>
+        )}
+
+        {leaveError && (
+          <Alert variant="destructive">
+            <AlertDescription>{leaveError}</AlertDescription>
+          </Alert>
+        )}
       </section>
 
       {/* ── Apariencia ──────────────────────────────────────────────────── */}

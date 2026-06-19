@@ -1,17 +1,18 @@
 /* ─── Vista presentacional cozysitcom — settings ────────────────────────────
  *
  * Theme `cozysitcom` ("Sitcom Cozy 70s": retro cálido, madera y mostaza).
- * Misma funcionalidad que la base: Perfil, Contraseña, Apariencia y cerrar
- * sesión. Reestiliza con `cz-frame`, `cz-input`, `cz-serif` y botones por modo.
+ * Misma funcionalidad que la base: Perfil (nombre + email editable), Contraseña,
+ * Familias, Apariencia y cerrar sesión. Reestiliza con `cz-frame`, `cz-input`,
+ * `cz-serif` y botones por modo.
  *
  * Presentacional puro: props in / callbacks out. La validación de formulario
- * (nombre no vacío, contraseña ≥ 6 + confirmar) es UI y vive aquí; el error de
- * negocio llega por props.
+ * (nombre no vacío, email con formato, contraseña ≥ 6 + confirmar) es UI y vive
+ * aquí; el error de negocio llega por props.
  * ─────────────────────────────────────────────────────────────────────────── */
 
 import { type FormEvent, useState } from 'react';
 import { getTheme, setTheme, type ThemeName } from '@/shared/theme/theme-bootstrap';
-import type { SettingsViewProps } from '../types';
+import { isValidEmail, type SettingsViewProps } from '../types';
 
 const THEMES: { value: ThemeName; label: string; emoji: string }[] = [
   { value: 'base', label: 'Clásico', emoji: '◉' },
@@ -29,15 +30,25 @@ export default function SettingsView(props: SettingsViewProps) {
     savingName,
     nameError,
     nameOk,
+    onChangeEmail,
+    changingEmail,
+    emailError,
+    emailOk,
     onChangePassword,
     changingPassword,
     passwordError,
     passwordOk,
+    families,
+    onLeaveFamily,
+    leavingFamily,
+    leaveError,
     onLogout,
   } = props;
 
   const [name, setName] = useState(displayName ?? '');
   const [nameLocalError, setNameLocalError] = useState<string | null>(null);
+  const [emailValue, setEmailValue] = useState(email ?? '');
+  const [emailLocalError, setEmailLocalError] = useState<string | null>(null);
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [passwordLocalError, setPasswordLocalError] = useState<string | null>(null);
@@ -51,7 +62,15 @@ export default function SettingsView(props: SettingsViewProps) {
     setName(displayName ?? '');
   }
 
+  // Mismo patrón para el email.
+  const [seededEmail, setSeededEmail] = useState(email);
+  if (email !== seededEmail) {
+    setSeededEmail(email);
+    setEmailValue(email ?? '');
+  }
+
   const displayedNameError = nameLocalError ?? nameError ?? null;
+  const displayedEmailError = emailLocalError ?? emailError ?? null;
   const displayedPasswordError = passwordLocalError ?? passwordError ?? null;
 
   function handleSaveName(e: FormEvent) {
@@ -63,6 +82,21 @@ export default function SettingsView(props: SettingsViewProps) {
       return;
     }
     onSaveName(trimmed);
+  }
+
+  function handleChangeEmail(e: FormEvent) {
+    e.preventDefault();
+    setEmailLocalError(null);
+    const trimmed = emailValue.trim();
+    if (!isValidEmail(trimmed)) {
+      setEmailLocalError('Introduce un correo electrónico válido.');
+      return;
+    }
+    if (trimmed === (email ?? '')) {
+      setEmailLocalError('El correo es el mismo que ya tienes.');
+      return;
+    }
+    onChangeEmail(trimmed);
   }
 
   function handleChangePassword(e: FormEvent) {
@@ -116,21 +150,6 @@ export default function SettingsView(props: SettingsViewProps) {
               />
             </div>
 
-            <div className="space-y-1.5">
-              <label htmlFor="settings-email" className="text-xs font-bold uppercase opacity-70 block">
-                Correo electrónico
-              </label>
-              <input
-                id="settings-email"
-                className="cz-input"
-                type="email"
-                value={email ?? ''}
-                readOnly
-                disabled
-              />
-              <p className="text-xs opacity-70">El correo no se puede cambiar desde aquí.</p>
-            </div>
-
             {displayedNameError && (
               <div role="alert" style={{ color: '#A63A3A' }}>
                 <p className="font-bold text-sm">{displayedNameError}</p>
@@ -148,6 +167,48 @@ export default function SettingsView(props: SettingsViewProps) {
               className="cz-btn-denim disabled:opacity-60"
             >
               {savingName ? 'Guardando…' : 'Guardar nombre'}
+            </button>
+          </form>
+
+          {/* Cambio de email: separado porque requiere verificación por correo. */}
+          <form onSubmit={handleChangeEmail} noValidate className="space-y-3 pt-2">
+            <div className="space-y-1.5">
+              <label htmlFor="settings-email" className="text-xs font-bold uppercase opacity-70 block">
+                Correo electrónico
+              </label>
+              <input
+                id="settings-email"
+                className="cz-input"
+                type="email"
+                value={emailValue}
+                onChange={(e) => setEmailValue(e.target.value)}
+                placeholder="tu@correo.com"
+                autoComplete="email"
+                disabled={loading || changingEmail}
+              />
+              <p className="text-xs opacity-70">
+                Al cambiarlo te enviaremos un correo de verificación. El cambio no se aplica hasta que
+                lo confirmes.
+              </p>
+            </div>
+
+            {displayedEmailError && (
+              <div role="alert" style={{ color: '#A63A3A' }}>
+                <p className="font-bold text-sm">{displayedEmailError}</p>
+              </div>
+            )}
+            {emailOk && !displayedEmailError && (
+              <p className="cz-serif text-sm" style={{ color: '#5F7A4F' }}>
+                Te hemos enviado un correo de verificación. Confírmalo para aplicar el cambio.
+              </p>
+            )}
+
+            <button
+              type="submit"
+              disabled={changingEmail || loading}
+              className="cz-btn-denim disabled:opacity-60"
+            >
+              {changingEmail ? 'Enviando…' : 'Cambiar correo'}
             </button>
           </form>
         </section>
@@ -207,6 +268,45 @@ export default function SettingsView(props: SettingsViewProps) {
               {changingPassword ? 'Guardando…' : 'Cambiar contraseña'}
             </button>
           </form>
+        </section>
+
+        {/* ── Familias ────────────────────────────────────────────────────── */}
+        <section className="cz-frame space-y-3">
+          <h2 className="cz-serif text-2xl">Familias</h2>
+          {families && families.length > 0 ? (
+            <ul className="space-y-2">
+              {families.map((f) => (
+                <li key={f.id} className="cz-frame flex items-center justify-between gap-3">
+                  <span className="min-w-0">
+                    <span className="cz-serif text-lg block truncate">{f.name}</span>
+                    {f.active && (
+                      <span className="text-xs font-bold uppercase opacity-70 block">
+                        Familia activa
+                      </span>
+                    )}
+                  </span>
+                  {f.active && (
+                    <button
+                      type="button"
+                      onClick={() => onLeaveFamily(f.id)}
+                      disabled={leavingFamily}
+                      className="cz-btn-garnet shrink-0 disabled:opacity-60"
+                    >
+                      {leavingFamily ? 'Saliendo…' : 'Salir'}
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-xs opacity-70">No perteneces a ninguna familia.</p>
+          )}
+
+          {leaveError && (
+            <div role="alert" style={{ color: '#A63A3A' }}>
+              <p className="font-bold text-sm">{leaveError}</p>
+            </div>
+          )}
         </section>
 
         {/* ── Apariencia ──────────────────────────────────────────────────── */}

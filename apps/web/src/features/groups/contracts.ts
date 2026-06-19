@@ -22,6 +22,8 @@ export type {
   GroupSummaryDto,
   GroupDto,
   CreateGroupInput,
+  UpdateGroupInput,
+  ChangeGroupMemberRoleInput,
   GenerateGroupPinResponse,
 } from '@cosasdecasa/contracts';
 

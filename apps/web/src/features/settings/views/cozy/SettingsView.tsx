@@ -2,16 +2,17 @@
  *
  * Theme `cozy` ("Cuaderno de papel manuscrito": papel pautado, tinta marrón,
  * notas con cinta, fuentes Caveat/Patrick Hand). Misma funcionalidad que la
- * base: Perfil, Contraseña, Apariencia y cerrar sesión.
+ * base: Perfil (nombre + email editable), Contraseña, Familias, Apariencia y
+ * cerrar sesión.
  *
  * Presentacional puro: props in / callbacks out. La validación de formulario
- * (nombre no vacío, contraseña ≥ 6 + confirmar) es UI y vive aquí; el error de
- * negocio llega por props.
+ * (nombre no vacío, email con formato, contraseña ≥ 6 + confirmar) es UI y vive
+ * aquí; el error de negocio llega por props.
  * ─────────────────────────────────────────────────────────────────────────── */
 
 import { type FormEvent, useState } from 'react';
 import { getTheme, setTheme, type ThemeName } from '@/shared/theme/theme-bootstrap';
-import type { SettingsViewProps } from '../types';
+import { isValidEmail, type SettingsViewProps } from '../types';
 
 const THEMES: { value: ThemeName; label: string; emoji: string }[] = [
   { value: 'base', label: 'Clásico', emoji: '◉' },
@@ -29,15 +30,25 @@ export default function SettingsView(props: SettingsViewProps) {
     savingName,
     nameError,
     nameOk,
+    onChangeEmail,
+    changingEmail,
+    emailError,
+    emailOk,
     onChangePassword,
     changingPassword,
     passwordError,
     passwordOk,
+    families,
+    onLeaveFamily,
+    leavingFamily,
+    leaveError,
     onLogout,
   } = props;
 
   const [name, setName] = useState(displayName ?? '');
   const [nameLocalError, setNameLocalError] = useState<string | null>(null);
+  const [emailValue, setEmailValue] = useState(email ?? '');
+  const [emailLocalError, setEmailLocalError] = useState<string | null>(null);
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [passwordLocalError, setPasswordLocalError] = useState<string | null>(null);
@@ -51,7 +62,15 @@ export default function SettingsView(props: SettingsViewProps) {
     setName(displayName ?? '');
   }
 
+  // Mismo patrón para el email.
+  const [seededEmail, setSeededEmail] = useState(email);
+  if (email !== seededEmail) {
+    setSeededEmail(email);
+    setEmailValue(email ?? '');
+  }
+
   const displayedNameError = nameLocalError ?? nameError ?? null;
+  const displayedEmailError = emailLocalError ?? emailError ?? null;
   const displayedPasswordError = passwordLocalError ?? passwordError ?? null;
 
   function handleSaveName(e: FormEvent) {
@@ -63,6 +82,21 @@ export default function SettingsView(props: SettingsViewProps) {
       return;
     }
     onSaveName(trimmed);
+  }
+
+  function handleChangeEmail(e: FormEvent) {
+    e.preventDefault();
+    setEmailLocalError(null);
+    const trimmed = emailValue.trim();
+    if (!isValidEmail(trimmed)) {
+      setEmailLocalError('Introduce un correo electrónico válido.');
+      return;
+    }
+    if (trimmed === (email ?? '')) {
+      setEmailLocalError('El correo es el mismo que ya tienes.');
+      return;
+    }
+    onChangeEmail(trimmed);
   }
 
   function handleChangePassword(e: FormEvent) {
@@ -114,21 +148,6 @@ export default function SettingsView(props: SettingsViewProps) {
               />
             </div>
 
-            <div>
-              <label htmlFor="settings-email" className="ck-marker text-xl block">
-                email
-              </label>
-              <input
-                id="settings-email"
-                className="ck-input"
-                type="email"
-                value={email ?? ''}
-                readOnly
-                disabled
-              />
-              <p className="text-sm opacity-70 mt-1">El correo no se puede cambiar desde aquí.</p>
-            </div>
-
             {displayedNameError && (
               <div role="alert">
                 <p className="text-base text-error">{displayedNameError}</p>
@@ -144,6 +163,48 @@ export default function SettingsView(props: SettingsViewProps) {
               className="ck-btn ck-btn-blue self-start disabled:opacity-60"
             >
               {savingName ? 'guardando…' : 'Guardar nombre'}
+            </button>
+          </form>
+
+          {/* Cambio de email: separado porque requiere verificación por correo. */}
+          <form onSubmit={handleChangeEmail} noValidate className="space-y-3 pt-2">
+            <div>
+              <label htmlFor="settings-email" className="ck-marker text-xl block">
+                email
+              </label>
+              <input
+                id="settings-email"
+                className="ck-input"
+                type="email"
+                value={emailValue}
+                onChange={(e) => setEmailValue(e.target.value)}
+                placeholder="tu@correo.com"
+                autoComplete="email"
+                disabled={loading || changingEmail}
+              />
+              <p className="text-sm opacity-70 mt-1">
+                Al cambiarlo te enviaremos un correo de verificación. El cambio no se aplica hasta que
+                lo confirmes.
+              </p>
+            </div>
+
+            {displayedEmailError && (
+              <div role="alert">
+                <p className="text-base text-error">{displayedEmailError}</p>
+              </div>
+            )}
+            {emailOk && !displayedEmailError && (
+              <p className="ck-marker text-xl text-success">
+                ¡Te hemos enviado un correo de verificación! Confírmalo para aplicar el cambio.
+              </p>
+            )}
+
+            <button
+              type="submit"
+              disabled={changingEmail || loading}
+              className="ck-btn ck-btn-blue self-start disabled:opacity-60"
+            >
+              {changingEmail ? 'enviando…' : 'Cambiar correo'}
             </button>
           </form>
         </section>
@@ -201,6 +262,41 @@ export default function SettingsView(props: SettingsViewProps) {
               {changingPassword ? 'guardando…' : 'Cambiar contraseña'}
             </button>
           </form>
+        </section>
+
+        {/* ── Familias ────────────────────────────────────────────────────── */}
+        <section className="ck-card p-5 space-y-3">
+          <h2 className="ck-marker text-2xl text-primary">Familias</h2>
+          {families && families.length > 0 ? (
+            <ul className="space-y-2">
+              {families.map((f) => (
+                <li key={f.id} className="ck-card p-3 flex items-center justify-between gap-3">
+                  <span className="min-w-0">
+                    <span className="ck-marker text-xl text-primary block truncate">{f.name}</span>
+                    {f.active && <span className="text-sm opacity-70 block">familia activa</span>}
+                  </span>
+                  {f.active && (
+                    <button
+                      type="button"
+                      onClick={() => onLeaveFamily(f.id)}
+                      disabled={leavingFamily}
+                      className="ck-btn ck-btn-red shrink-0 disabled:opacity-60"
+                    >
+                      {leavingFamily ? 'saliendo…' : 'Salir'}
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-base opacity-70">No perteneces a ninguna familia.</p>
+          )}
+
+          {leaveError && (
+            <div role="alert">
+              <p className="text-base text-error">{leaveError}</p>
+            </div>
+          )}
         </section>
 
         {/* ── Apariencia ──────────────────────────────────────────────────── */}

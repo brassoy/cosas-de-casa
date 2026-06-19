@@ -31,6 +31,7 @@ import {
   useShoppingListDetail,
   useToggleItem,
   useDeleteItem,
+  useUpdateItem,
   useAddItemWithDedup,
   useItemComments,
   useAddComment,
@@ -93,6 +94,7 @@ export function ListDetailPage() {
   const { list, items, loading } = useShoppingListDetail(listId);
   const { toggleItem } = useToggleItem();
   const { deleteItem } = useDeleteItem();
+  const { updateItem } = useUpdateItem();
   const {
     addItemWithDedup,
     dedupState,
@@ -282,6 +284,9 @@ export function ListDetailPage() {
     onOpenItem: openItem,
     onCloseItem: closeItem,
     onAddComment: handleSubmitComment,
+    onEditItem: (id, changes) => {
+      void updateItem(id, changes);
+    },
   };
 
   return <ThemeView screen="shopping_list_detail" props={props} />;

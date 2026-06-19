@@ -10,6 +10,17 @@
  *   - Deduplicamos por id antes de añadir al estado.
  *   - La lista inicial se carga con useQuery; el realtime solo añade los nuevos.
  *
+ * Paginación hacia atrás (cargar mensajes antiguos):
+ *   El endpoint REST devuelve hasta `MESSAGES_PAGE_SIZE` mensajes en orden
+ *   ascendente y acepta `?before=<ISO>` para traer los anteriores a un instante.
+ *   Para no perder el histórico cuando un chat supera una página:
+ *     - `loadOlder()` pide una página usando como cursor el `createdAt` del
+ *       mensaje MÁS ANTIGUO ya cargado y la prepende al estado.
+ *     - `hasMoreOlder` es `true` mientras la última página recibida venga llena
+ *       (== page size); cuando llega una página incompleta, ya no hay más atrás.
+ *     - La carga es bajo demanda (botón "cargar más" arriba del hilo): no se
+ *       dispara sola para no consumir datos sin que el usuario lo pida.
+ *
  * Bug del display_name:
  *   La tabla plan_messages NO tiene columna display_name (solo: id, plan_id,
  *   user_id, body, created_at). El payload de postgres_changes no lo incluye.
@@ -29,6 +40,13 @@ import { api, ApiRequestError } from '@/shared/lib/api';
 import type { PlanMessageDto, SendMessageInput, PlanParticipantDto } from '../contracts';
 
 export type { PlanMessageDto, SendMessageInput };
+
+/**
+ * Tamaño de página del endpoint REST de mensajes (limit por defecto del backend
+ * en `list-plan-messages.use-case.ts`). Si una página llega con MENOS mensajes
+ * que esto, es que ya no hay más histórico hacia atrás.
+ */
+export const MESSAGES_PAGE_SIZE = 50;
 
 // Forma de la fila cruda que llega de Supabase Realtime para plan_messages.
 // NO incluye display_name porque esa columna no existe en la tabla.
@@ -56,6 +74,11 @@ export function usePlanChat(
   const qc = useQueryClient();
 
   const [realtimeMessages, setRealtimeMessages] = useState<PlanMessageDto[]>([]);
+  // Páginas antiguas cargadas bajo demanda con el cursor `?before=`.
+  const [olderMessages, setOlderMessages] = useState<PlanMessageDto[]>([]);
+  // `null` = aún no sabemos (no ha cargado la primera página). Una vez cargada,
+  // pasa a true/false según si la primera página vino llena.
+  const [hasMoreOlder, setHasMoreOlder] = useState<boolean | null>(null);
 
   // Carga inicial de mensajes (endpoint REST: pasa por JOIN, trae displayName)
   const {
@@ -67,6 +90,20 @@ export function usePlanChat(
     queryFn: () => api.get<PlanMessageDto[]>(`/plans/${planId}/messages`),
     enabled: Boolean(planId),
   });
+
+  // Al recibir la primera página: si vino llena, hay histórico anterior que
+  // todavía no tenemos. Solo lo inicializamos una vez (hasMoreOlder === null)
+  // para no pisar el estado tras un `loadOlder`.
+  useEffect(() => {
+    if (!initialMessages || hasMoreOlder !== null) return;
+    setHasMoreOlder(initialMessages.length >= MESSAGES_PAGE_SIZE);
+  }, [initialMessages, hasMoreOlder]);
+
+  // Al cambiar de plan, reseteamos las páginas antiguas y el flag de "hay más".
+  useEffect(() => {
+    setOlderMessages([]);
+    setHasMoreOlder(null);
+  }, [planId]);
 
   // Suscripción Realtime
   useEffect(() => {
@@ -125,12 +162,44 @@ export function usePlanChat(
     };
   }, [planId, participantNames, qc]);
 
-  // Combina mensajes iniciales + los nuevos de Realtime (sin duplicar por id)
-  const initialIds = new Set((initialMessages ?? []).map((m) => m.id));
-  const dedupedRealtime = realtimeMessages.filter((m) => !initialIds.has(m.id));
-  const messages = [...(initialMessages ?? []), ...dedupedRealtime].sort(
-    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-  );
+  // Combina páginas antiguas + iniciales + nuevos de Realtime (sin duplicar por
+  // id) y ordena ascendente (más antiguo arriba).
+  const seen = new Set<string>();
+  const messages = [...olderMessages, ...(initialMessages ?? []), ...realtimeMessages]
+    .filter((m) => {
+      if (seen.has(m.id)) return false;
+      seen.add(m.id);
+      return true;
+    })
+    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+  // Cursor para pedir la página anterior: el `createdAt` del mensaje MÁS
+  // ANTIGUO que ya tenemos (el primero del array ya ordenado).
+  const oldestCreatedAt = messages[0]?.createdAt;
+
+  // Cargar página anterior (`?before=<cursor>`). Prepende los resultados y
+  // recalcula `hasMoreOlder` según si la página vino llena.
+  const loadOlder = useMutation<PlanMessageDto[], ApiRequestError, void>({
+    mutationFn: () => {
+      const cursor = encodeURIComponent(oldestCreatedAt ?? new Date().toISOString());
+      return api.get<PlanMessageDto[]>(`/plans/${planId}/messages?before=${cursor}`);
+    },
+    onSuccess: (page) => {
+      // Si la página vino incompleta, ya no queda histórico hacia atrás.
+      setHasMoreOlder(page.length >= MESSAGES_PAGE_SIZE);
+      if (page.length === 0) return;
+      setOlderMessages((prev) => {
+        const known = new Set(prev.map((m) => m.id));
+        const fresh = page.filter((m) => !known.has(m.id));
+        return [...fresh, ...prev];
+      });
+    },
+  });
+
+  const loadOlderMessages = useCallback(() => {
+    if (!planId || loadOlder.isPending || hasMoreOlder === false) return;
+    loadOlder.mutate();
+  }, [planId, loadOlder, hasMoreOlder]);
 
   // Enviar mensaje
   const sendMessage = useMutation<PlanMessageDto, ApiRequestError, SendMessageInput>({
@@ -155,6 +224,12 @@ export function usePlanChat(
     error,
     sendMessage,
     resetRealtimeMessages,
+    // Paginación hacia atrás (cargar mensajes antiguos):
+    loadOlderMessages,
+    isLoadingOlder: loadOlder.isPending,
+    // Antes de cargar la primera página no sabemos si hay más; tratamos `null`
+    // como `false` para no mostrar el botón "cargar más" prematuramente.
+    hasMoreOlder: hasMoreOlder === true,
   };
 }
 

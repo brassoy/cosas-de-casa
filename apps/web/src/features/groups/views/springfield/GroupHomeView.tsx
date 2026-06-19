@@ -31,7 +31,7 @@
 
 import { useState } from 'react';
 import { ScreenState } from '@/shared/components/ScreenState';
-import type { GroupMemberDto } from '../../contracts';
+import type { GroupMemberDto, GroupRole } from '../../contracts';
 import type { GroupHomeViewProps } from '../types';
 
 // Paleta de avatares del kit (rotación por índice).
@@ -60,8 +60,22 @@ export default function GroupHomeView({
   onGeneratePin,
   onRevokePin,
   onLeave,
+  currentUserId,
+  onChangeMemberRole,
+  changingRoleUserId,
+  onExpelMember,
+  expellingUserId,
+  onUpdateGroup,
+  groupDescription,
+  updateLoading,
+  updateError,
+  onDeleteGroup,
+  deleteLoading,
+  deleteError,
 }: GroupHomeViewProps) {
   const [confirmLeave, setConfirmLeave] = useState(false);
+
+  const canManage = isOwner && Boolean(onChangeMemberRole || onExpelMember);
 
   function handleLeave() {
     if (!confirmLeave) {
@@ -110,7 +124,15 @@ export default function GroupHomeView({
               <ul aria-label="Miembros de la peña">
                 {members?.map((m, i) => (
                   <li key={m.userId}>
-                    <MemberRow member={m} color={AVATAR_COLORS[i % AVATAR_COLORS.length]!} />
+                    <MemberRow
+                      member={m}
+                      color={AVATAR_COLORS[i % AVATAR_COLORS.length]!}
+                      canManage={canManage && m.userId !== currentUserId}
+                      onChangeRole={onChangeMemberRole}
+                      changingRole={changingRoleUserId === m.userId}
+                      onExpel={onExpelMember}
+                      expelling={expellingUserId === m.userId}
+                    />
                   </li>
                 ))}
               </ul>
@@ -164,6 +186,26 @@ export default function GroupHomeView({
           </section>
         )}
 
+        {/* ── Editar peña (solo OWNER) ── */}
+        {isOwner && onUpdateGroup && (
+          <EditGroupSection
+            groupName={groupName}
+            groupDescription={groupDescription}
+            loading={updateLoading}
+            error={updateError}
+            onSave={onUpdateGroup}
+          />
+        )}
+
+        {/* ── Borrar peña (solo OWNER) ── */}
+        {isOwner && onDeleteGroup && (
+          <DeleteGroupSection
+            loading={deleteLoading}
+            error={deleteError}
+            onDelete={onDeleteGroup}
+          />
+        )}
+
         {/* ── Salir de la peña ── */}
         <section aria-labelledby="leave-heading">
           <p id="leave-heading" className="sf-bangers text-xl mb-2">
@@ -213,14 +255,196 @@ export default function GroupHomeView({
 
 // ── Subcomponentes presentacionales ─────────────────────────────────────────
 
-function MemberRow({ member, color }: { member: GroupMemberDto; color: string }) {
+interface MemberRowProps {
+  member: GroupMemberDto;
+  color: string;
+  canManage?: boolean;
+  onChangeRole?: (userId: string, role: GroupRole) => void;
+  changingRole?: boolean;
+  onExpel?: (userId: string) => void;
+  expelling?: boolean;
+}
+
+function MemberRow({
+  member,
+  color,
+  canManage,
+  onChangeRole,
+  changingRole,
+  onExpel,
+  expelling,
+}: MemberRowProps) {
   const roleLabel = member.role === 'OWNER' ? 'Propietario' : 'Miembro';
+  const nextRole: GroupRole = member.role === 'OWNER' ? 'MEMBER' : 'OWNER';
+  const roleActionLabel = member.role === 'OWNER' ? 'Hacer miembro' : 'Hacer propietario';
+
   return (
-    <div className="flex items-center gap-3 p-2">
+    <div className="flex flex-wrap items-center gap-3 p-2">
       <MemberAvatar name={member.displayName} avatarUrl={member.avatarUrl} color={color} />
       <p className="sf-fredoka flex-1 min-w-0 truncate">{member.displayName}</p>
       <span className="sf-tag">{roleLabel}</span>
+      {canManage && (
+        <div className="flex w-full gap-2 sm:w-auto">
+          {onChangeRole && (
+            <button
+              type="button"
+              onClick={() => onChangeRole(member.userId, nextRole)}
+              disabled={changingRole || expelling}
+              className="sf-btn sf-btn-w !py-1.5 !px-3 text-xs disabled:opacity-60"
+            >
+              {changingRole ? 'Guardando…' : roleActionLabel}
+            </button>
+          )}
+          {onExpel && (
+            <button
+              type="button"
+              onClick={() => onExpel(member.userId)}
+              disabled={changingRole || expelling}
+              className="sf-btn sf-btn-r !py-1.5 !px-3 text-xs disabled:opacity-60"
+            >
+              {expelling ? 'Expulsando…' : 'Expulsar'}
+            </button>
+          )}
+        </div>
+      )}
     </div>
+  );
+}
+
+interface EditGroupSectionProps {
+  groupName: string;
+  groupDescription?: string;
+  loading?: boolean;
+  error?: string | null;
+  onSave: (input: { name?: string; description?: string }) => void;
+}
+
+function EditGroupSection({
+  groupName,
+  groupDescription,
+  loading,
+  error,
+  onSave,
+}: EditGroupSectionProps) {
+  const [name, setName] = useState(groupName);
+  const [description, setDescription] = useState(groupDescription ?? '');
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const trimmedName = name.trim();
+    onSave({
+      name: trimmedName ? trimmedName : undefined,
+      description: description.trim(),
+    });
+  }
+
+  return (
+    <section className="mb-4" aria-labelledby="edit-heading">
+      <p id="edit-heading" className="sf-bangers text-xl mb-2">
+        Editar peña
+      </p>
+      {error && (
+        <p
+          role="alert"
+          className="sf-card p-3 mb-3 text-sm font-bold"
+          style={{ background: '#fff', borderColor: '#E53935', color: '#E53935' }}
+        >
+          {error}
+        </p>
+      )}
+      <form className="sf-card p-3 space-y-3" onSubmit={handleSubmit}>
+        <label className="block">
+          <span className="sf-fredoka text-sm block mb-1">Nombre</span>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            maxLength={100}
+            className="sf-input"
+            aria-label="Nombre de la peña"
+          />
+        </label>
+        <label className="block">
+          <span className="sf-fredoka text-sm block mb-1">Descripción</span>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            maxLength={500}
+            rows={3}
+            className="sf-input resize-y"
+            aria-label="Descripción de la peña"
+          />
+        </label>
+        <button type="submit" className="sf-btn sf-btn-r disabled:opacity-60" disabled={loading}>
+          {loading ? 'Guardando…' : 'Guardar cambios'}
+        </button>
+      </form>
+    </section>
+  );
+}
+
+interface DeleteGroupSectionProps {
+  loading?: boolean;
+  error?: string | null;
+  onDelete: () => void;
+}
+
+function DeleteGroupSection({ loading, error, onDelete }: DeleteGroupSectionProps) {
+  const [confirm, setConfirm] = useState(false);
+
+  function handleDelete() {
+    if (!confirm) {
+      setConfirm(true);
+      return;
+    }
+    onDelete();
+  }
+
+  return (
+    <section className="mb-4" aria-labelledby="delete-heading">
+      <p id="delete-heading" className="sf-bangers text-xl mb-2" style={{ color: '#E53935' }}>
+        Borrar peña
+      </p>
+      <p className="sf-fredoka text-sm mb-2">
+        Se borra la peña entera. Esta acción no se puede deshacer.
+      </p>
+      {error && (
+        <p
+          role="alert"
+          className="sf-card p-3 mb-3 text-sm font-bold"
+          style={{ background: '#fff', borderColor: '#E53935', color: '#E53935' }}
+        >
+          {error}
+        </p>
+      )}
+      {confirm ? (
+        <div className="sf-card p-4 space-y-3">
+          <p className="sf-fredoka text-sm">¿Seguro que quieres borrar esta peña para siempre?</p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className="sf-btn sf-btn-r disabled:opacity-60"
+              onClick={handleDelete}
+              disabled={loading}
+            >
+              {loading ? 'Borrando…' : 'Sí, borrar peña'}
+            </button>
+            <button
+              type="button"
+              className="sf-btn sf-btn-w disabled:opacity-60"
+              onClick={() => setConfirm(false)}
+              disabled={loading}
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button type="button" className="sf-btn sf-btn-r" onClick={handleDelete}>
+          Borrar peña
+        </button>
+      )}
+    </section>
   );
 }
 

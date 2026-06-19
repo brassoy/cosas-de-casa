@@ -186,7 +186,11 @@ vi.mock('@/features/shopping/hooks/useRealtimeItems', () => ({
   useRealtimeItems: vi.fn(),
 }));
 
-const { mockEnqueue } = vi.hoisted(() => ({ mockEnqueue: vi.fn(async () => {}) }));
+const { mockEnqueue } = vi.hoisted(() => ({
+  mockEnqueue: vi.fn(
+    async (_type: string, _payload: Record<string, unknown>) => {},
+  ),
+}));
 
 vi.mock('@/features/shopping/offline/sync', () => ({
   seedFromApi: vi.fn(async () => {}),
@@ -448,5 +452,113 @@ describe('useAddItemWithDedup (hook real)', () => {
     );
     // NO llama a la API directamente
     expect(mockApiPost).not.toHaveBeenCalled();
+  });
+});
+
+// ── 4. useUpdateItem (hook real) ──────────────────────────────────────────────
+//
+// Edición offline-first: escritura optimista en Dexie + encolado de la op
+// 'updateItem' en el outbox (que en sync.ts hace PATCH /items/:itemId con
+// payload.data). Cubre la auditoría ALTO: poder editar nombre/descripción/enlace.
+
+describe('useUpdateItem (hook real)', () => {
+  beforeEach(() => {
+    mockEnqueue.mockReset();
+    mockEnqueue.mockResolvedValue(undefined);
+    vi.clearAllMocks();
+    Object.defineProperty(navigator, 'onLine', {
+      value: true,
+      writable: true,
+      configurable: true,
+    });
+  });
+
+  it('actualiza Dexie de forma optimista y encola la op updateItem', async () => {
+    const { db } = await import('@/features/shopping/offline/db');
+    const { useUpdateItem } = await vi.importActual<
+      typeof import('./hooks/useShopping')
+    >('./hooks/useShopping');
+
+    const { result } = renderHook(() => useUpdateItem());
+
+    await act(async () => {
+      await result.current.updateItem('item-1', {
+        name: 'Detergente líquido',
+        description: 'El de la marca azul',
+        purchaseLink: 'https://tienda.example/detergente',
+      });
+    });
+
+    // Escritura optimista en Dexie (incluye updatedAt fresco)
+    expect(db.items.update).toHaveBeenCalledWith(
+      'item-1',
+      expect.objectContaining({
+        name: 'Detergente líquido',
+        description: 'El de la marca azul',
+        purchaseLink: 'https://tienda.example/detergente',
+      }),
+    );
+
+    // Encola la op 'updateItem' con itemId + data (lo que sync.ts envía como PATCH)
+    expect(mockEnqueue).toHaveBeenCalledWith(
+      'updateItem',
+      expect.objectContaining({
+        itemId: 'item-1',
+        data: expect.objectContaining({
+          name: 'Detergente líquido',
+          description: 'El de la marca azul',
+          purchaseLink: 'https://tienda.example/detergente',
+        }),
+      }),
+    );
+  });
+
+  it('campos vacíos → undefined en Dexie y null en el payload de la API (limpiar valor)', async () => {
+    const { db } = await import('@/features/shopping/offline/db');
+    const { useUpdateItem } = await vi.importActual<
+      typeof import('./hooks/useShopping')
+    >('./hooks/useShopping');
+
+    const { result } = renderHook(() => useUpdateItem());
+
+    await act(async () => {
+      await result.current.updateItem('item-1', {
+        name: 'Pan',
+        description: '',
+        purchaseLink: '',
+      });
+    });
+
+    // En Dexie los vacíos se guardan como undefined (la UI deja de pintarlos)
+    const dexiePatch = (db.items.update as ReturnType<typeof vi.fn>).mock.calls[0]![1];
+    expect(dexiePatch).toMatchObject({ name: 'Pan' });
+    expect(dexiePatch.description).toBeUndefined();
+    expect(dexiePatch.purchaseLink).toBeUndefined();
+
+    // En el payload de la API los vacíos viajan como null (el backend los limpia)
+    const enqueueArgs = mockEnqueue.mock.calls[0]!;
+    expect(enqueueArgs[0]).toBe('updateItem');
+    expect(enqueueArgs[1]).toMatchObject({
+      itemId: 'item-1',
+      data: { name: 'Pan', description: null, purchaseLink: null },
+    });
+  });
+
+  it('solo encola los campos presentes (patch parcial)', async () => {
+    const { useUpdateItem } = await vi.importActual<
+      typeof import('./hooks/useShopping')
+    >('./hooks/useShopping');
+
+    const { result } = renderHook(() => useUpdateItem());
+
+    await act(async () => {
+      await result.current.updateItem('item-1', { name: 'Solo nombre' });
+    });
+
+    const enqueueArgs = mockEnqueue.mock.calls[0]!;
+    const data = (enqueueArgs[1] as { data: Record<string, unknown> }).data;
+    expect(data).toEqual({ name: 'Solo nombre' });
+    expect('description' in data).toBe(false);
+    expect('purchaseLink' in data).toBe(false);
   });
 });

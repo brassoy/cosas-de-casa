@@ -38,6 +38,7 @@ import { pickRandomPhrase } from '../../config/onadd.config';
 import type {
   AddItemPayload,
   DedupPending,
+  EditItemPayload,
   FrequentItemView,
   OpenItemState,
   ShoppingItemView,
@@ -79,6 +80,7 @@ export default function ShoppingListDetailView(props: ShoppingListDetailViewProp
     onOpenItem,
     onCloseItem,
     onAddComment,
+    onEditItem,
   } = props;
 
   const pending = items.filter((i) => !i.checked);
@@ -183,7 +185,12 @@ export default function ShoppingListDetailView(props: ShoppingListDetailViewProp
       />
 
       {/* ── Sub-flujo: Sheet de detalle + comentarios ── */}
-      <ItemSheet open={openItem ?? null} onClose={onCloseItem} onAddComment={onAddComment} />
+      <ItemSheet
+        open={openItem ?? null}
+        onClose={onCloseItem}
+        onAddComment={onAddComment}
+        onEditItem={onEditItem}
+      />
 
       {/* ── Sub-flujo: overlay festivo de éxito ── */}
       <AddSuccessOverlay state={successOverlay} onClose={onCloseSuccess} />
@@ -582,13 +589,15 @@ interface ItemSheetProps {
   open: OpenItemState | null;
   onClose: () => void;
   onAddComment: (body: string) => void;
+  onEditItem?: (id: string, changes: EditItemPayload) => void;
 }
 
-function ItemSheet({ open, onClose, onAddComment }: ItemSheetProps) {
+function ItemSheet({ open, onClose, onAddComment, onEditItem }: ItemSheetProps) {
   const item = open?.item ?? null;
   const comments = open?.comments ?? [];
   const isSending = open?.isSendingComment ?? false;
   const [body, setBody] = useState('');
+  const [editing, setEditing] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll al final del hilo cuando se abre o llega un comentario nuevo.
@@ -596,12 +605,18 @@ function ItemSheet({ open, onClose, onAddComment }: ItemSheetProps) {
     if (item) scrollRef.current?.scrollTo({ top: 99999 });
   }, [item, comments.length]);
 
+  useEffect(() => {
+    setEditing(false);
+  }, [item?.id]);
+
   function submit() {
     const trimmed = body.trim();
     if (!trimmed) return;
     onAddComment(trimmed);
     setBody('');
   }
+
+  const canEdit = onEditItem != null;
 
   return (
     <Sheet
@@ -616,11 +631,33 @@ function ItemSheet({ open, onClose, onAddComment }: ItemSheetProps) {
         aria-label={item?.name}
       >
         <SheetHeader>
-          <SheetTitle className="ck-marker truncate text-3xl leading-none text-accent">
-            {item?.name}
-          </SheetTitle>
+          <div className="flex items-center justify-between gap-2">
+            <SheetTitle className="ck-marker truncate text-3xl leading-none text-accent">
+              {item?.name}
+            </SheetTitle>
+            {item && canEdit && !editing && (
+              <button
+                type="button"
+                className="ck-btn ck-btn-blue shrink-0 whitespace-nowrap"
+                onClick={() => setEditing(true)}
+                aria-label={`Editar ${item.name}`}
+              >
+                Editar
+              </button>
+            )}
+          </div>
         </SheetHeader>
-        {item && (
+        {item && editing && onEditItem ? (
+          <ItemEditForm
+            item={item}
+            onCancel={() => setEditing(false)}
+            onSave={(changes) => {
+              onEditItem(item.id, changes);
+              setEditing(false);
+            }}
+          />
+        ) : null}
+        {item && !editing && (
           <div ref={scrollRef} className="mt-3 flex-1 space-y-4 overflow-y-auto">
             {item.description && <p className="text-base">{item.description}</p>}
             {item.purchaseLink && (
@@ -663,28 +700,111 @@ function ItemSheet({ open, onClose, onAddComment }: ItemSheetProps) {
             </div>
           </div>
         )}
-        <div className="mt-3 flex items-end gap-2 border-t border-dashed border-[#d9c79a] pt-3">
-          <input
-            className="ck-input"
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') submit();
-            }}
-            placeholder="escribe un comentario"
-            aria-label="Nuevo comentario"
-          />
-          <button
-            type="button"
-            className="ck-btn ck-btn-blue whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={!body.trim() || isSending}
-            onClick={submit}
-          >
-            {isSending ? 'Enviando…' : 'Enviar'}
-          </button>
-        </div>
+        {!editing && (
+          <div className="mt-3 flex items-end gap-2 border-t border-dashed border-[#d9c79a] pt-3">
+            <input
+              className="ck-input"
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') submit();
+              }}
+              placeholder="escribe un comentario"
+              aria-label="Nuevo comentario"
+            />
+            <button
+              type="button"
+              className="ck-btn ck-btn-blue whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={!body.trim() || isSending}
+              onClick={submit}
+            >
+              {isSending ? 'Enviando…' : 'Enviar'}
+            </button>
+          </div>
+        )}
       </SheetContent>
     </Sheet>
+  );
+}
+
+// ── Formulario de edición de ítem (cozy) ──────────────────────────────────────
+
+interface ItemEditFormProps {
+  item: ShoppingItemView;
+  onSave: (changes: EditItemPayload) => void;
+  onCancel: () => void;
+}
+
+function ItemEditForm({ item, onSave, onCancel }: ItemEditFormProps) {
+  const [name, setName] = useState(item.name);
+  const [description, setDescription] = useState(item.description ?? '');
+  const [purchaseLink, setPurchaseLink] = useState(item.purchaseLink ?? '');
+
+  const trimmedName = name.trim();
+
+  function save() {
+    if (!trimmedName) return;
+    onSave({
+      name: trimmedName,
+      description: description.trim(),
+      purchaseLink: purchaseLink.trim(),
+    });
+  }
+
+  return (
+    <form
+      className="mt-3 flex-1 space-y-3 overflow-y-auto"
+      aria-label={`Editar ${item.name}`}
+      onSubmit={(e) => {
+        e.preventDefault();
+        save();
+      }}
+    >
+      <label className="block space-y-1">
+        <span className="ck-marker text-lg text-accent">Nombre</span>
+        <input
+          className="ck-input"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          aria-label="Nombre del artículo a editar"
+          maxLength={200}
+        />
+      </label>
+      <label className="block space-y-1">
+        <span className="ck-marker text-lg text-accent">Descripción</span>
+        <input
+          className="ck-input"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="notas, marca, detalle…"
+          aria-label="Descripción del artículo"
+          maxLength={500}
+        />
+      </label>
+      <label className="block space-y-1">
+        <span className="ck-marker text-lg text-accent">Enlace de compra</span>
+        <input
+          className="ck-input"
+          type="url"
+          value={purchaseLink}
+          onChange={(e) => setPurchaseLink(e.target.value)}
+          placeholder="https://…"
+          aria-label="Enlace de compra del artículo"
+        />
+      </label>
+      <div className="flex gap-2 pt-1">
+        <button
+          type="submit"
+          className="ck-btn ck-btn-blue whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={!trimmedName}
+        >
+          Guardar
+        </button>
+        <button type="button" className="ck-btn whitespace-nowrap" onClick={onCancel}>
+          Cancelar
+        </button>
+      </div>
+    </form>
   );
 }
 

@@ -19,7 +19,11 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import type { CoupleNoteDto, FamilyMemberDto } from '@cosasdecasa/contracts';
+import type {
+  ChallengeCatalogEntryDto,
+  CoupleNoteDto,
+  FamilyMemberDto,
+} from '@cosasdecasa/contracts';
 import { ScreenState } from '@/shared/components/ScreenState';
 import { cn } from '@/shared/lib/cn';
 import type { RomanticViewProps } from '../types';
@@ -53,21 +57,41 @@ export default function RomanticView(props: RomanticViewProps) {
     tab,
     mischiefFeedback,
     isSendingMischief,
+    isDissolving,
     challengesLoading,
     challengesError,
     markingChallengeKey,
+    challengeCatalog,
+    isLoadingCatalog,
+    catalogError,
+    addingChallengeKey,
     notesLoading,
     notesError,
     isAddingNote,
     addNoteError,
+    deletingNoteId,
     isCreatingCouple,
     pairUpError,
     onChangeTab,
     onPairUp,
     onToggleChallenge,
+    onLoadCatalog,
+    onAddChallenge,
     onAddNote,
+    onDeleteNote,
     onMischief,
+    onDissolveCouple,
   } = props;
+
+  function handleDissolve() {
+    if (
+      window.confirm(
+        '¿Seguro que quieres disolver la pareja? Se borrarán TODOS los retos y notas. Esta acción no se puede deshacer.',
+      )
+    ) {
+      onDissolveCouple();
+    }
+  }
 
   // Sin pareja (couple === null = 404) → pantalla de emparejamiento.
   // La carga/error iniciales tienen prioridad: durante la carga `couple` puede
@@ -90,17 +114,29 @@ export default function RomanticView(props: RomanticViewProps) {
         {/* Cabecera estilo cartel de cómic (tarjeta amarilla con pegatina). */}
         <header className="sf-card-y relative mb-1 p-4 sf-pop">
           <span className="sf-sticker">Sólo para vosotros 💕</span>
-          <div className="mt-2 flex items-end justify-between gap-2">
+          <div className="mt-2 flex flex-wrap items-end justify-between gap-2">
             <h1 className="sf-bangers text-4xl leading-none">Rincón de pareja</h1>
-            <button
-              type="button"
-              className="sf-btn sf-btn-r flex-shrink-0 !px-3 !py-1.5 text-xs"
-              onClick={onMischief}
-              disabled={isSendingMischief}
-              aria-label="Hacer maldad a tu pareja"
-            >
-              😈 Maldad
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="sf-btn sf-btn-r flex-shrink-0 !px-3 !py-1.5 text-xs"
+                onClick={onMischief}
+                disabled={isSendingMischief}
+                aria-label="Hacer maldad a tu pareja"
+              >
+                😈 Maldad
+              </button>
+              <button
+                type="button"
+                className="sf-btn sf-btn-w flex-shrink-0 !px-3 !py-1.5 text-xs"
+                style={{ color: 'var(--color-error)' }}
+                onClick={handleDissolve}
+                disabled={isDissolving}
+                aria-label="Disolver la pareja"
+              >
+                {isDissolving ? 'Disolviendo…' : '💔 Disolver'}
+              </button>
+            </div>
           </div>
         </header>
 
@@ -153,7 +189,13 @@ export default function RomanticView(props: RomanticViewProps) {
               isLoading={challengesLoading}
               error={challengesError}
               markingChallengeKey={markingChallengeKey}
+              catalog={challengeCatalog}
+              isLoadingCatalog={isLoadingCatalog}
+              catalogError={catalogError}
+              addingChallengeKey={addingChallengeKey}
               onToggle={onToggleChallenge}
+              onLoadCatalog={onLoadCatalog}
+              onAddChallenge={onAddChallenge}
             />
           ) : (
             <NotesThread
@@ -164,7 +206,9 @@ export default function RomanticView(props: RomanticViewProps) {
               error={notesError}
               isAdding={isAddingNote}
               addError={addNoteError}
+              deletingNoteId={deletingNoteId}
               onAddNote={onAddNote}
+              onDeleteNote={onDeleteNote}
             />
           )}
         </div>
@@ -298,21 +342,101 @@ function ChallengesList({
   isLoading,
   error,
   markingChallengeKey,
+  catalog,
+  isLoadingCatalog,
+  catalogError,
+  addingChallengeKey,
   onToggle,
+  onLoadCatalog,
+  onAddChallenge,
 }: {
   challenges: RomanticViewProps['challenges'];
   isLoading?: boolean;
   error?: string | null;
   markingChallengeKey?: string | null;
+  catalog: ChallengeCatalogEntryDto[];
+  isLoadingCatalog?: boolean;
+  catalogError?: string | null;
+  addingChallengeKey?: string | null;
   onToggle: (challengeKey: string) => void;
+  onLoadCatalog: () => void;
+  onAddChallenge: (challengeKey: string) => void;
 }) {
+  const [picking, setPicking] = useState(false);
+
+  function openPicker() {
+    onLoadCatalog();
+    setPicking(true);
+  }
+
+  const addedKeys = new Set(challenges.map((c) => c.challengeKey));
+  const available = catalog.filter((entry) => !addedKeys.has(entry.key));
+
   return (
+    <>
+      <div className="mb-3 flex justify-end">
+        <button
+          type="button"
+          className="sf-btn text-sm"
+          onClick={openPicker}
+          aria-label="Añadir reto del catálogo"
+        >
+          ➕ Añadir reto
+        </button>
+      </div>
+
+      {picking && (
+        <div className="sf-card sf-pop mb-3 space-y-2 p-3" aria-label="Catálogo de retos disponibles">
+          <div className="flex items-center justify-between">
+            <p className="sf-bangers text-lg">Elige un reto</p>
+            <button
+              type="button"
+              className="sf-btn sf-btn-w !px-2 !py-1 text-xs"
+              onClick={() => setPicking(false)}
+              aria-label="Cerrar catálogo de retos"
+            >
+              ✕
+            </button>
+          </div>
+          <ScreenState
+            isLoading={isLoadingCatalog}
+            error={catalogError}
+            isEmpty={!available.length}
+            emptyIcon={<span className="text-3xl">🎉</span>}
+            emptyTitle="Ya habéis añadido todos los retos disponibles."
+          >
+            <ul className="space-y-2" aria-label="Retos disponibles para añadir">
+              {available.map((entry) => {
+                const adding = addingChallengeKey === entry.key;
+                return (
+                  <li key={entry.key} className="sf-card flex items-center gap-2 p-2">
+                    <div className="flex-1">
+                      <p className="sf-fredoka text-sm font-bold">{entry.key}</p>
+                      <p className="text-xs opacity-70">{entry.description}</p>
+                    </div>
+                    <button
+                      type="button"
+                      className="sf-btn sf-btn-r flex-shrink-0 !px-3 !py-1 text-xs disabled:opacity-50"
+                      disabled={adding}
+                      onClick={() => onAddChallenge(entry.key)}
+                      aria-label={`Añadir reto "${entry.key}"`}
+                    >
+                      {adding ? '…' : 'Añadir'}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </ScreenState>
+        </div>
+      )}
+
     <ScreenState
       isLoading={isLoading}
       error={error}
       isEmpty={!challenges.length}
       emptyIcon={<span className="text-4xl">🎯</span>}
-      emptyTitle="Aún no hay retos. ¡El backend los generará pronto para vosotros!"
+      emptyTitle="Aún no hay retos. ¡Añade uno del catálogo para empezar!"
     >
       <ul className="space-y-3" aria-label="Lista de retos de pareja">
         {challenges.map((c) => {
@@ -403,6 +527,7 @@ function ChallengesList({
         })}
       </ul>
     </ScreenState>
+    </>
   );
 }
 
@@ -416,7 +541,9 @@ function NotesThread({
   error,
   isAdding,
   addError,
+  deletingNoteId,
   onAddNote,
+  onDeleteNote,
 }: {
   notes: CoupleNoteDto[];
   members: FamilyMemberDto[];
@@ -425,10 +552,18 @@ function NotesThread({
   error?: string | null;
   isAdding?: boolean;
   addError?: string | null;
+  deletingNoteId?: string | null;
   onAddNote: (body: string) => void;
+  onDeleteNote: (noteId: string) => void;
 }) {
   const [body, setBody] = useState('');
   const ref = useRef<HTMLDivElement>(null);
+
+  function confirmDelete(noteId: string) {
+    if (window.confirm('¿Borrar esta nota? No se puede deshacer.')) {
+      onDeleteNote(noteId);
+    }
+  }
 
   // Auto-scroll al último mensaje cuando llegan notas nuevas.
   // `scrollTo` no existe en jsdom (entorno de test) → guardamos su presencia.
@@ -460,10 +595,11 @@ function NotesThread({
       >
         {notes.map((n) => {
           const mine = n.authorId === currentUserId;
+          const deleting = deletingNoteId === n.id;
           return (
             <div
               key={n.id}
-              className={cn('flex', mine ? 'justify-end' : 'justify-start')}
+              className={cn('flex items-center gap-1', mine ? 'justify-end' : 'justify-start')}
             >
               <div
                 className={cn('sf-card max-w-[78%] p-3')}
@@ -482,6 +618,16 @@ function NotesThread({
                 )}
                 <p className="sf-fredoka whitespace-pre-wrap text-sm">{n.body}</p>
               </div>
+              <button
+                type="button"
+                onClick={() => confirmDelete(n.id)}
+                disabled={deleting}
+                aria-label="Borrar nota"
+                className="flex-shrink-0 rounded-full p-1 text-sm opacity-70 hover:opacity-100 disabled:opacity-40"
+                style={{ color: 'var(--color-error)' }}
+              >
+                {deleting ? '…' : '🗑️'}
+              </button>
             </div>
           );
         })}

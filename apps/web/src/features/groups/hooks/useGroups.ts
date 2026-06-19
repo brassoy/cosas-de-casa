@@ -3,21 +3,27 @@ import { api, ApiRequestError } from '@/shared/lib/api';
 import type {
   GroupSummaryDto,
   GroupMemberDto,
+  GroupRole,
   CreateGroupInput,
+  UpdateGroupInput,
   GenerateGroupPinResponse,
 } from '../contracts';
 import { useGroupsStore } from '../store/groups.store';
 
-export type { CreateGroupInput };
+export type { CreateGroupInput, UpdateGroupInput };
 
 // ── Endpoints reales (GroupsController) ──────────────────────────────────────
-// GET    /api/v1/groups                   → GroupSummaryDto[]
-// POST   /api/v1/groups                   → GroupSummaryDto       (body: CreateGroupInput)
-// POST   /api/v1/groups/join              → { groupId: string; joined: boolean }  (body: { code: string })
-// GET    /api/v1/groups/:id/members       → GroupMemberDto[]
-// POST   /api/v1/groups/:id/join-pins     → GenerateGroupPinResponse
-// DELETE /api/v1/groups/:id/members/me   → void
-// DELETE /api/v1/groups/:id/join-pins/active → void  (revocar PIN activo, solo OWNER)
+// GET    /api/v1/groups                       → GroupSummaryDto[]
+// POST   /api/v1/groups                       → GroupSummaryDto       (body: CreateGroupInput)
+// POST   /api/v1/groups/join                  → { groupId: string; joined: boolean }  (body: { code: string })
+// GET    /api/v1/groups/:id/members           → GroupMemberDto[]
+// POST   /api/v1/groups/:id/join-pins         → GenerateGroupPinResponse
+// PATCH  /api/v1/groups/:id                   → GroupSummaryDto       (body: UpdateGroupInput, solo OWNER)
+// DELETE /api/v1/groups/:id                   → void                  (borrar peña, solo OWNER)
+// PATCH  /api/v1/groups/:id/members/:userId   → void                  (cambiar rol, body: { role }, solo OWNER)
+// DELETE /api/v1/groups/:id/members/:userId   → void                  (expulsar miembro, solo OWNER)
+// DELETE /api/v1/groups/:id/members/me        → void
+// DELETE /api/v1/groups/:id/join-pins/active  → void  (revocar PIN activo, solo OWNER)
 
 // ── Queries ───────────────────────────────────────────────────────────────────
 
@@ -101,6 +107,75 @@ export function useLeaveGroup(groupId: string) {
     onSuccess: () => {
       clearGroup();
       void qc.invalidateQueries({ queryKey: ['groups'] });
+    },
+  });
+}
+
+// ── Gestión de la peña (solo OWNER) ───────────────────────────────────────────
+
+/**
+ * Edita nombre y/o descripción de la peña (`PATCH /groups/:id`, solo OWNER).
+ * Devuelve el `GroupSummaryDto` actualizado; refrescamos el store local con el
+ * nuevo nombre y reinvalidamos listados/detalle.
+ */
+export function useUpdateGroup(groupId: string) {
+  const qc = useQueryClient();
+  const setActiveGroup = useGroupsStore((s) => s.setActiveGroup);
+
+  return useMutation<GroupSummaryDto, ApiRequestError, UpdateGroupInput>({
+    mutationFn: (input) => api.patch<GroupSummaryDto>(`/groups/${groupId}`, input),
+    onSuccess: (group) => {
+      setActiveGroup({ id: group.id, name: group.name });
+      void qc.invalidateQueries({ queryKey: ['groups'] });
+    },
+  });
+}
+
+/**
+ * Borra la peña y todo su contenido (`DELETE /groups/:id`, solo OWNER).
+ * Limpia la peña activa del store; el container navega al listado tras el éxito.
+ */
+export function useDeleteGroup(groupId: string) {
+  const qc = useQueryClient();
+  const clearGroup = useGroupsStore((s) => s.clearGroup);
+
+  return useMutation<void, ApiRequestError, void>({
+    mutationFn: () => api.delete<void>(`/groups/${groupId}`),
+    onSuccess: () => {
+      clearGroup();
+      void qc.invalidateQueries({ queryKey: ['groups'] });
+    },
+  });
+}
+
+/**
+ * Cambia el rol de un miembro OWNER↔MEMBER
+ * (`PATCH /groups/:id/members/:userId`, solo OWNER). Reinvalida la lista de
+ * miembros para reflejar el nuevo rol.
+ */
+export function useChangeGroupMemberRole(groupId: string) {
+  const qc = useQueryClient();
+
+  return useMutation<void, ApiRequestError, { userId: string; role: GroupRole }>({
+    mutationFn: ({ userId, role }) =>
+      api.patch<void>(`/groups/${groupId}/members/${userId}`, { role }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['groups', groupId, 'members'] });
+    },
+  });
+}
+
+/**
+ * Expulsa a un miembro de la peña (`DELETE /groups/:id/members/:userId`, solo
+ * OWNER). Reinvalida la lista de miembros para que desaparezca el expulsado.
+ */
+export function useExpelGroupMember(groupId: string) {
+  const qc = useQueryClient();
+
+  return useMutation<void, ApiRequestError, { userId: string }>({
+    mutationFn: ({ userId }) => api.delete<void>(`/groups/${groupId}/members/${userId}`),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['groups', groupId, 'members'] });
     },
   });
 }

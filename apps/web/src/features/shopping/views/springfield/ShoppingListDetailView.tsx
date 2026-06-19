@@ -27,6 +27,7 @@ import { pickRandomPhrase } from '../../config/onadd.config';
 import type {
   AddItemPayload,
   DedupPending,
+  EditItemPayload,
   FrequentItemView,
   OpenItemState,
   ShoppingItemView,
@@ -68,6 +69,7 @@ export default function ShoppingListDetailView(props: ShoppingListDetailViewProp
     onOpenItem,
     onCloseItem,
     onAddComment,
+    onEditItem,
   } = props;
 
   const pending = items.filter((i) => !i.checked);
@@ -173,7 +175,12 @@ export default function ShoppingListDetailView(props: ShoppingListDetailViewProp
       />
 
       {/* ── Sub-flujo: Sheet de detalle + comentarios ── */}
-      <ItemSheet open={openItem ?? null} onClose={onCloseItem} onAddComment={onAddComment} />
+      <ItemSheet
+        open={openItem ?? null}
+        onClose={onCloseItem}
+        onAddComment={onAddComment}
+        onEditItem={onEditItem}
+      />
 
       {/* ── Sub-flujo: overlay festivo de éxito ── */}
       <AddSuccessOverlay state={successOverlay} onClose={onCloseSuccess} />
@@ -569,19 +576,25 @@ interface ItemSheetProps {
   open: OpenItemState | null;
   onClose: () => void;
   onAddComment: (body: string) => void;
+  onEditItem?: (id: string, changes: EditItemPayload) => void;
 }
 
-function ItemSheet({ open, onClose, onAddComment }: ItemSheetProps) {
+function ItemSheet({ open, onClose, onAddComment, onEditItem }: ItemSheetProps) {
   const item = open?.item ?? null;
   const comments = open?.comments ?? [];
   const isSending = open?.isSendingComment ?? false;
   const [body, setBody] = useState('');
+  const [editing, setEditing] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll al final del hilo cuando se abre o llega un comentario nuevo.
   useEffect(() => {
     if (item) scrollRef.current?.scrollTo({ top: 99999 });
   }, [item, comments.length]);
+
+  useEffect(() => {
+    setEditing(false);
+  }, [item?.id]);
 
   function submit() {
     const trimmed = body.trim();
@@ -591,6 +604,8 @@ function ItemSheet({ open, onClose, onAddComment }: ItemSheetProps) {
   }
 
   if (item == null) return null;
+
+  const canEdit = onEditItem != null;
 
   return (
     <div
@@ -615,16 +630,38 @@ function ItemSheet({ open, onClose, onAddComment }: ItemSheetProps) {
       >
         <div className="mb-3 flex items-center justify-between gap-2">
           <h2 className="sf-bangers truncate text-3xl leading-none">{item.name}</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Cerrar"
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-md text-lg font-bold opacity-60 transition hover:opacity-100"
-          >
-            ✕
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            {canEdit && !editing && (
+              <button
+                type="button"
+                className="sf-btn whitespace-nowrap"
+                onClick={() => setEditing(true)}
+                aria-label={`Editar ${item.name}`}
+              >
+                Editar
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Cerrar"
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-md text-lg font-bold opacity-60 transition hover:opacity-100"
+            >
+              ✕
+            </button>
+          </div>
         </div>
 
+        {editing && onEditItem ? (
+          <ItemEditForm
+            item={item}
+            onCancel={() => setEditing(false)}
+            onSave={(changes) => {
+              onEditItem(item.id, changes);
+              setEditing(false);
+            }}
+          />
+        ) : (
         <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto">
           {item.description && <p className="text-sm">{item.description}</p>}
           {item.purchaseLink && (
@@ -668,7 +705,9 @@ function ItemSheet({ open, onClose, onAddComment }: ItemSheetProps) {
             </ul>
           </div>
         </div>
+        )}
 
+        {!editing && (
         <div
           className="mt-3 flex gap-2 pt-3"
           style={{ borderTop: '3px solid var(--color-border)' }}
@@ -692,8 +731,94 @@ function ItemSheet({ open, onClose, onAddComment }: ItemSheetProps) {
             {isSending ? 'Enviando…' : 'Enviar'}
           </button>
         </div>
+        )}
       </div>
     </div>
+  );
+}
+
+// ── Formulario de edición de ítem (springfield) ───────────────────────────────
+
+interface ItemEditFormProps {
+  item: ShoppingItemView;
+  onSave: (changes: EditItemPayload) => void;
+  onCancel: () => void;
+}
+
+function ItemEditForm({ item, onSave, onCancel }: ItemEditFormProps) {
+  const [name, setName] = useState(item.name);
+  const [description, setDescription] = useState(item.description ?? '');
+  const [purchaseLink, setPurchaseLink] = useState(item.purchaseLink ?? '');
+
+  const trimmedName = name.trim();
+
+  function save() {
+    if (!trimmedName) return;
+    onSave({
+      name: trimmedName,
+      description: description.trim(),
+      purchaseLink: purchaseLink.trim(),
+    });
+  }
+
+  return (
+    <form
+      className="flex-1 space-y-3 overflow-y-auto"
+      aria-label={`Editar ${item.name}`}
+      onSubmit={(e) => {
+        e.preventDefault();
+        save();
+      }}
+    >
+      <label className="block space-y-1">
+        <span className="sf-bangers text-lg">Nombre</span>
+        <input
+          className="sf-input"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          aria-label="Nombre del artículo a editar"
+          maxLength={200}
+        />
+      </label>
+      <label className="block space-y-1">
+        <span className="sf-bangers text-lg">Descripción</span>
+        <input
+          className="sf-input"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Notas, marca, detalle…"
+          aria-label="Descripción del artículo"
+          maxLength={500}
+        />
+      </label>
+      <label className="block space-y-1">
+        <span className="sf-bangers text-lg">Enlace de compra</span>
+        <input
+          className="sf-input"
+          type="url"
+          value={purchaseLink}
+          onChange={(e) => setPurchaseLink(e.target.value)}
+          placeholder="https://…"
+          aria-label="Enlace de compra del artículo"
+        />
+      </label>
+      <div className="flex gap-2 pt-1">
+        <button
+          type="submit"
+          className="sf-btn sf-btn-g whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={!trimmedName}
+        >
+          Guardar
+        </button>
+        <button
+          type="button"
+          className="sf-btn sf-btn-w whitespace-nowrap"
+          onClick={onCancel}
+        >
+          Cancelar
+        </button>
+      </div>
+    </form>
   );
 }
 

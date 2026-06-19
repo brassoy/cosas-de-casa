@@ -25,7 +25,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { Eye, Loader2, Mic, ShoppingCart, Square, WifiOff, X } from 'lucide-react';
+import { Eye, Loader2, Mic, Pencil, ShoppingCart, Square, WifiOff, X } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { Input } from '@/shared/ui/input';
@@ -45,6 +45,7 @@ import { pickRandomPhrase } from '../../config/onadd.config';
 import type {
   AddItemPayload,
   DedupPending,
+  EditItemPayload,
   FrequentItemView,
   OpenItemState,
   ShoppingItemView,
@@ -86,6 +87,7 @@ export default function ShoppingListDetailView(props: ShoppingListDetailViewProp
     onOpenItem,
     onCloseItem,
     onAddComment,
+    onEditItem,
   } = props;
 
   const pending = items.filter((i) => !i.checked);
@@ -192,7 +194,12 @@ export default function ShoppingListDetailView(props: ShoppingListDetailViewProp
       />
 
       {/* ── Sub-flujo: Sheet de detalle + comentarios ── */}
-      <ItemSheet open={openItem ?? null} onClose={onCloseItem} onAddComment={onAddComment} />
+      <ItemSheet
+        open={openItem ?? null}
+        onClose={onCloseItem}
+        onAddComment={onAddComment}
+        onEditItem={onEditItem}
+      />
 
       {/* ── Sub-flujo: overlay festivo de éxito ── */}
       <AddSuccessOverlay state={successOverlay} onClose={onCloseSuccess} />
@@ -548,13 +555,15 @@ interface ItemSheetProps {
   open: OpenItemState | null;
   onClose: () => void;
   onAddComment: (body: string) => void;
+  onEditItem?: (id: string, changes: EditItemPayload) => void;
 }
 
-function ItemSheet({ open, onClose, onAddComment }: ItemSheetProps) {
+function ItemSheet({ open, onClose, onAddComment, onEditItem }: ItemSheetProps) {
   const item = open?.item ?? null;
   const comments = open?.comments ?? [];
   const isSending = open?.isSendingComment ?? false;
   const [body, setBody] = useState('');
+  const [editing, setEditing] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll al final del hilo cuando se abre o llega un comentario nuevo.
@@ -562,12 +571,19 @@ function ItemSheet({ open, onClose, onAddComment }: ItemSheetProps) {
     if (item) scrollRef.current?.scrollTo({ top: 99999 });
   }, [item, comments.length]);
 
+  // Al cambiar de ítem (o cerrar) salimos del modo edición.
+  useEffect(() => {
+    setEditing(false);
+  }, [item?.id]);
+
   function submit() {
     const trimmed = body.trim();
     if (!trimmed) return;
     onAddComment(trimmed);
     setBody('');
   }
+
+  const canEdit = onEditItem != null;
 
   return (
     <Sheet
@@ -578,9 +594,32 @@ function ItemSheet({ open, onClose, onAddComment }: ItemSheetProps) {
     >
       <SheetContent side="bottom" className="flex h-[80vh] flex-col" aria-label={item?.name}>
         <SheetHeader>
-          <SheetTitle>{item?.name}</SheetTitle>
+          <div className="flex items-center justify-between gap-2">
+            <SheetTitle>{item?.name}</SheetTitle>
+            {item && canEdit && !editing && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setEditing(true)}
+                aria-label={`Editar ${item.name}`}
+              >
+                <Pencil className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
+                Editar
+              </Button>
+            )}
+          </div>
         </SheetHeader>
-        {item && (
+        {item && editing && onEditItem ? (
+          <ItemEditForm
+            item={item}
+            onCancel={() => setEditing(false)}
+            onSave={(changes) => {
+              onEditItem(item.id, changes);
+              setEditing(false);
+            }}
+          />
+        ) : null}
+        {item && !editing && (
           <div ref={scrollRef} className="mt-3 flex-1 space-y-4 overflow-y-auto">
             {item.description && <p className="text-sm">{item.description}</p>}
             {item.purchaseLink && (
@@ -620,22 +659,98 @@ function ItemSheet({ open, onClose, onAddComment }: ItemSheetProps) {
             </div>
           </div>
         )}
-        <div className="flex gap-2 border-t border-border pt-3">
-          <Input
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') submit();
-            }}
-            placeholder="Escribe un comentario"
-            aria-label="Nuevo comentario"
-          />
-          <Button disabled={!body.trim() || isSending} onClick={submit}>
-            {isSending ? 'Enviando…' : 'Enviar'}
-          </Button>
-        </div>
+        {!editing && (
+          <div className="flex gap-2 border-t border-border pt-3">
+            <Input
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') submit();
+              }}
+              placeholder="Escribe un comentario"
+              aria-label="Nuevo comentario"
+            />
+            <Button disabled={!body.trim() || isSending} onClick={submit}>
+              {isSending ? 'Enviando…' : 'Enviar'}
+            </Button>
+          </div>
+        )}
       </SheetContent>
     </Sheet>
+  );
+}
+
+// ── Formulario de edición de ítem (base) ──────────────────────────────────────
+
+interface ItemEditFormProps {
+  item: ShoppingItemView;
+  onSave: (changes: EditItemPayload) => void;
+  onCancel: () => void;
+}
+
+function ItemEditForm({ item, onSave, onCancel }: ItemEditFormProps) {
+  const [name, setName] = useState(item.name);
+  const [description, setDescription] = useState(item.description ?? '');
+  const [purchaseLink, setPurchaseLink] = useState(item.purchaseLink ?? '');
+
+  const trimmedName = name.trim();
+
+  function save() {
+    if (!trimmedName) return;
+    onSave({
+      name: trimmedName,
+      description: description.trim(),
+      purchaseLink: purchaseLink.trim(),
+    });
+  }
+
+  return (
+    <form
+      className="mt-3 flex-1 space-y-3 overflow-y-auto"
+      aria-label={`Editar ${item.name}`}
+      onSubmit={(e) => {
+        e.preventDefault();
+        save();
+      }}
+    >
+      <label className="block space-y-1">
+        <span className="text-sm font-medium">Nombre</span>
+        <Input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          aria-label="Nombre del artículo a editar"
+          maxLength={200}
+        />
+      </label>
+      <label className="block space-y-1">
+        <span className="text-sm font-medium">Descripción</span>
+        <Input
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Notas, marca, detalle…"
+          aria-label="Descripción del artículo"
+          maxLength={500}
+        />
+      </label>
+      <label className="block space-y-1">
+        <span className="text-sm font-medium">Enlace de compra</span>
+        <Input
+          type="url"
+          value={purchaseLink}
+          onChange={(e) => setPurchaseLink(e.target.value)}
+          placeholder="https://…"
+          aria-label="Enlace de compra del artículo"
+        />
+      </label>
+      <div className="flex gap-2 pt-1">
+        <Button type="submit" disabled={!trimmedName}>
+          Guardar
+        </Button>
+        <Button type="button" variant="outline" onClick={onCancel}>
+          Cancelar
+        </Button>
+      </div>
+    </form>
   );
 }
 

@@ -21,6 +21,7 @@ import type {
   CoupleDto,
   CoupleNoteDto,
   CoupleChallengeDto,
+  ChallengeCatalogEntryDto,
   FamilyMemberDto,
 } from '@cosasdecasa/contracts';
 import type { RomanticTab } from '../types';
@@ -46,12 +47,28 @@ export interface RomanticViewProps {
   mischiefFeedback?: string | null;
   /** La mutación de maldad está en vuelo (deshabilita el botón). */
   isSendingMischief?: boolean;
+  /** La mutación de disolver la pareja está en vuelo. */
+  isDissolving?: boolean;
 
   // ── Estado de la pestaña Retos ───────────────────────────────────────────────
   challengesLoading?: boolean;
   challengesError?: string | null;
   /** challengeKey que se está marcando como hecho (spinner por item). */
   markingChallengeKey?: string | null;
+
+  // ── Añadir reto (catálogo) ───────────────────────────────────────────────────
+  /** Catálogo de retos disponibles (se carga al abrir el selector). */
+  challengeCatalog: ChallengeCatalogEntryDto[];
+  /** El catálogo se está cargando. */
+  isLoadingCatalog?: boolean;
+  /** Error al cargar el catálogo de retos. */
+  catalogError?: string | null;
+  /** Carga el catálogo bajo demanda (al abrir el selector de "añadir reto"). */
+  onLoadCatalog: () => void;
+  /** Añade un reto del catálogo a la pareja por su `key`. */
+  onAddChallenge: (challengeKey: string) => void;
+  /** `key` del reto del catálogo que se está añadiendo (spinner por item). */
+  addingChallengeKey?: string | null;
 
   // ── Estado de la pestaña Notas ───────────────────────────────────────────────
   notesLoading?: boolean;
@@ -60,6 +77,10 @@ export interface RomanticViewProps {
   isAddingNote?: boolean;
   /** Error al añadir una nota (se muestra junto al composer). */
   addNoteError?: string | null;
+  /** `id` de la nota que se está borrando (spinner por item). */
+  deletingNoteId?: string | null;
+  /** Borra una nota de la pareja por su `id`. */
+  onDeleteNote: (noteId: string) => void;
 
   // ── Estado del emparejamiento (sin pareja) ───────────────────────────────────
   /** La mutación de crear pareja está en vuelo. */
@@ -73,4 +94,6 @@ export interface RomanticViewProps {
   onToggleChallenge: (challengeKey: string) => void;
   onAddNote: (body: string) => void;
   onMischief: () => void;
+  /** Disuelve la pareja (acción destructiva: la confirmación vive en la vista). */
+  onDissolveCouple: () => void;
 }

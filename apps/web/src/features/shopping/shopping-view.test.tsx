@@ -16,6 +16,9 @@ import userEvent from '@testing-library/user-event';
 
 import ShoppingListsView from './views/base/ShoppingListsView';
 import ShoppingListDetailView from './views/base/ShoppingListDetailView';
+import CozyDetailView from './views/cozy/ShoppingListDetailView';
+import CozysitcomDetailView from './views/cozysitcom/ShoppingListDetailView';
+import SpringfieldDetailView from './views/springfield/ShoppingListDetailView';
 import type {
   ShoppingItemView,
   ShoppingListDetailViewProps,
@@ -425,6 +428,160 @@ describe('ShoppingListDetailView — ItemSheet', () => {
     await user.type(screen.getByLabelText(/nuevo comentario/i), 'Marca X');
     await user.click(screen.getByRole('button', { name: /enviar/i }));
     expect(onAddComment).toHaveBeenCalledWith('Marca X');
+  });
+});
+
+describe('ShoppingListDetailView — editar ítem', () => {
+  it('muestra el botón Editar cuando hay onEditItem y un ítem abierto', () => {
+    render(
+      <ShoppingListDetailView
+        {...detailProps({
+          openItem: { item: makeItem({ id: 'i1', name: 'Detergente' }), comments: [] },
+          onEditItem: vi.fn(),
+        })}
+      />,
+    );
+    expect(screen.getByRole('button', { name: /editar detergente/i })).toBeInTheDocument();
+  });
+
+  it('NO muestra el botón Editar si no se pasa onEditItem', () => {
+    render(
+      <ShoppingListDetailView
+        {...detailProps({
+          openItem: { item: makeItem({ id: 'i1', name: 'Detergente' }), comments: [] },
+          onEditItem: undefined,
+        })}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: /editar detergente/i })).toBeNull();
+  });
+
+  it('editar nombre, descripción y enlace y guardar emite onEditItem con los cambios', async () => {
+    const user = userEvent.setup();
+    const onEditItem = vi.fn();
+    render(
+      <ShoppingListDetailView
+        {...detailProps({
+          openItem: {
+            item: makeItem({ id: 'i1', name: 'Detergente', description: 'viejo' }),
+            comments: [],
+          },
+          onEditItem,
+        })}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: /editar detergente/i }));
+
+    const nameInput = screen.getByLabelText(/nombre del artículo a editar/i);
+    await user.clear(nameInput);
+    await user.type(nameInput, 'Detergente líquido');
+
+    const descInput = screen.getByLabelText(/descripción del artículo/i);
+    await user.clear(descInput);
+    await user.type(descInput, 'El de la marca azul');
+
+    const linkInput = screen.getByLabelText(/enlace de compra del artículo/i);
+    await user.type(linkInput, 'https://tienda.example/detergente');
+
+    await user.click(screen.getByRole('button', { name: /guardar/i }));
+
+    expect(onEditItem).toHaveBeenCalledWith('i1', {
+      name: 'Detergente líquido',
+      description: 'El de la marca azul',
+      purchaseLink: 'https://tienda.example/detergente',
+    });
+  });
+
+  it('cancelar la edición no emite onEditItem y vuelve a la vista de detalle', async () => {
+    const user = userEvent.setup();
+    const onEditItem = vi.fn();
+    render(
+      <ShoppingListDetailView
+        {...detailProps({
+          openItem: {
+            item: makeItem({ id: 'i1', name: 'Detergente', description: 'visible' }),
+            comments: [],
+          },
+          onEditItem,
+        })}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: /editar detergente/i }));
+    await user.click(screen.getByRole('button', { name: /cancelar/i }));
+
+    expect(onEditItem).not.toHaveBeenCalled();
+    // De vuelta en lectura: la descripción se vuelve a ver y reaparece "Editar".
+    expect(screen.getByText('visible')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /editar detergente/i })).toBeInTheDocument();
+  });
+
+  it('no deja guardar con el nombre vacío', async () => {
+    const user = userEvent.setup();
+    const onEditItem = vi.fn();
+    render(
+      <ShoppingListDetailView
+        {...detailProps({
+          openItem: { item: makeItem({ id: 'i1', name: 'Detergente' }), comments: [] },
+          onEditItem,
+        })}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: /editar detergente/i }));
+    await user.clear(screen.getByLabelText(/nombre del artículo a editar/i));
+    expect(screen.getByRole('button', { name: /guardar/i })).toBeDisabled();
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Edición de ítem — paridad entre los 4 themes (mismas props, mismo contrato)
+// ══════════════════════════════════════════════════════════════════════════════
+
+const detailViewsByTheme = [
+  ['base', ShoppingListDetailView],
+  ['cozy', CozyDetailView],
+  ['cozysitcom', CozysitcomDetailView],
+  ['springfield', SpringfieldDetailView],
+] as const;
+
+describe.each(detailViewsByTheme)('ShoppingListDetailView [%s] — editar ítem', (_theme, View) => {
+  it('abrir edición, cambiar el nombre y guardar emite onEditItem', async () => {
+    const user = userEvent.setup();
+    const onEditItem = vi.fn();
+    render(
+      <View
+        {...detailProps({
+          openItem: { item: makeItem({ id: 'i1', name: 'Detergente' }), comments: [] },
+          onEditItem,
+        })}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: /editar detergente/i }));
+
+    const nameInput = screen.getByLabelText(/nombre del artículo a editar/i);
+    await user.clear(nameInput);
+    await user.type(nameInput, 'Lavavajillas');
+    await user.click(screen.getByRole('button', { name: /guardar/i }));
+
+    expect(onEditItem).toHaveBeenCalledWith(
+      'i1',
+      expect.objectContaining({ name: 'Lavavajillas' }),
+    );
+  });
+
+  it('sin onEditItem no muestra el botón Editar', () => {
+    render(
+      <View
+        {...detailProps({
+          openItem: { item: makeItem({ id: 'i1', name: 'Detergente' }), comments: [] },
+          onEditItem: undefined,
+        })}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: /editar detergente/i })).toBeNull();
   });
 });
 

@@ -16,10 +16,11 @@
  * Presentacional puro: solo props in / callbacks out.
  * ─────────────────────────────────────────────────────────────────────────── */
 
+import { useState } from 'react';
 import { Bell, BellOff, Copy, Share2 } from 'lucide-react';
 import type { FamilyMemberDto, GeneratePinResponse } from '@cosasdecasa/contracts';
 import { ScreenState, ListSkeleton } from '@/shared/components/ScreenState';
-import type { FamilyHomeViewProps } from '../types';
+import type { FamilyHomeViewProps, FamilyManageProps } from '../types';
 
 // Paleta de chinchetas/avatares del cuaderno (mismo orden que la maqueta del kit).
 const PINS: readonly string[] = ['#c0392b', '#2d4a8a', '#5b8a3a', '#e3a51a', '#8e44ad'];
@@ -50,6 +51,7 @@ export default function FamilyHomeView(props: FamilyHomeViewProps) {
     onLeaveFamily,
     leaveLoading,
     leaveError,
+    manage,
   } = props;
 
   return (
@@ -173,6 +175,11 @@ export default function FamilyHomeView(props: FamilyHomeViewProps) {
           </ScreenState>
         </section>
 
+        {/* ── Gestionar familia (solo OWNER) ──────────────────────────────── */}
+        {isOwner && manage && (
+          <FamilyManageSection manage={manage} members={members} />
+        )}
+
         {/* ── Salir de la familia ─────────────────────────────────────────── */}
         {onLeaveFamily && (
           <section className="ck-card p-4 space-y-3">
@@ -295,6 +302,164 @@ export function InvitePinBox({
         </button>
       )}
     </div>
+  );
+}
+
+// ── Subcomponente: sección "Gestionar familia" (solo OWNER) ───────────────────
+
+export function FamilyManageSection({
+  manage,
+  members,
+}: {
+  manage: FamilyManageProps;
+  members: FamilyMemberDto[];
+}) {
+  const {
+    onChangeRole,
+    onRemoveMember,
+    currentUserId,
+    roleChangingId,
+    removingId,
+    memberError,
+    initialName,
+    initialDescription,
+    onSaveDetails,
+    detailsSaving,
+    detailsError,
+    onDeleteFamily,
+    deleteLoading,
+    deleteError,
+  } = manage;
+
+  const [name, setName] = useState(initialName);
+  const [description, setDescription] = useState(initialDescription);
+
+  const dirty = name.trim() !== initialName || description.trim() !== initialDescription;
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const input: { name?: string; description?: string } = {};
+    if (name.trim() !== initialName) input.name = name.trim();
+    if (description.trim() !== initialDescription) input.description = description.trim();
+    if (input.name === undefined && input.description === undefined) return;
+    onSaveDetails(input);
+  }
+
+  return (
+    <section aria-labelledby="manage-family-heading" className="space-y-4">
+      <h2 id="manage-family-heading" className="ck-marker text-3xl text-primary">
+        Gestionar familia
+      </h2>
+
+      {/* — Gestión de miembros — */}
+      <div className="ck-card p-4 space-y-3">
+        <h3 className="ck-marker text-2xl text-primary">Miembros</h3>
+        {memberError && (
+          <div role="alert">
+            <p className="text-base text-error">{memberError}</p>
+          </div>
+        )}
+        <ul className="space-y-2 list-none p-0 m-0">
+          {members.map((m) => {
+            const isSelf = m.userId === currentUserId;
+            const busy = roleChangingId === m.userId || removingId === m.userId;
+            return (
+              <li key={m.userId} className="flex flex-wrap items-center gap-2">
+                <span className="flex-1 min-w-0 truncate text-lg">{m.displayName}</span>
+                <select
+                  value={m.role}
+                  disabled={isSelf || busy}
+                  onChange={(e) =>
+                    onChangeRole(m.userId, e.target.value as FamilyMemberDto['role'])
+                  }
+                  className="ck-input !py-1 !px-2 text-sm disabled:opacity-50"
+                  aria-label={`Rol de ${m.displayName}`}
+                >
+                  <option value="OWNER">Propietario</option>
+                  <option value="MEMBER">Miembro</option>
+                </select>
+                <button
+                  type="button"
+                  disabled={isSelf || busy}
+                  onClick={() => onRemoveMember(m.userId)}
+                  className="ck-marker text-xl text-error disabled:opacity-40 hover:opacity-80"
+                  aria-label={`Expulsar a ${m.displayName}`}
+                >
+                  {removingId === m.userId ? 'Expulsando…' : 'Expulsar'}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+
+      {/* — Editar nombre/descripción — */}
+      <div className="ck-card p-4 space-y-3 relative">
+        <span className="ck-tape" aria-hidden="true" />
+        <h3 className="ck-marker text-2xl text-primary">Nombre y descripción</h3>
+        {detailsError && (
+          <div role="alert">
+            <p className="text-base text-error">{detailsError}</p>
+          </div>
+        )}
+        <form className="space-y-3" onSubmit={handleSubmit}>
+          <div className="space-y-1">
+            <label htmlFor="family-name" className="text-base opacity-70">
+              Nombre
+            </label>
+            <input
+              id="family-name"
+              value={name}
+              maxLength={100}
+              onChange={(e) => setName(e.target.value)}
+              className="ck-input w-full"
+            />
+          </div>
+          <div className="space-y-1">
+            <label htmlFor="family-description" className="text-base opacity-70">
+              Descripción
+            </label>
+            <textarea
+              id="family-description"
+              value={description}
+              maxLength={500}
+              rows={3}
+              onChange={(e) => setDescription(e.target.value)}
+              className="ck-input w-full"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={detailsSaving || !dirty || !name.trim()}
+            className="ck-btn ck-btn-blue self-start disabled:opacity-60"
+          >
+            {detailsSaving ? 'Guardando…' : 'Guardar cambios'}
+          </button>
+        </form>
+      </div>
+
+      {/* — Borrar la familia — */}
+      <div className="ck-card p-4 space-y-3">
+        <h3 className="ck-marker text-2xl text-error">Zona peligrosa</h3>
+        <p className="text-sm opacity-70">
+          Borrar la familia elimina sus listas, tareas y datos para todos los miembros. Esta
+          acción no se puede deshacer.
+        </p>
+        {deleteError && (
+          <div role="alert">
+            <p className="text-base text-error">{deleteError}</p>
+          </div>
+        )}
+        <button
+          type="button"
+          disabled={deleteLoading}
+          onClick={onDeleteFamily}
+          className="ck-btn ck-btn-red self-start disabled:opacity-60"
+        >
+          {deleteLoading ? 'Borrando…' : 'Borrar la familia'}
+        </button>
+      </div>
+    </section>
   );
 }
 

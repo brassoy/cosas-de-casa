@@ -178,6 +178,49 @@ export function useDeleteItem() {
   return { deleteItem };
 }
 
+/**
+ * Campos editables de un ítem desde la UI. Coincide con lo que acepta el
+ * PATCH /items/:itemId (UpdateItemInput del contrato): name, description y
+ * purchaseLink. Cada campo es opcional para permitir patches parciales; un
+ * campo presente como `''` (descripción/enlace vacíos) limpia el valor.
+ */
+export interface UpdateItemData {
+  name?: string;
+  description?: string;
+  purchaseLink?: string;
+}
+
+export function useUpdateItem() {
+  async function updateItem(itemId: string, data: UpdateItemData) {
+    const ts = new Date().toISOString();
+
+    // Optimista: actualiza Dexie antes de ir a la red. `''` → undefined para
+    // que la UI (que solo pinta valores truthy) deje de mostrar el campo.
+    const patch: Partial<{
+      name: string;
+      description: string | undefined;
+      purchaseLink: string | undefined;
+      updatedAt: string;
+    }> = { updatedAt: ts };
+    if (data.name !== undefined) patch.name = data.name;
+    if (data.description !== undefined) patch.description = data.description || undefined;
+    if (data.purchaseLink !== undefined) patch.purchaseLink = data.purchaseLink || undefined;
+
+    await db.items.update(itemId, patch);
+
+    // Encolar el PATCH. El backend acepta `null` para limpiar; mapeamos los
+    // strings vacíos a `null` en el payload que viaja a la API.
+    const apiData: Record<string, unknown> = {};
+    if (data.name !== undefined) apiData.name = data.name;
+    if (data.description !== undefined) apiData.description = data.description || null;
+    if (data.purchaseLink !== undefined) apiData.purchaseLink = data.purchaseLink || null;
+
+    await enqueue('updateItem', { itemId, data: apiData });
+  }
+
+  return { updateItem };
+}
+
 export function useAddComment(itemId: string) {
   async function addComment(body: string, authorId: string, authorName: string) {
     const id = crypto.randomUUID();

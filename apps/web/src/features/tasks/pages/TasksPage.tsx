@@ -22,6 +22,7 @@ import { useFamilyMembers } from '@/features/family/hooks/useFamily';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { ApiRequestError } from '@/shared/lib/api';
 import { useFamilyTasks, useCreateTask } from '../hooks/useTasks';
+import { useRealtimeTasks } from '../hooks/useRealtimeTasks';
 import { useTasksStore } from '../store/tasks.store';
 import type { TasksListViewProps } from '../views/types';
 
@@ -32,6 +33,9 @@ export function TasksPage() {
 
   const { data: tasks = [], isLoading, error } = useFamilyTasks(activeFamily?.id);
   const { data: members = [] } = useFamilyMembers(activeFamily?.id);
+
+  // Realtime: refresca el listado cuando otro miembro crea/cambia/reasigna tareas.
+  useRealtimeTasks(activeFamily?.id);
 
   const filters = useTasksStore((s) => s.filters);
   const setStatusFilter = useTasksStore((s) => s.setStatusFilter);

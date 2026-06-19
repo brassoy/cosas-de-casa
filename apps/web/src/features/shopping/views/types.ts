@@ -142,6 +142,18 @@ export interface OpenItemState {
   isSendingComment?: boolean;
 }
 
+/**
+ * Cambios que la vista emite al editar un ítem desde el Sheet. Coincide con los
+ * campos que acepta el PATCH /items/:itemId (UpdateItemInput): un campo a `''`
+ * (descripción/enlace vacíos) limpia su valor. `name` nunca llega vacío (la
+ * vista no deja guardar un nombre en blanco).
+ */
+export interface EditItemPayload {
+  name?: string;
+  description?: string;
+  purchaseLink?: string;
+}
+
 export interface ShoppingListDetailViewProps {
   /** Nombre de la lista (cabecera). */
   listName: string;
@@ -205,4 +217,10 @@ export interface ShoppingListDetailViewProps {
   onCloseItem: () => void;
   /** Publica un comentario en el ítem abierto. */
   onAddComment: (body: string) => void;
+  /**
+   * Edita el ítem abierto (offline-first: Dexie + outbox → PATCH /items/:id).
+   * Recibe el id y los campos cambiados (name, description, purchaseLink).
+   * Opcional para no romper consumidores previos del contrato.
+   */
+  onEditItem?: (id: string, changes: EditItemPayload) => void;
 }

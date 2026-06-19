@@ -15,16 +15,20 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type {
   CoupleDto,
   CoupleChallengeDto,
   CoupleNoteDto,
+  ChallengeCatalogEntryDto,
   FamilyMemberDto,
 } from '@cosasdecasa/contracts';
 
 import RomanticView from './views/base/RomanticView';
+import RomanticViewCozy from './views/cozy/RomanticView';
+import RomanticViewCozysitcom from './views/cozysitcom/RomanticView';
+import RomanticViewSpringfield from './views/springfield/RomanticView';
 import type { RomanticViewProps } from './views/types';
 
 // ── Fixtures ────────────────────────────────────────────────────────────────────
@@ -78,6 +82,12 @@ const notes: CoupleNoteDto[] = [
   },
 ];
 
+const catalog: ChallengeCatalogEntryDto[] = [
+  { key: 'cocinar-juntos', description: 'Elegid una receta que nunca hayáis hecho.' },
+  { key: 'cita-sorpresa', description: 'Organiza una cita sorpresa para tu pareja.' },
+  { key: 'carta-amor', description: 'Escribe una carta de amor a mano.' },
+];
+
 function makeProps(overrides: Partial<RomanticViewProps> = {}): RomanticViewProps {
   return {
     couple,
@@ -86,17 +96,24 @@ function makeProps(overrides: Partial<RomanticViewProps> = {}): RomanticViewProp
     notes,
     currentUserId: 'user-1',
     tab: 'challenges',
+    challengeCatalog: catalog,
     onChangeTab: vi.fn(),
     onPairUp: vi.fn(),
     onToggleChallenge: vi.fn(),
+    onLoadCatalog: vi.fn(),
+    onAddChallenge: vi.fn(),
     onAddNote: vi.fn(),
+    onDeleteNote: vi.fn(),
     onMischief: vi.fn(),
+    onDissolveCouple: vi.fn(),
     ...overrides,
   };
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // `window.confirm` por defecto confirma (true) salvo que un test lo cambie.
+  vi.spyOn(window, 'confirm').mockReturnValue(true);
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -252,6 +269,116 @@ describe('RomanticView — Maldad', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// 4b. Añadir reto (catálogo)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('RomanticView — Añadir reto (catálogo)', () => {
+  it('abrir el selector carga el catálogo (onLoadCatalog) y lo muestra', async () => {
+    const user = userEvent.setup();
+    const onLoadCatalog = vi.fn();
+    render(<RomanticView {...makeProps({ tab: 'challenges', onLoadCatalog })} />);
+
+    await user.click(screen.getByRole('button', { name: /añadir reto del catálogo/i }));
+    expect(onLoadCatalog).toHaveBeenCalledTimes(1);
+    expect(
+      screen.getByRole('list', { name: /retos disponibles para añadir/i }),
+    ).toBeInTheDocument();
+  });
+
+  it('filtra del catálogo los retos ya añadidos a la pareja', async () => {
+    const user = userEvent.setup();
+    // `challenges` (fixture) ya incluye 'cocinar-juntos' → no debe ofrecerse.
+    render(<RomanticView {...makeProps({ tab: 'challenges' })} />);
+
+    await user.click(screen.getByRole('button', { name: /añadir reto del catálogo/i }));
+    const list = screen.getByRole('list', { name: /retos disponibles para añadir/i });
+    expect(within(list).queryByText('cocinar-juntos')).not.toBeInTheDocument();
+    expect(within(list).getByText('cita-sorpresa')).toBeInTheDocument();
+    expect(within(list).getByText('carta-amor')).toBeInTheDocument();
+  });
+
+  it('añadir un reto del catálogo llama a onAddChallenge con su key', async () => {
+    const user = userEvent.setup();
+    const onAddChallenge = vi.fn();
+    render(<RomanticView {...makeProps({ tab: 'challenges', onAddChallenge })} />);
+
+    await user.click(screen.getByRole('button', { name: /añadir reto del catálogo/i }));
+    await user.click(screen.getByRole('button', { name: /añadir reto "cita-sorpresa"/i }));
+    await waitFor(() => expect(onAddChallenge).toHaveBeenCalledWith('cita-sorpresa'));
+  });
+
+  it('muestra el estado vacío cuando todos los retos ya están añadidos', async () => {
+    const user = userEvent.setup();
+    // El catálogo entero coincide con los retos ya añadidos.
+    const allAdded: CoupleChallengeDto[] = catalog.map((entry, i) => ({
+      id: `ch-${i}`,
+      coupleId: 'couple-1',
+      challengeKey: entry.key,
+      description: entry.description,
+      done: false,
+      doneAt: null,
+    }));
+    render(
+      <RomanticView {...makeProps({ tab: 'challenges', challenges: allAdded })} />,
+    );
+
+    await user.click(screen.getByRole('button', { name: /añadir reto del catálogo/i }));
+    expect(screen.getByText(/ya habéis añadido todos los retos/i)).toBeInTheDocument();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 4c. Borrar nota
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('RomanticView — Borrar nota', () => {
+  it('borrar una nota (confirmada) llama a onDeleteNote con su id', async () => {
+    const user = userEvent.setup();
+    const onDeleteNote = vi.fn();
+    render(<RomanticView {...makeProps({ tab: 'notes', onDeleteNote })} />);
+
+    const buttons = screen.getAllByRole('button', { name: /borrar nota/i });
+    await user.click(buttons[0]!);
+    await waitFor(() => expect(onDeleteNote).toHaveBeenCalledWith('note-1'));
+  });
+
+  it('si el usuario cancela el confirm, NO llama a onDeleteNote', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const user = userEvent.setup();
+    const onDeleteNote = vi.fn();
+    render(<RomanticView {...makeProps({ tab: 'notes', onDeleteNote })} />);
+
+    await user.click(screen.getAllByRole('button', { name: /borrar nota/i })[0]!);
+    expect(onDeleteNote).not.toHaveBeenCalled();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 4d. Disolver pareja
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('RomanticView — Disolver pareja', () => {
+  it('disolver (confirmado) llama a onDissolveCouple', async () => {
+    const user = userEvent.setup();
+    const onDissolveCouple = vi.fn();
+    render(<RomanticView {...makeProps({ onDissolveCouple })} />);
+
+    await user.click(screen.getByRole('button', { name: /disolver la pareja/i }));
+    await waitFor(() => expect(onDissolveCouple).toHaveBeenCalledTimes(1));
+  });
+
+  it('si el usuario cancela el confirm, NO disuelve la pareja', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const user = userEvent.setup();
+    const onDissolveCouple = vi.fn();
+    render(<RomanticView {...makeProps({ onDissolveCouple })} />);
+
+    await user.click(screen.getByRole('button', { name: /disolver la pareja/i }));
+    expect(onDissolveCouple).not.toHaveBeenCalled();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // 5. Estados (prioridad de carga/error sobre PairUp)
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -269,5 +396,51 @@ describe('RomanticView — estados', () => {
     );
     expect(screen.queryByText(/¡crea tu rincón de pareja!/i)).not.toBeInTheDocument();
     expect(screen.getByText(/no se ha podido cargar/i)).toBeInTheDocument();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 6. Paridad entre themes — las 3 acciones nuevas funcionan en los 4 themes
+// ─────────────────────────────────────────────────────────────────────────────
+
+const themedViews = [
+  ['base', RomanticView],
+  ['cozy', RomanticViewCozy],
+  ['cozysitcom', RomanticViewCozysitcom],
+  ['springfield', RomanticViewSpringfield],
+] as const;
+
+describe.each(themedViews)('RomanticView[%s] — paridad de acciones nuevas', (_name, View) => {
+  it('añadir reto: carga el catálogo y añade con su key', async () => {
+    const user = userEvent.setup();
+    const onLoadCatalog = vi.fn();
+    const onAddChallenge = vi.fn();
+    render(
+      <View {...makeProps({ tab: 'challenges', onLoadCatalog, onAddChallenge })} />,
+    );
+
+    await user.click(screen.getByRole('button', { name: /añadir reto del catálogo/i }));
+    expect(onLoadCatalog).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByRole('button', { name: /añadir reto "cita-sorpresa"/i }));
+    await waitFor(() => expect(onAddChallenge).toHaveBeenCalledWith('cita-sorpresa'));
+  });
+
+  it('borrar nota: confirma y llama a onDeleteNote con su id', async () => {
+    const user = userEvent.setup();
+    const onDeleteNote = vi.fn();
+    render(<View {...makeProps({ tab: 'notes', onDeleteNote })} />);
+
+    await user.click(screen.getAllByRole('button', { name: /borrar nota/i })[0]!);
+    await waitFor(() => expect(onDeleteNote).toHaveBeenCalledWith('note-1'));
+  });
+
+  it('disolver pareja: confirma y llama a onDissolveCouple', async () => {
+    const user = userEvent.setup();
+    const onDissolveCouple = vi.fn();
+    render(<View {...makeProps({ onDissolveCouple })} />);
+
+    await user.click(screen.getByRole('button', { name: /disolver la pareja/i }));
+    await waitFor(() => expect(onDissolveCouple).toHaveBeenCalledTimes(1));
   });
 });

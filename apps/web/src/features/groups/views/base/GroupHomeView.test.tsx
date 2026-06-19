@@ -132,4 +132,91 @@ describe('GroupHomeView (base)', () => {
     await user.click(screen.getByRole('button', { name: /volver a mis peñas/i }));
     expect(props.onBack).toHaveBeenCalledOnce();
   });
+
+  // ── Gestión de OWNER ─────────────────────────────────────────────────────────
+
+  describe('gestión de OWNER', () => {
+    function setupOwner(overrides: Partial<GroupHomeViewProps> = {}) {
+      return setup({
+        isOwner: true,
+        currentUserId: OWNER_MEMBER.userId,
+        onChangeMemberRole: vi.fn(),
+        onExpelMember: vi.fn(),
+        onUpdateGroup: vi.fn(),
+        onDeleteGroup: vi.fn(),
+        ...overrides,
+      });
+    }
+
+    it('NO muestra controles de gestión a un miembro normal', () => {
+      setup({ isOwner: false });
+      expect(screen.queryByRole('button', { name: /expulsar/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: /editar peña/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: /borrar peña/i })).not.toBeInTheDocument();
+    });
+
+    it('no permite gestionar al propio usuario (no hay botón expulsar en su fila)', () => {
+      setupOwner();
+      // Solo el OTRO miembro tiene botón de expulsar; el OWNER actual no.
+      expect(screen.getAllByRole('button', { name: /expulsar/i })).toHaveLength(1);
+    });
+
+    it('cambia el rol de un miembro al rol opuesto', async () => {
+      const user = userEvent.setup();
+      const props = setupOwner();
+      // REGULAR_MEMBER es MEMBER → la acción lo asciende a OWNER.
+      await user.click(screen.getByRole('button', { name: /hacer propietario/i }));
+      expect(props.onChangeMemberRole).toHaveBeenCalledWith(REGULAR_MEMBER.userId, 'OWNER');
+    });
+
+    it('expulsa a un miembro con su userId', async () => {
+      const user = userEvent.setup();
+      const props = setupOwner();
+      await user.click(screen.getByRole('button', { name: /expulsar/i }));
+      expect(props.onExpelMember).toHaveBeenCalledWith(REGULAR_MEMBER.userId);
+    });
+
+    it('guarda nombre y descripción al editar la peña', async () => {
+      const user = userEvent.setup();
+      const props = setupOwner();
+      const nameInput = screen.getByRole('textbox', { name: /nombre de la peña/i });
+      await user.clear(nameInput);
+      await user.type(nameInput, 'Cuadrilla renombrada');
+      await user.type(
+        screen.getByRole('textbox', { name: /descripción de la peña/i }),
+        'Nueva descripción',
+      );
+      await user.click(screen.getByRole('button', { name: /guardar cambios/i }));
+      expect(props.onUpdateGroup).toHaveBeenCalledWith({
+        name: 'Cuadrilla renombrada',
+        description: 'Nueva descripción',
+      });
+    });
+
+    it('muestra el error de edición que llega por props', () => {
+      setupOwner({ updateError: 'Nombre inválido' });
+      expect(screen.getByText(/nombre inválido/i)).toBeInTheDocument();
+    });
+
+    it('pide confirmación en 2 toques antes de borrar la peña', async () => {
+      const user = userEvent.setup();
+      const props = setupOwner();
+
+      await user.click(screen.getByRole('button', { name: /^borrar peña$/i }));
+      // Primer toque: arma la confirmación, NO borra.
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /sí, borrar peña/i })).toBeInTheDocument();
+      });
+      expect(props.onDeleteGroup).not.toHaveBeenCalled();
+
+      // Segundo toque: confirma y borra.
+      await user.click(screen.getByRole('button', { name: /sí, borrar peña/i }));
+      expect(props.onDeleteGroup).toHaveBeenCalledOnce();
+    });
+
+    it('muestra el error de borrado que llega por props', () => {
+      setupOwner({ deleteError: 'No se ha podido borrar' });
+      expect(screen.getByText(/no se ha podido borrar/i)).toBeInTheDocument();
+    });
+  });
 });

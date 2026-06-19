@@ -78,6 +78,8 @@ export default function PlanDetailView(props: PlanDetailViewProps) {
     friendFamilies,
     savedPlaces = [],
     messagesLoading,
+    hasMoreMessages,
+    isLoadingOlderMessages,
     isSavingRsvp,
     isSharing,
     isSendingMessage,
@@ -93,6 +95,7 @@ export default function PlanDetailView(props: PlanDetailViewProps) {
     onRsvp,
     onShare,
     onSendMessage,
+    onLoadOlderMessages,
     onDelete,
     onUpdatePlan,
     onDeletePlace,
@@ -106,10 +109,13 @@ export default function PlanDetailView(props: PlanDetailViewProps) {
   const [edit, setEdit] = useState(() => initialEditValues(plan));
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll al final cuando llegan mensajes nuevos.
+  // Auto-scroll al final solo cuando llega un mensaje NUEVO (cambia el último).
+  // Al cargar mensajes antiguos se prependen arriba: el último no cambia, así
+  // que no saltamos al fondo y respetamos la posición de lectura del usuario.
+  const lastMessageId = messages.at(-1)?.id;
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages.length]);
+  }, [lastMessageId]);
 
   function handleSend() {
     const trimmed = msg.trim();
@@ -404,6 +410,19 @@ export default function PlanDetailView(props: PlanDetailViewProps) {
         >
           {messagesLoading && (
             <p className="text-base opacity-70 text-center pt-8">Cargando mensajes…</p>
+          )}
+
+          {!messagesLoading && hasMoreMessages && onLoadOlderMessages && (
+            <div className="flex justify-center pb-1">
+              <button
+                type="button"
+                className="ck-marker text-sm underline opacity-80 disabled:opacity-50"
+                onClick={onLoadOlderMessages}
+                disabled={isLoadingOlderMessages}
+              >
+                {isLoadingOlderMessages ? 'Cargando…' : 'Cargar mensajes antiguos'}
+              </button>
+            </div>
           )}
 
           {!messagesLoading && messages.length === 0 && (

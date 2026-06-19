@@ -10,7 +10,11 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import type { CoupleNoteDto, FamilyMemberDto } from '@cosasdecasa/contracts';
+import type {
+  ChallengeCatalogEntryDto,
+  CoupleNoteDto,
+  FamilyMemberDto,
+} from '@cosasdecasa/contracts';
 import { Button } from '@/shared/ui/button';
 import { Card } from '@/shared/ui/card';
 import { Input } from '@/shared/ui/input';
@@ -31,21 +35,41 @@ export default function RomanticView(props: RomanticViewProps) {
     tab,
     mischiefFeedback,
     isSendingMischief,
+    isDissolving,
     challengesLoading,
     challengesError,
     markingChallengeKey,
+    challengeCatalog,
+    isLoadingCatalog,
+    catalogError,
+    addingChallengeKey,
     notesLoading,
     notesError,
     isAddingNote,
     addNoteError,
+    deletingNoteId,
     isCreatingCouple,
     pairUpError,
     onChangeTab,
     onPairUp,
     onToggleChallenge,
+    onLoadCatalog,
+    onAddChallenge,
     onAddNote,
+    onDeleteNote,
     onMischief,
+    onDissolveCouple,
   } = props;
+
+  function handleDissolve() {
+    if (
+      window.confirm(
+        '¿Seguro que quieres disolver la pareja? Se borrarán TODOS los retos y notas. Esta acción no se puede deshacer.',
+      )
+    ) {
+      onDissolveCouple();
+    }
+  }
 
   // Sin pareja (couple === null = 404) → pantalla de emparejamiento.
   // La carga/error iniciales tienen prioridad: durante la carga `couple` puede
@@ -64,17 +88,29 @@ export default function RomanticView(props: RomanticViewProps) {
   return (
     <div className="mx-auto max-w-[640px] space-y-4 p-6">
       <ScreenState isLoading={isLoading} error={error}>
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h1 className="text-2xl font-bold">💕 Rincón de pareja</h1>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onMischief}
-            disabled={isSendingMischief}
-            aria-label="Hacer maldad a tu pareja"
-          >
-            😈 Hacer maldad
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onMischief}
+              disabled={isSendingMischief}
+              aria-label="Hacer maldad a tu pareja"
+            >
+              😈 Hacer maldad
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDissolve}
+              disabled={isDissolving}
+              aria-label="Disolver la pareja"
+              className="border-error text-error hover:bg-error/10"
+            >
+              {isDissolving ? 'Disolviendo…' : '💔 Disolver pareja'}
+            </Button>
+          </div>
         </div>
 
         {mischiefFeedback && (
@@ -124,7 +160,13 @@ export default function RomanticView(props: RomanticViewProps) {
               isLoading={challengesLoading}
               error={challengesError}
               markingChallengeKey={markingChallengeKey}
+              catalog={challengeCatalog}
+              isLoadingCatalog={isLoadingCatalog}
+              catalogError={catalogError}
+              addingChallengeKey={addingChallengeKey}
               onToggle={onToggleChallenge}
+              onLoadCatalog={onLoadCatalog}
+              onAddChallenge={onAddChallenge}
             />
           ) : (
             <NotesThread
@@ -135,7 +177,9 @@ export default function RomanticView(props: RomanticViewProps) {
               error={notesError}
               isAdding={isAddingNote}
               addError={addNoteError}
+              deletingNoteId={deletingNoteId}
               onAddNote={onAddNote}
+              onDeleteNote={onDeleteNote}
             />
           )}
         </div>
@@ -250,21 +294,99 @@ function ChallengesList({
   isLoading,
   error,
   markingChallengeKey,
+  catalog,
+  isLoadingCatalog,
+  catalogError,
+  addingChallengeKey,
   onToggle,
+  onLoadCatalog,
+  onAddChallenge,
 }: {
   challenges: RomanticViewProps['challenges'];
   isLoading?: boolean;
   error?: string | null;
   markingChallengeKey?: string | null;
+  catalog: ChallengeCatalogEntryDto[];
+  isLoadingCatalog?: boolean;
+  catalogError?: string | null;
+  addingChallengeKey?: string | null;
   onToggle: (challengeKey: string) => void;
+  onLoadCatalog: () => void;
+  onAddChallenge: (challengeKey: string) => void;
 }) {
+  const [picking, setPicking] = useState(false);
+
+  function openPicker() {
+    onLoadCatalog();
+    setPicking(true);
+  }
+
+  // Retos ya añadidos → se filtran del catálogo para no duplicar.
+  const addedKeys = new Set(challenges.map((c) => c.challengeKey));
+  const available = catalog.filter((entry) => !addedKeys.has(entry.key));
+
   return (
+    <>
+      <div className="mb-3 flex justify-end">
+        <Button size="sm" onClick={openPicker} aria-label="Añadir reto del catálogo">
+          ➕ Añadir reto
+        </Button>
+      </div>
+
+      {picking && (
+        <Card className="mb-3 space-y-2 p-3" aria-label="Catálogo de retos disponibles">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold">Elige un reto para añadir</p>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setPicking(false)}
+              aria-label="Cerrar catálogo de retos"
+            >
+              ✕
+            </Button>
+          </div>
+          <ScreenState
+            isLoading={isLoadingCatalog}
+            error={catalogError}
+            isEmpty={!available.length}
+            emptyIcon={<span className="text-3xl">🎉</span>}
+            emptyTitle="Ya habéis añadido todos los retos disponibles."
+          >
+            <ul className="space-y-2" aria-label="Retos disponibles para añadir">
+              {available.map((entry) => {
+                const adding = addingChallengeKey === entry.key;
+                return (
+                  <li
+                    key={entry.key}
+                    className="flex items-center gap-2 rounded-card border border-border p-2"
+                  >
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">{entry.key}</p>
+                      <p className="text-xs text-text-muted">{entry.description}</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      disabled={adding}
+                      onClick={() => onAddChallenge(entry.key)}
+                      aria-label={`Añadir reto "${entry.key}"`}
+                    >
+                      {adding ? '…' : 'Añadir'}
+                    </Button>
+                  </li>
+                );
+              })}
+            </ul>
+          </ScreenState>
+        </Card>
+      )}
+
     <ScreenState
       isLoading={isLoading}
       error={error}
       isEmpty={!challenges.length}
       emptyIcon={<span className="text-4xl">🎯</span>}
-      emptyTitle="Aún no hay retos. ¡El backend los generará pronto para vosotros!"
+      emptyTitle="Aún no hay retos. ¡Añade uno del catálogo para empezar!"
     >
       <ul className="space-y-2" aria-label="Lista de retos de pareja">
         {challenges.map((c) => {
@@ -313,6 +435,7 @@ function ChallengesList({
         })}
       </ul>
     </ScreenState>
+    </>
   );
 }
 
@@ -326,7 +449,9 @@ function NotesThread({
   error,
   isAdding,
   addError,
+  deletingNoteId,
   onAddNote,
+  onDeleteNote,
 }: {
   notes: CoupleNoteDto[];
   members: FamilyMemberDto[];
@@ -335,10 +460,18 @@ function NotesThread({
   error?: string | null;
   isAdding?: boolean;
   addError?: string | null;
+  deletingNoteId?: string | null;
   onAddNote: (body: string) => void;
+  onDeleteNote: (noteId: string) => void;
 }) {
   const [body, setBody] = useState('');
   const ref = useRef<HTMLDivElement>(null);
+
+  function confirmDelete(noteId: string) {
+    if (window.confirm('¿Borrar esta nota? No se puede deshacer.')) {
+      onDeleteNote(noteId);
+    }
+  }
 
   // Auto-scroll al último mensaje cuando llegan notas nuevas.
   // `scrollTo` no existe en jsdom (entorno de test) → guardamos su presencia.
@@ -369,8 +502,15 @@ function NotesThread({
       >
         {notes.map((n) => {
           const mine = n.authorId === currentUserId;
+          const deleting = deletingNoteId === n.id;
           return (
-            <div key={n.id} className={cn('flex', mine ? 'justify-end' : 'justify-start')}>
+            <div
+              key={n.id}
+              className={cn(
+                'group flex items-center gap-1',
+                mine ? 'justify-end' : 'justify-start',
+              )}
+            >
               <div
                 className={cn(
                   'max-w-[78%] rounded-2xl px-3 py-2 text-sm',
@@ -382,6 +522,15 @@ function NotesThread({
                 )}
                 <p className="whitespace-pre-wrap">{n.body}</p>
               </div>
+              <button
+                type="button"
+                onClick={() => confirmDelete(n.id)}
+                disabled={deleting}
+                aria-label="Borrar nota"
+                className="rounded-full p-1 text-xs text-text-muted hover:text-error disabled:opacity-50"
+              >
+                {deleting ? '…' : '🗑️'}
+              </button>
             </div>
           );
         })}

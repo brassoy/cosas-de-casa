@@ -22,7 +22,7 @@
  * Presentacional puro: solo props in / callbacks out. Sin fetch, sin stores.
  */
 
-import type { GroupSummaryDto, GroupMemberDto } from '../contracts';
+import type { GroupSummaryDto, GroupMemberDto, GroupRole } from '../contracts';
 
 // ── groups (listado de peñas del usuario) ─────────────────────────────────────
 
@@ -112,4 +112,52 @@ export interface GroupHomeViewProps {
    * container solo recibe la confirmación final y ejecuta la mutación.
    */
   onLeave: () => void;
+
+  // ── Gestión de la peña (solo OWNER) ─────────────────────────────────────────
+  // Estos callbacks son OPCIONALES: el container solo los cablea cuando el
+  // usuario es OWNER. Si la vista no los recibe, no renderiza la sección de
+  // gestión (los miembros no propietarios no ven nada de esto).
+
+  /** ID del usuario autenticado, para que la vista no permita auto-gestionarse. */
+  currentUserId?: string;
+
+  /**
+   * Cambia el rol de un miembro (OWNER↔MEMBER). La vista llama con el rol
+   * destino ya calculado; el container ejecuta la mutación y mapea errores.
+   */
+  onChangeMemberRole?: (userId: string, role: GroupRole) => void;
+  /** El `userId` cuyo rol se está cambiando ahora mismo; `null` si ninguno. */
+  changingRoleUserId?: string | null;
+
+  /**
+   * Expulsa a un miembro de la peña. La confirmación (`window.confirm`) vive en
+   * el container; la vista solo dispara el callback.
+   */
+  onExpelMember?: (userId: string) => void;
+  /** El `userId` que se está expulsando ahora mismo; `null` si ninguno. */
+  expellingUserId?: string | null;
+
+  /**
+   * Guarda los nuevos nombre/descripción de la peña. La vista mantiene el
+   * formulario controlado y envía solo los campos presentes; el container
+   * ejecuta la mutación e invalida queries.
+   */
+  onUpdateGroup?: (input: { name?: string; description?: string }) => void;
+  /** Valor inicial de la descripción para precargar el formulario de edición. */
+  groupDescription?: string;
+  /** La edición de la peña está en curso. */
+  updateLoading?: boolean;
+  /** Error al editar la peña; `null`/`undefined` si no hay. */
+  updateError?: string | null;
+
+  /**
+   * Borra la peña entera. La confirmación en 2 toques es UI y vive en la vista;
+   * el container recibe la confirmación final, ejecuta la mutación y navega al
+   * listado tras el éxito.
+   */
+  onDeleteGroup?: () => void;
+  /** El borrado de la peña está en curso. */
+  deleteLoading?: boolean;
+  /** Error al borrar la peña; `null`/`undefined` si no hay. */
+  deleteError?: string | null;
 }

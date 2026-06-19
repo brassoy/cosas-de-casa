@@ -19,7 +19,11 @@
  * Presentacional puro: solo props in / callbacks out.
  * ─────────────────────────────────────────────────────────────────────────── */
 
-import type { FamilyMemberDto, GeneratePinResponse } from '@cosasdecasa/contracts';
+import type {
+  FamilyMemberDto,
+  GeneratePinResponse,
+  MembershipRole,
+} from '@cosasdecasa/contracts';
 
 /** Acceso rápido del grid de la home (tile → ruta destino). */
 export interface FamilyQuickAccess {
@@ -121,4 +125,56 @@ export interface FamilyHomeViewProps {
   leaveLoading?: boolean;
   /** Error al salir de la familia; `null`/`undefined` si no hay. */
   leaveError?: string | null;
+
+  /**
+   * Sección "Gestionar familia" (solo OWNER). OPCIONAL: si el container no
+   * cablea `manage`, la vista no muestra la sección. Reúne las tres acciones de
+   * administración: gestión de miembros (cambiar rol / expulsar), edición del
+   * nombre y descripción, y borrado de la familia.
+   *
+   * Toda la lógica (confirmaciones, llamadas a la API, navegación) vive en el
+   * container; la vista solo pinta el estado y emite callbacks.
+   */
+  manage?: FamilyManageProps;
+}
+
+// ── Sección "Gestionar familia" (solo OWNER) ─────────────────────────────────
+
+export interface FamilyManageProps {
+  // — Gestión de miembros —
+  /**
+   * Cambiar el rol de un miembro. El `userId` propio del OWNER no se ofrece (el
+   * container filtra al usuario actual para evitar auto-degradarse sin querer).
+   */
+  onChangeRole: (userId: string, role: MembershipRole) => void;
+  /** Expulsar a un miembro (la confirmación vive en el container). */
+  onRemoveMember: (userId: string) => void;
+  /** Id del usuario autenticado: la vista no ofrece gestionarse a sí mismo. */
+  currentUserId: string;
+  /** `userId` cuyo cambio de rol está en curso (para deshabilitar su control). */
+  roleChangingId?: string | null;
+  /** `userId` cuya expulsión está en curso (para deshabilitar su control). */
+  removingId?: string | null;
+  /** Error de gestión de miembros (cambio de rol o expulsión). */
+  memberError?: string | null;
+
+  // — Editar nombre/descripción —
+  /** Valor inicial del nombre (precargado desde el detalle de la familia). */
+  initialName: string;
+  /** Valor inicial de la descripción (precargado; cadena vacía si no hay). */
+  initialDescription: string;
+  /** Guardar nombre/descripción. La vista envía solo los campos con cambios. */
+  onSaveDetails: (input: { name?: string; description?: string }) => void;
+  /** El guardado de detalles está en curso. */
+  detailsSaving?: boolean;
+  /** Error al guardar los detalles. */
+  detailsError?: string | null;
+
+  // — Borrar la familia —
+  /** Borrar la familia (confirmación FUERTE en el container). */
+  onDeleteFamily: () => void;
+  /** El borrado está en curso. */
+  deleteLoading?: boolean;
+  /** Error al borrar la familia. */
+  deleteError?: string | null;
 }

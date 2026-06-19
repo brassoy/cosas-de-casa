@@ -139,6 +139,7 @@ function renderDetail(overrides: Partial<PlanDetailViewProps> = {}) {
     onRsvp: vi.fn(),
     onShare: vi.fn(),
     onSendMessage: vi.fn(),
+    onLoadOlderMessages: vi.fn(),
     onDelete: vi.fn(),
     onUpdatePlan: vi.fn(),
     onDeletePlace: vi.fn(),
@@ -302,6 +303,33 @@ describe('PlanDetailView', () => {
     await user.type(screen.getByPlaceholderText(/escribe un mensaje/i), 'Mi mensaje');
     await user.click(screen.getByRole('button', { name: /enviar mensaje/i }));
     expect(props.onSendMessage).toHaveBeenCalledWith('Mi mensaje');
+  });
+
+  it('no muestra "cargar mensajes antiguos" cuando no hay más histórico', () => {
+    renderDetail({ messages: MOCK_MESSAGES, hasMoreMessages: false });
+    expect(
+      screen.queryByRole('button', { name: /cargar mensajes antiguos/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('muestra "cargar mensajes antiguos" cuando hay más histórico y emite el callback', async () => {
+    const user = userEvent.setup();
+    const { props } = renderDetail({ messages: MOCK_MESSAGES, hasMoreMessages: true });
+
+    const btn = screen.getByRole('button', { name: /cargar mensajes antiguos/i });
+    expect(btn).toBeInTheDocument();
+
+    await user.click(btn);
+    expect(props.onLoadOlderMessages).toHaveBeenCalledTimes(1);
+  });
+
+  it('deshabilita el botón y muestra "cargando…" mientras carga mensajes antiguos', () => {
+    renderDetail({
+      messages: MOCK_MESSAGES,
+      hasMoreMessages: true,
+      isLoadingOlderMessages: true,
+    });
+    expect(screen.getByRole('button', { name: /cargando…/i })).toBeDisabled();
   });
 
   it('muestra el botón de eliminar para el owner', () => {

@@ -35,6 +35,7 @@ import {
   useSetEventAttendees,
   useDeleteCalendarEvent,
 } from '../hooks/useCalendar';
+import { useRealtimeCalendar } from '../hooks/useRealtimeCalendar';
 import { useCalendarStore } from '../store/calendar.store';
 import { isOccurrenceId, parentEventId } from '../types';
 import type { CalendarEventDto } from '../types';
@@ -96,6 +97,9 @@ export function CalendarPage() {
     viewMonth,
   );
   const { data: members = [] } = useFamilyMembers(resolvedFamilyId);
+
+  // Realtime: refresca los eventos cuando otro miembro crea/edita/borra.
+  useRealtimeCalendar(resolvedFamilyId);
 
   // ── Mutaciones (instanciadas una vez; el id del editado viaja en cada hook) ──
   // Las ocurrencias `_occ_N` son de solo lectura: no se mutan, así que el id

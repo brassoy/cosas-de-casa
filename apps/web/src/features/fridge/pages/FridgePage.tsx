@@ -13,11 +13,19 @@
  *    (single source of truth, plan §4 fila 11 / §7 decisión A).
  *  - Mutaciones: crear, actualizar, eliminar (optimista + revert), comer
  *    (dual `{deleted}`), tirar, congelar (relocation a FREEZER).
+ *  - CONFIRMACIÓN de acciones destructivas (tirar / eliminar) vía `window.confirm`
+ *    (mismo patrón que listas/tickets) antes de disparar la mutación.
+ *  - MANEJO DE ERROR de las acciones rápidas: las mutaciones son optimistas y
+ *    hacen rollback al fallar; sin feedback el ítem reaparecía "solo". Aquí cada
+ *    acción pasa un `onError` que muestra un `toast.error` para que el fallo se vea.
+ *  - REALTIME (`useFridgeRealtime`): invalida la query cuando otro miembro de la
+ *    familia consume/añade/tira un producto, refrescando la nevera en vivo.
  *  - Estado de los diálogos (añadir / editar): se cierran SOLO al éxito de la
  *    mutación; en error se mantienen abiertos con `submitError`.
  */
 
 import { useMemo, useState } from 'react';
+import { toast } from 'sonner';
 import { useFamilyStore } from '@/features/family/store/family.store';
 import { ThemeView } from '@/shared/theme/ThemeView';
 import { ApiRequestError } from '@/shared/lib/api';
@@ -30,6 +38,7 @@ import {
   useThrowFridgeItemByFamily,
   useFreezeFridgeItemByFamily,
 } from '../hooks/useFridge';
+import { useFridgeRealtime } from '../hooks/useFridgeRealtime';
 import { useFridgeStore } from '../store/fridge.store';
 import { getExpiryUrgency, urgencyLabel } from '../types';
 import type { FridgeItemDto } from '../types';
@@ -68,6 +77,9 @@ export function FridgePage() {
 
   const { data: allItems = [], isLoading, error } = useFamilyFridge(activeFamily?.id);
 
+  // Realtime: invalida la query cuando otro miembro de la familia toca la nevera.
+  useFridgeRealtime(activeFamily?.id);
+
   const locationFilter = useFridgeStore((s) => s.filters.location);
   const setLocationFilter = useFridgeStore((s) => s.setLocationFilter);
 
@@ -94,6 +106,11 @@ export function FridgePage() {
     setIsAddOpen(false);
     setEditingItem(null);
     setSubmitError(null);
+  }
+
+  /** Nombre legible del ítem para los mensajes de confirmación/error. */
+  function nameOf(id: string): string {
+    return items.find((i) => i.id === id)?.name ?? 'el producto';
   }
 
   const props: FridgeListViewProps = {
@@ -133,10 +150,40 @@ export function FridgePage() {
         },
       );
     },
-    onDelete: (id) => remove.mutate(id),
-    onEat: (id) => eat.mutate(id),
-    onThrow: (id) => discard.mutate(id),
-    onFreeze: (id) => freeze.mutate(id),
+    // Eliminar: DESTRUCTIVA → confirmación + feedback de error (la mutación es
+    // optimista y revierte sola al fallar; sin el toast el ítem reaparecía sin
+    // explicación).
+    onDelete: (id) => {
+      if (!window.confirm(`¿Seguro que quieres eliminar ${nameOf(id)}? Esta acción no se puede deshacer.`)) {
+        return;
+      }
+      remove.mutate(id, {
+        onError: (err) =>
+          toast.error(toMessage(err, 'No se ha podido eliminar el producto. Inténtalo de nuevo.')),
+      });
+    },
+    // Comer: no destructiva, pero también puede fallar en silencio → toast.
+    onEat: (id) =>
+      eat.mutate(id, {
+        onError: (err) =>
+          toast.error(toMessage(err, 'No se ha podido marcar como consumido. Inténtalo de nuevo.')),
+      }),
+    // Tirar: DESTRUCTIVA → confirmación + feedback de error.
+    onThrow: (id) => {
+      if (!window.confirm(`¿Seguro que quieres tirar ${nameOf(id)}? Esta acción no se puede deshacer.`)) {
+        return;
+      }
+      discard.mutate(id, {
+        onError: (err) =>
+          toast.error(toMessage(err, 'No se ha podido tirar el producto. Inténtalo de nuevo.')),
+      });
+    },
+    // Congelar: no destructiva, pero el fallo también debe verse → toast.
+    onFreeze: (id) =>
+      freeze.mutate(id, {
+        onError: (err) =>
+          toast.error(toMessage(err, 'No se ha podido congelar el producto. Inténtalo de nuevo.')),
+      }),
   };
 
   if (!activeFamily) {

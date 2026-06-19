@@ -99,6 +99,14 @@ export interface PlanDetailViewProps {
   error?: string | null;
   /** Carga inicial de los mensajes del chat en curso. */
   messagesLoading?: boolean;
+  /**
+   * Hay mensajes más antiguos sin cargar (el chat tiene histórico anterior a la
+   * primera página). La vista muestra el botón "cargar mensajes antiguos".
+   * Opcional para no romper consumidores/tests existentes.
+   */
+  hasMoreMessages?: boolean;
+  /** La carga de una página de mensajes antiguos está en curso. */
+  isLoadingOlderMessages?: boolean;
   /** El RSVP está guardándose. */
   isSavingRsvp?: boolean;
   /** El compartir está en curso. */
@@ -135,6 +143,12 @@ export interface PlanDetailViewProps {
   onShare: (familyId: string) => void;
   /** Envía un mensaje al chat. */
   onSendMessage: (body: string) => void;
+  /**
+   * Carga la página anterior de mensajes (cursor `?before=`). El container
+   * acumula las páginas antiguas y actualiza `hasMoreMessages`. Opcional para no
+   * romper consumidores/tests existentes.
+   */
+  onLoadOlderMessages?: () => void;
   /** Elimina el plan (solo owner). */
   onDelete: () => void;
   /**

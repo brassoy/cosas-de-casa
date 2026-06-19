@@ -64,6 +64,9 @@ export function PlanDetailPage() {
     messages,
     isLoading: messagesLoading,
     sendMessage,
+    loadOlderMessages,
+    isLoadingOlder,
+    hasMoreOlder,
   } = usePlanChat(planId, { participantNames });
 
   const isOwner = plan?.createdBy === user?.id;
@@ -181,6 +184,8 @@ export function PlanDetailPage() {
     isLoading,
     error: error ? 'No se ha podido cargar el plan.' : null,
     messagesLoading,
+    hasMoreMessages: hasMoreOlder,
+    isLoadingOlderMessages: isLoadingOlder,
     isSavingRsvp: setRsvp.isPending,
     isSharing: sharePlan.isPending,
     isSendingMessage: sendMessage.isPending,
@@ -197,6 +202,7 @@ export function PlanDetailPage() {
     onRsvp: handleRsvp,
     onShare: handleShare,
     onSendMessage: handleSendMessage,
+    onLoadOlderMessages: loadOlderMessages,
     onDelete: handleDelete,
     onUpdatePlan: handleUpdatePlan,
     onDeletePlace: handleDeletePlace,

@@ -12,7 +12,11 @@ import userEvent from '@testing-library/user-event';
 
 import type { FamilyMemberDto, GeneratePinResponse } from '@cosasdecasa/contracts';
 import FamilyHomeView from './FamilyHomeView';
-import type { FamilyHomeViewProps, FamilyQuickAccess } from '../types';
+import type {
+  FamilyHomeViewProps,
+  FamilyManageProps,
+  FamilyQuickAccess,
+} from '../types';
 
 const QUICK_ACCESS: FamilyQuickAccess[] = [
   { id: 'lists', emoji: '🛒', label: 'Listas de la compra' },
@@ -192,5 +196,105 @@ describe('FamilyHomeView (base) — miembros', () => {
     setup({ members: [makeMember({ displayName: 'Ana García' })] });
     const list = screen.getByRole('list');
     expect(within(list).getByText('A')).toBeInTheDocument();
+  });
+});
+
+// ── Gestionar familia (solo OWNER) ────────────────────────────────────────────
+
+const makeManage = (overrides: Partial<FamilyManageProps> = {}): FamilyManageProps => ({
+  onChangeRole: vi.fn(),
+  onRemoveMember: vi.fn(),
+  currentUserId: 'me',
+  initialName: 'Casa García',
+  initialDescription: 'Nuestro hogar',
+  onSaveDetails: vi.fn(),
+  onDeleteFamily: vi.fn(),
+  ...overrides,
+});
+
+const MANAGE_MEMBERS: FamilyMemberDto[] = [
+  { userId: 'me', displayName: 'Yo Owner', role: 'OWNER', joinedAt: '2024-01-01T00:00:00.000Z' },
+  { userId: 'u2', displayName: 'Luis Pérez', role: 'MEMBER', joinedAt: '2024-02-01T00:00:00.000Z' },
+];
+
+describe('FamilyHomeView (base) — gestionar familia (OWNER)', () => {
+  it('no muestra la sección si no es OWNER aunque llegue manage', () => {
+    setup({ isOwner: false, members: MANAGE_MEMBERS, manage: makeManage() });
+    expect(
+      screen.queryByRole('heading', { name: /gestionar familia/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('no muestra la sección si es OWNER pero no llega manage', () => {
+    setup({ isOwner: true, members: MANAGE_MEMBERS });
+    expect(
+      screen.queryByRole('heading', { name: /gestionar familia/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('muestra la sección para OWNER con manage cableado', () => {
+    setup({ isOwner: true, members: MANAGE_MEMBERS, manage: makeManage() });
+    expect(screen.getByRole('heading', { name: /gestionar familia/i })).toBeInTheDocument();
+  });
+
+  it('deshabilita los controles del propio usuario (no puede gestionarse a sí mismo)', () => {
+    setup({ isOwner: true, members: MANAGE_MEMBERS, manage: makeManage({ currentUserId: 'me' }) });
+    expect(screen.getByRole('combobox', { name: /rol de yo owner/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /expulsar a yo owner/i })).toBeDisabled();
+    expect(screen.getByRole('combobox', { name: /rol de luis pérez/i })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /expulsar a luis pérez/i })).toBeEnabled();
+  });
+
+  it('dispara onChangeRole al cambiar el rol de otro miembro', async () => {
+    const user = userEvent.setup();
+    const manage = makeManage();
+    setup({ isOwner: true, members: MANAGE_MEMBERS, manage });
+    await user.selectOptions(
+      screen.getByRole('combobox', { name: /rol de luis pérez/i }),
+      'OWNER',
+    );
+    expect(manage.onChangeRole).toHaveBeenCalledWith('u2', 'OWNER');
+  });
+
+  it('dispara onRemoveMember al expulsar a otro miembro', async () => {
+    const user = userEvent.setup();
+    const manage = makeManage();
+    setup({ isOwner: true, members: MANAGE_MEMBERS, manage });
+    await user.click(screen.getByRole('button', { name: /expulsar a luis pérez/i }));
+    expect(manage.onRemoveMember).toHaveBeenCalledWith('u2');
+  });
+
+  it('precarga el formulario con nombre y descripción y permite guardar cambios', async () => {
+    const user = userEvent.setup();
+    const manage = makeManage({ initialName: 'Casa García', initialDescription: 'Hogar' });
+    setup({ isOwner: true, members: MANAGE_MEMBERS, manage });
+
+    const nameInput = screen.getByLabelText('Nombre');
+    expect(nameInput).toHaveValue('Casa García');
+
+    // Sin cambios → el botón de guardar está deshabilitado.
+    expect(screen.getByRole('button', { name: /guardar cambios/i })).toBeDisabled();
+
+    await user.clear(nameInput);
+    await user.type(nameInput, 'Casa Pérez');
+    await user.click(screen.getByRole('button', { name: /guardar cambios/i }));
+    expect(manage.onSaveDetails).toHaveBeenCalledWith({ name: 'Casa Pérez' });
+  });
+
+  it('dispara onDeleteFamily desde la zona peligrosa', async () => {
+    const user = userEvent.setup();
+    const manage = makeManage();
+    setup({ isOwner: true, members: MANAGE_MEMBERS, manage });
+    await user.click(screen.getByRole('button', { name: /borrar la familia/i }));
+    expect(manage.onDeleteFamily).toHaveBeenCalledOnce();
+  });
+
+  it('muestra el error de gestión de miembros que llega por props', () => {
+    setup({
+      isOwner: true,
+      members: MANAGE_MEMBERS,
+      manage: makeManage({ memberError: 'Debe quedar al menos un propietario.' }),
+    });
+    expect(screen.getByText(/al menos un propietario/i)).toBeInTheDocument();
   });
 });

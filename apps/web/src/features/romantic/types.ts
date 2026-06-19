@@ -11,6 +11,8 @@ export type {
   CoupleNoteDto,
   CoupleChallengeDto,
   CoupleChallengeStatus,
+  ChallengeCatalogEntryDto,
+  ChallengeCatalogDto,
   CreateCoupleInput,
   CreateCoupleNoteInput,
   MarkChallengeDoneInput,
