@@ -83,7 +83,7 @@ export default function TasksListView(props: TasksListViewProps) {
   } = props;
 
   return (
-    <div className="space-y-4">
+    <div className="mx-auto max-w-2xl space-y-4 p-6">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">Tareas</h1>
         <Button size="sm" onClick={() => onChangeCreateOpen(true)} aria-label="Crear tarea">

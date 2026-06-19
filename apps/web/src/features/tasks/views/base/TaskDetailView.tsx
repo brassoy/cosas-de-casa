@@ -69,7 +69,7 @@ export default function TaskDetailView(props: TaskDetailViewProps) {
 
   return (
     <ScreenState isLoading={isLoading} error={error}>
-      <div className="space-y-4">
+      <div className="mx-auto max-w-2xl space-y-4 p-6">
         <div className="flex items-center justify-between">
           <button
             type="button"

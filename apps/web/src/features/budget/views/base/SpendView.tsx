@@ -76,7 +76,7 @@ export default function SpendView(props: SpendViewProps) {
   const noData = summary.byCategory.length === 0 && summary.byMonth.length === 0;
 
   return (
-    <div className="space-y-4">
+    <div className="mx-auto max-w-2xl space-y-4 p-6">
       <div className="flex items-center gap-4">
         <button type="button" onClick={onBack} className="text-sm text-muted-foreground">
           ‹ Tickets

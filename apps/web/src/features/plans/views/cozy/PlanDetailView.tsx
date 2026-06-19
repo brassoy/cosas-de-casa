@@ -121,7 +121,7 @@ export default function PlanDetailView(props: PlanDetailViewProps) {
   }
 
   return (
-    <div className="ck space-y-5">
+    <div className="ck space-y-5 px-5">
       {/* ── Cabecera del cuaderno + sello de estado ────────────────────────── */}
       <div className="text-center relative">
         <button

@@ -167,7 +167,7 @@ export default function FridgeListView(props: FridgeListViewProps) {
       : `${items.length} ${items.length === 1 ? 'producto' : 'productos'} en casa`;
 
   return (
-    <div className="sf max-w-[520px] mx-auto space-y-4 pb-10">
+    <div className="sf max-w-[520px] mx-auto space-y-4 px-5 pb-10">
       {/* ── Cabecera amarilla de cómic (sf-card-y + Bangers) ───────────────── */}
       <header className="sf-card-y sf-pop relative p-4">
         <div className="flex items-end justify-between gap-3 flex-wrap">

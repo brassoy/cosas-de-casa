@@ -117,7 +117,7 @@ export default function ReceiptDraftEditor(props: ReceiptDraftEditorProps) {
   const canSave = purchasedAt.length > 0 && lines.length > 0 && !isSaving;
 
   return (
-    <div className="space-y-6" role="main" aria-label="Editor de ticket">
+    <div className="mx-auto max-w-2xl space-y-6 p-6" role="main" aria-label="Editor de ticket">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
         <h1 className="text-2xl font-bold">{title}</h1>
         <div className="flex gap-2">

@@ -72,7 +72,7 @@ export default function ReceiptsView(props: ReceiptsViewProps) {
   const extracting = capture.phase === 'extracting';
 
   return (
-    <div className="cz space-y-4">
+    <div className="cz space-y-4 px-5">
       {/* ── Cabecera tipo cintillo de sitcom ── */}
       <header className="cz-pop">
         <div className="cz-wood inline-block mb-2">

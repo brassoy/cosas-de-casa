@@ -76,7 +76,7 @@ export default function ReceiptsView(props: ReceiptsViewProps) {
   const extracting = capture.phase === 'extracting';
 
   return (
-    <div className="sf space-y-4">
+    <div className="sf space-y-4 px-5">
       {/* ── Cabecera amarilla de cómic ── */}
       <header className="sf-card-y p-4 relative sf-pop">
         <span className="sf-sticker">Tickets y gasto</span>

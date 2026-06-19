@@ -46,7 +46,7 @@ export default function MenuView(props: MenuViewProps) {
     : [];
 
   return (
-    <div className="sf space-y-4 pb-28">
+    <div className="sf space-y-4 px-5 pb-28">
       {/* ── Cabecera amarilla cómic ────────────────────────────────────── */}
       <div className="sf-card-y sf-pop p-4">
         <div className="flex items-end justify-between gap-3 flex-wrap">

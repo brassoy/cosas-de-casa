@@ -62,7 +62,7 @@ export default function RomanticView(props: RomanticViewProps) {
   }
 
   return (
-    <div className="mx-auto max-w-[640px] space-y-4">
+    <div className="mx-auto max-w-[640px] space-y-4 p-6">
       <ScreenState isLoading={isLoading} error={error}>
         <div className="flex items-center justify-between gap-2">
           <h1 className="text-2xl font-bold">💕 Rincón de pareja</h1>
@@ -160,7 +160,7 @@ function PairUpScreen({
   const [pick, setPick] = useState('');
 
   return (
-    <div className="mx-auto max-w-[480px] space-y-4">
+    <div className="mx-auto max-w-[480px] space-y-4 p-6">
       <Card className="space-y-5 p-6 text-center">
         <div className="text-5xl">💕</div>
         <h1 className="text-2xl font-bold">¡Crea tu rincón de pareja!</h1>

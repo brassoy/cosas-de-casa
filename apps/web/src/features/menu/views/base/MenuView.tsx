@@ -40,7 +40,7 @@ export default function MenuView(props: MenuViewProps) {
     : [];
 
   return (
-    <div className="space-y-4 pb-24">
+    <div className="mx-auto max-w-2xl space-y-4 px-6 pt-6 pb-24">
       {/* ── Cabecera ───────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <h2 className="text-2xl font-bold">Menú de la nevera</h2>

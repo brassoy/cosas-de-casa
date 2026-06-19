@@ -33,7 +33,7 @@ export default function PlansView(props: PlansViewProps) {
   const { plans, isLoading, error, onCreate, onOpen } = props;
 
   return (
-    <div className="space-y-4">
+    <div className="mx-auto max-w-2xl space-y-4 p-6">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">Planes</h1>
         <Button size="sm" onClick={onCreate}>

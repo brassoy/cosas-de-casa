@@ -73,7 +73,7 @@ export default function ReceiptDetailView(props: ReceiptDetailViewProps) {
   const name = receipt.merchant ?? 'Sin establecimiento';
 
   return (
-    <div className="space-y-4">
+    <div className="mx-auto max-w-2xl space-y-4 p-6">
       <div className="flex items-center justify-between">
         <button type="button" onClick={onBack} className="text-sm text-muted-foreground">
           ‹ Tickets

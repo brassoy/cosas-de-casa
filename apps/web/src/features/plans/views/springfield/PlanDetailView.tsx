@@ -122,7 +122,7 @@ export default function PlanDetailView(props: PlanDetailViewProps) {
   }
 
   return (
-    <div className="sf space-y-4">
+    <div className="sf space-y-4 px-5">
       {/* ── Cabecera amarilla de viñeta + pegatina de estado ───────────────── */}
       <div className="sf-card-y p-4 relative sf-pop">
         <button

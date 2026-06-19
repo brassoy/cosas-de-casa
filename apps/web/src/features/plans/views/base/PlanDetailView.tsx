@@ -110,7 +110,7 @@ export default function PlanDetailView(props: PlanDetailViewProps) {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="mx-auto max-w-2xl space-y-5 p-6">
       <button type="button" onClick={onBack} className="text-sm text-muted-foreground cursor-pointer">
         ‹ Planes
       </button>

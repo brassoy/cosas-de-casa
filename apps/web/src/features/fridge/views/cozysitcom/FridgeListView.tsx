@@ -144,7 +144,7 @@ export default function FridgeListView(props: FridgeListViewProps) {
   const rowHandlers = { onOpenEdit, onDelete, onEat, onThrow, onFreeze };
 
   return (
-    <div className="cz space-y-4 pb-10">
+    <div className="cz space-y-4 px-5 pb-10">
       {/* ── Cabecera serif + cinta mostaza ─────────────────────────────── */}
       <header className="cz-pop">
         <div className="flex items-end justify-between gap-3 flex-wrap">

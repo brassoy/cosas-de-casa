@@ -34,7 +34,7 @@ export default function PlansView(props: PlansViewProps) {
   const { plans, isLoading, error, onCreate, onOpen } = props;
 
   return (
-    <div className="sf">
+    <div className="sf px-5">
       {/* ── Cabecera amarilla de viñeta + pegatina ─────────────────────────── */}
       <div className="sf-card-y p-4 mb-5 relative sf-pop">
         <span className="sf-sticker">¡A planear!</span>

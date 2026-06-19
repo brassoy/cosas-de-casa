@@ -87,7 +87,7 @@ export default function SpendView(props: SpendViewProps) {
   const noData = summary.byCategory.length === 0 && summary.byMonth.length === 0;
 
   return (
-    <div className="sf space-y-4">
+    <div className="sf space-y-4 px-5">
       {/* ── Cabecera celeste de cómic ── */}
       <header className="sf-card-s p-4 relative sf-pop">
         <button type="button" onClick={onBack} className="sf-sticker" aria-label="Volver a tickets">

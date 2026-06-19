@@ -71,7 +71,7 @@ export default function ReceiptDetailView(props: ReceiptDetailViewProps) {
   const name = receipt.merchant ?? 'Sin establecimiento';
 
   return (
-    <div className="sf space-y-4">
+    <div className="sf space-y-4 px-5">
       {/* ── Cabecera amarilla de cómic ── */}
       <header className="sf-card-y p-4 relative sf-pop">
         <button type="button" onClick={onBack} className="sf-sticker" aria-label="Volver a tickets">

@@ -84,7 +84,7 @@ export default function SpendView(props: SpendViewProps) {
   const noData = summary.byCategory.length === 0 && summary.byMonth.length === 0;
 
   return (
-    <div className="cz space-y-4">
+    <div className="cz space-y-4 px-5">
       {/* ── Cabecera tipo cintillo de sitcom ── */}
       <header className="cz-pop">
         <button type="button" onClick={onBack} className="mb-2 text-xs font-bold opacity-70">

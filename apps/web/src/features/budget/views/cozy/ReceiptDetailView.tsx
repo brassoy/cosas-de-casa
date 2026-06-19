@@ -72,7 +72,7 @@ export default function ReceiptDetailView(props: ReceiptDetailViewProps) {
   const isDraft = receipt.status === 'draft';
 
   return (
-    <div className="ck space-y-4">
+    <div className="ck space-y-4 px-5">
       {/* ── Cabecera manuscrita con sello de estado ── */}
       <header className="text-center relative mb-2">
         <button

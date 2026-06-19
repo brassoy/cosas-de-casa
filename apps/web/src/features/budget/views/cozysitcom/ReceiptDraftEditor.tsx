@@ -108,7 +108,7 @@ export default function ReceiptDraftEditor(props: ReceiptDraftEditorProps) {
   const canSave = purchasedAt.length > 0 && lines.length > 0 && !isSaving;
 
   return (
-    <div className="cz space-y-5" role="main" aria-label="Editor de ticket">
+    <div className="cz space-y-5 px-5" role="main" aria-label="Editor de ticket">
       {/* ── Cabecera tipo cintillo de sitcom ── */}
       <header className="cz-pop">
         <div className="cz-wood inline-block mb-2">
