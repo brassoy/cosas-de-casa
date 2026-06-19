@@ -98,6 +98,16 @@ export interface GroupHomeViewProps {
   /** Generar un nuevo PIN de invitación (solo OWNER). */
   onGeneratePin: () => void;
   /**
+   * Revocar el PIN de invitación activo (solo OWNER). OPCIONAL: si el container
+   * no lo cablea, la vista no muestra el botón de revocar. La confirmación vive
+   * en el container (`window.confirm`).
+   */
+  onRevokePin?: () => void;
+  /** La revocación del PIN está en curso. */
+  pinRevoking?: boolean;
+  /** Error al revocar el PIN; `null`/`undefined` si no hay. */
+  pinRevokeError?: string | null;
+  /**
    * Salir de la peña. La confirmación en 2 toques es UI y vive en la vista; el
    * container solo recibe la confirmación final y ejecuta la mutación.
    */

@@ -43,10 +43,13 @@ export default function GroupHomeView({
   generatedPin,
   pinLoading,
   pinError,
+  pinRevoking,
+  pinRevokeError,
   leaveLoading,
   leaveError,
   onBack,
   onGeneratePin,
+  onRevokePin,
   onLeave,
 }: GroupHomeViewProps) {
   const [confirmLeave, setConfirmLeave] = useState(false);
@@ -125,7 +128,27 @@ export default function GroupHomeView({
                 {pinError}
               </p>
             )}
+            {pinRevokeError && (
+              <p
+                role="alert"
+                className="cz-paper p-3 text-sm font-bold"
+                style={{ borderColor: 'var(--color-error)', color: 'var(--color-error)' }}
+              >
+                {pinRevokeError}
+              </p>
+            )}
             {generatedPin && <PinShare pin={generatedPin} />}
+            {onRevokePin && (
+              <button
+                type="button"
+                onClick={onRevokePin}
+                disabled={pinRevoking}
+                className="text-sm font-bold underline self-start disabled:opacity-60"
+                style={{ color: 'var(--color-error)' }}
+              >
+                {pinRevoking ? 'Revocando…' : 'Revocar PIN'}
+              </button>
+            )}
           </section>
         )}
 

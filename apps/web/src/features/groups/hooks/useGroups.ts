@@ -17,6 +17,7 @@ export type { CreateGroupInput };
 // GET    /api/v1/groups/:id/members       → GroupMemberDto[]
 // POST   /api/v1/groups/:id/join-pins     → GenerateGroupPinResponse
 // DELETE /api/v1/groups/:id/members/me   → void
+// DELETE /api/v1/groups/:id/join-pins/active → void  (revocar PIN activo, solo OWNER)
 
 // ── Queries ───────────────────────────────────────────────────────────────────
 
@@ -73,6 +74,21 @@ export function useGenerateGroupPin(groupId: string) {
   return useMutation<GenerateGroupPinResponse, ApiRequestError, void>({
     mutationFn: () =>
       api.post<GenerateGroupPinResponse>(`/groups/${groupId}/join-pins`, {}),
+  });
+}
+
+/**
+ * Revoca el PIN de invitación activo de la peña (solo OWNER).
+ * Operación inversa de `useGenerateGroupPin`: misma forma, DELETE sin cuerpo.
+ */
+export function useRevokeGroupPin(groupId: string) {
+  const qc = useQueryClient();
+
+  return useMutation<void, ApiRequestError, void>({
+    mutationFn: () => api.delete<void>(`/groups/${groupId}/join-pins/active`),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['groups', groupId] });
+    },
   });
 }
 

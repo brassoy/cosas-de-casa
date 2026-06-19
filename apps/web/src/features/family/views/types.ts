@@ -101,4 +101,24 @@ export interface FamilyHomeViewProps {
   onShare: (channel: 'whatsapp' | 'telegram') => void;
   /** Abre una sección (recibe el `id`/ruta del acceso rápido). */
   onOpen: (section: string) => void;
+  /**
+   * Revocar el PIN de invitación activo (solo OWNER). OPCIONAL: si el container
+   * no lo cablea, la vista no muestra el botón de revocar. La confirmación vive
+   * en el container (`window.confirm`).
+   */
+  onRevokePin?: () => void;
+  /** La revocación del PIN está en curso. */
+  pinRevoking?: boolean;
+  /** Error al revocar el PIN; `null`/`undefined` si no hay. */
+  pinRevokeError?: string | null;
+  /**
+   * Salir de la familia. OPCIONAL: si el container no lo cablea, la vista no
+   * muestra el botón de salir. La confirmación fuerte vive en el container
+   * (`window.confirm`); la vista solo emite el callback.
+   */
+  onLeaveFamily?: () => void;
+  /** La salida de la familia está en curso. */
+  leaveLoading?: boolean;
+  /** Error al salir de la familia; `null`/`undefined` si no hay. */
+  leaveError?: string | null;
 }

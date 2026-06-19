@@ -43,6 +43,12 @@ export default function FamilyHomeView(props: FamilyHomeViewProps) {
     onCopyPin,
     onShare,
     onOpen,
+    onRevokePin,
+    pinRevoking,
+    pinRevokeError,
+    onLeaveFamily,
+    leaveLoading,
+    leaveError,
   } = props;
 
   return (
@@ -113,9 +119,20 @@ export default function FamilyHomeView(props: FamilyHomeViewProps) {
                 <p className="font-bold text-sm">{pinError}</p>
               </div>
             )}
+            {pinRevokeError && (
+              <div role="alert" style={{ color: '#A63A3A' }}>
+                <p className="font-bold text-sm">{pinRevokeError}</p>
+              </div>
+            )}
 
             {generatedPin ? (
-              <InvitePinBox pin={generatedPin} onCopy={onCopyPin} onShare={onShare} />
+              <InvitePinBox
+                pin={generatedPin}
+                onCopy={onCopyPin}
+                onShare={onShare}
+                onRevoke={onRevokePin}
+                revoking={pinRevoking}
+              />
             ) : (
               <button onClick={onGeneratePin} disabled={pinLoading} className="cz-btn-denim w-full">
                 {pinLoading ? 'Generando…' : 'Generar PIN'}
@@ -143,6 +160,28 @@ export default function FamilyHomeView(props: FamilyHomeViewProps) {
             </ul>
           </ScreenState>
         </section>
+
+        {/* ── Salir de la familia ─────────────────────────────────────────── */}
+        {onLeaveFamily && (
+          <section className="cz-frame space-y-3">
+            <h2 className="cz-serif text-2xl" style={{ color: '#A63A3A' }}>
+              Salir de la familia
+            </h2>
+            {leaveError && (
+              <div role="alert" style={{ color: '#A63A3A' }}>
+                <p className="font-bold text-sm">{leaveError}</p>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={onLeaveFamily}
+              disabled={leaveLoading}
+              className="cz-btn-garnet disabled:opacity-60"
+            >
+              {leaveLoading ? 'Saliendo…' : 'Salir de la familia'}
+            </button>
+          </section>
+        )}
       </div>
     </div>
   );
@@ -187,10 +226,14 @@ export function InvitePinBox({
   pin,
   onCopy,
   onShare,
+  onRevoke,
+  revoking,
 }: {
   pin: GeneratePinResponse;
   onCopy: () => void;
   onShare: (channel: 'whatsapp' | 'telegram') => void;
+  onRevoke?: () => void;
+  revoking?: boolean;
 }) {
   return (
     <div className="space-y-3 cz-pop">
@@ -220,6 +263,17 @@ export function InvitePinBox({
       <p className="text-xs opacity-70">
         Caduca: {new Date(pin.expiresAt).toLocaleString('es-ES')}
       </p>
+      {onRevoke && (
+        <button
+          type="button"
+          onClick={onRevoke}
+          disabled={revoking}
+          className="text-sm font-bold underline disabled:opacity-60"
+          style={{ color: '#A63A3A' }}
+        >
+          {revoking ? 'Revocando…' : 'Revocar PIN'}
+        </button>
+      )}
     </div>
   );
 }

@@ -44,6 +44,12 @@ export default function FamilyHomeView(props: FamilyHomeViewProps) {
     onCopyPin,
     onShare,
     onOpen,
+    onRevokePin,
+    pinRevoking,
+    pinRevokeError,
+    onLeaveFamily,
+    leaveLoading,
+    leaveError,
   } = props;
 
   return (
@@ -120,9 +126,20 @@ export default function FamilyHomeView(props: FamilyHomeViewProps) {
                 <p className="text-base text-error">{pinError}</p>
               </div>
             )}
+            {pinRevokeError && (
+              <div role="alert">
+                <p className="text-base text-error">{pinRevokeError}</p>
+              </div>
+            )}
 
             {generatedPin ? (
-              <InvitePinBox pin={generatedPin} onCopy={onCopyPin} onShare={onShare} />
+              <InvitePinBox
+                pin={generatedPin}
+                onCopy={onCopyPin}
+                onShare={onShare}
+                onRevoke={onRevokePin}
+                revoking={pinRevoking}
+              />
             ) : (
               <button
                 type="button"
@@ -155,6 +172,26 @@ export default function FamilyHomeView(props: FamilyHomeViewProps) {
             </ul>
           </ScreenState>
         </section>
+
+        {/* ── Salir de la familia ─────────────────────────────────────────── */}
+        {onLeaveFamily && (
+          <section className="ck-card p-4 space-y-3">
+            <h2 className="ck-marker text-2xl text-error">Salir de la familia</h2>
+            {leaveError && (
+              <div role="alert">
+                <p className="text-base text-error">{leaveError}</p>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={onLeaveFamily}
+              disabled={leaveLoading}
+              className="ck-btn ck-btn-red self-start disabled:opacity-60"
+            >
+              {leaveLoading ? 'Saliendo…' : 'Salir de la familia'}
+            </button>
+          </section>
+        )}
       </div>
     </div>
   );
@@ -202,10 +239,14 @@ export function InvitePinBox({
   pin,
   onCopy,
   onShare,
+  onRevoke,
+  revoking,
 }: {
   pin: GeneratePinResponse;
   onCopy: () => void;
   onShare: (channel: 'whatsapp' | 'telegram') => void;
+  onRevoke?: () => void;
+  revoking?: boolean;
 }) {
   return (
     <div className="space-y-3">
@@ -243,6 +284,16 @@ export function InvitePinBox({
       <p className="text-sm opacity-70">
         Caduca: {new Date(pin.expiresAt).toLocaleString('es-ES')}
       </p>
+      {onRevoke && (
+        <button
+          type="button"
+          onClick={onRevoke}
+          disabled={revoking}
+          className="ck-marker text-xl text-error self-start hover:opacity-80 disabled:opacity-60"
+        >
+          {revoking ? 'Revocando…' : 'Revocar PIN'}
+        </button>
+      )}
     </div>
   );
 }

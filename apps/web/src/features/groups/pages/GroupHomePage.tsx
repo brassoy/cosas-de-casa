@@ -10,7 +10,12 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { ThemeView } from '@/shared/theme/ThemeView';
-import { useGroupMembers, useGenerateGroupPin, useLeaveGroup } from '../hooks/useGroups';
+import {
+  useGroupMembers,
+  useGenerateGroupPin,
+  useRevokeGroupPin,
+  useLeaveGroup,
+} from '../hooks/useGroups';
 import { useGroupsStore } from '../store/groups.store';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { ApiRequestError } from '@/shared/lib/api';
@@ -23,10 +28,12 @@ export function GroupHomePage() {
   const user = useAuthStore((s) => s.user);
   const [generatedPin, setGeneratedPin] = useState<string | null>(null);
   const [pinError, setPinError] = useState<string | null>(null);
+  const [pinRevokeError, setPinRevokeError] = useState<string | null>(null);
   const [leaveError, setLeaveError] = useState<string | null>(null);
 
   const { data: members, isLoading, error } = useGroupMembers(groupId);
   const generatePin = useGenerateGroupPin(groupId);
+  const revokePin = useRevokeGroupPin(groupId);
   const leaveGroup = useLeaveGroup(groupId);
 
   const isOwner = members?.some((m) => m.userId === user?.id && m.role === 'OWNER') ?? false;
@@ -39,6 +46,27 @@ export function GroupHomePage() {
         const msg =
           err instanceof ApiRequestError ? err.body.message : 'No se ha podido generar el PIN.';
         setPinError(msg);
+      },
+    });
+  }
+
+  function handleRevokePin() {
+    // Confirmación bloqueante: no hay un AlertDialog compartido en el repo.
+    if (
+      !window.confirm(
+        '¿Seguro que quieres revocar el PIN de invitación activo? Dejará de funcionar para quien intente unirse con él.',
+      )
+    ) {
+      return;
+    }
+    setPinRevokeError(null);
+    revokePin.mutate(undefined, {
+      // Tras revocar, el PIN mostrado deja de ser válido: lo ocultamos.
+      onSuccess: () => setGeneratedPin(null),
+      onError: (err) => {
+        const msg =
+          err instanceof ApiRequestError ? err.body.message : 'No se ha podido revocar el PIN.';
+        setPinRevokeError(msg);
       },
     });
   }
@@ -80,6 +108,10 @@ export function GroupHomePage() {
     leaveError,
     onBack: () => void navigate({ to: '/groups' }),
     onGeneratePin: handleGeneratePin,
+    // Revocar PIN: solo OWNER y solo si hay un PIN recién generado a la vista.
+    onRevokePin: isOwner && generatedPin ? handleRevokePin : undefined,
+    pinRevoking: revokePin.isPending,
+    pinRevokeError,
     onLeave: handleLeave,
   };
 

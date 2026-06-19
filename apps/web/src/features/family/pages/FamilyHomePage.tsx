@@ -20,7 +20,12 @@ import { ApiRequestError } from '@/shared/lib/api';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { useNotificationsStore } from '@/features/notifications/store/notifications.store';
 import { useSubscribeToPush } from '@/features/notifications/hooks/useNotifications';
-import { useFamilyMembers, useGenerateJoinPin } from '../hooks/useFamily';
+import {
+  useFamilyMembers,
+  useGenerateJoinPin,
+  useLeaveFamily,
+  useRevokeFamilyPin,
+} from '../hooks/useFamily';
 import { useFamilyStore } from '../store/family.store';
 import type { FamilyHomeViewProps, FamilyQuickAccess } from '../views/types';
 
@@ -60,9 +65,13 @@ export function FamilyHomePage() {
 
   const { data: members, isLoading, error } = useFamilyMembers(activeFamily?.id);
   const generatePin = useGenerateJoinPin(activeFamily?.id ?? '');
+  const revokePin = useRevokeFamilyPin(activeFamily?.id ?? '');
+  const leaveFamily = useLeaveFamily(activeFamily?.id ?? '');
 
   const [generatedPin, setGeneratedPin] = useState<GeneratePinResponse | null>(null);
   const [pinError, setPinError] = useState<string | null>(null);
+  const [pinRevokeError, setPinRevokeError] = useState<string | null>(null);
+  const [leaveError, setLeaveError] = useState<string | null>(null);
 
   // ── Notificaciones (props puras derivadas del store + mutación) ─────────────
   const { permissionStatus, isSubscribed, isLoading: notifStoreLoading } =
@@ -115,6 +124,55 @@ export function FamilyHomePage() {
     });
   }
 
+  function handleRevokePin() {
+    // Confirmación bloqueante: no hay un AlertDialog compartido en el repo.
+    if (
+      !window.confirm(
+        '¿Seguro que quieres revocar el PIN de invitación activo? Dejará de funcionar para quien intente unirse con él.',
+      )
+    ) {
+      return;
+    }
+    setPinRevokeError(null);
+    revokePin.mutate(undefined, {
+      // Tras revocar, el PIN mostrado deja de ser válido: lo ocultamos.
+      onSuccess: () => setGeneratedPin(null),
+      onError: (err) => {
+        const msg =
+          err instanceof ApiRequestError
+            ? err.body.message
+            : 'No se ha podido revocar el PIN.';
+        setPinRevokeError(msg);
+      },
+    });
+  }
+
+  function handleLeaveFamily() {
+    // Confirmación FUERTE: la salida es destructiva (pierde acceso a la familia).
+    if (
+      !window.confirm(
+        '¿Seguro que quieres salir de esta familia? Perderás el acceso a sus listas, tareas, etc.',
+      )
+    ) {
+      return;
+    }
+    setLeaveError(null);
+    leaveFamily.mutate(undefined, {
+      // El hook ya limpia la familia activa del store (clearFamily). Navegamos a
+      // onboarding ("/") como hace el AppHeader al cerrar sesión.
+      onSuccess: async () => {
+        await navigate({ to: '/' });
+      },
+      onError: (err) => {
+        const msg =
+          err instanceof ApiRequestError
+            ? err.body.message
+            : 'No se ha podido salir de la familia. Inténtalo de nuevo.';
+        setLeaveError(msg);
+      },
+    });
+  }
+
   function handleCopyPin() {
     if (!generatedPin) return;
     void navigator.clipboard.writeText(generatedPin.code);
@@ -162,6 +220,14 @@ export function FamilyHomePage() {
       onCopyPin: handleCopyPin,
       onShare: handleShare,
       onOpen: handleOpen,
+      // Revocar PIN: solo OWNER y solo si hay un PIN recién generado a la vista.
+      onRevokePin: isOwner && generatedPin ? handleRevokePin : undefined,
+      pinRevoking: revokePin.isPending,
+      pinRevokeError,
+      // Salir de la familia: disponible para cualquier miembro.
+      onLeaveFamily: handleLeaveFamily,
+      leaveLoading: leaveFamily.isPending,
+      leaveError,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
@@ -173,6 +239,10 @@ export function FamilyHomePage() {
       generatedPin,
       generatePin.isPending,
       pinError,
+      pinRevokeError,
+      revokePin.isPending,
+      leaveError,
+      leaveFamily.isPending,
       permissionStatus,
       isSubscribed,
       notifStoreLoading,

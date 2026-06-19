@@ -44,10 +44,13 @@ export default function GroupHomeView({
   generatedPin,
   pinLoading,
   pinError,
+  pinRevoking,
+  pinRevokeError,
   leaveLoading,
   leaveError,
   onBack,
   onGeneratePin,
+  onRevokePin,
   onLeave,
 }: GroupHomeViewProps) {
   const [confirmLeave, setConfirmLeave] = useState(false);
@@ -126,7 +129,26 @@ export default function GroupHomeView({
                 {pinError}
               </p>
             )}
+            {pinRevokeError && (
+              <p
+                role="alert"
+                className="ck-card p-3 ck-marker text-xl"
+                style={{ borderColor: 'var(--color-error)', color: 'var(--color-error)' }}
+              >
+                {pinRevokeError}
+              </p>
+            )}
             {generatedPin && <PinShare pin={generatedPin} />}
+            {onRevokePin && (
+              <button
+                type="button"
+                onClick={onRevokePin}
+                disabled={pinRevoking}
+                className="ck-marker text-xl text-error self-start hover:opacity-80 disabled:opacity-60"
+              >
+                {pinRevoking ? 'Revocando…' : 'Revocar PIN'}
+              </button>
+            )}
           </section>
         )}
 

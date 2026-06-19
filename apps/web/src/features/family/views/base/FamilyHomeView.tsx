@@ -43,6 +43,12 @@ export default function FamilyHomeView(props: FamilyHomeViewProps) {
     onCopyPin,
     onShare,
     onOpen,
+    onRevokePin,
+    pinRevoking,
+    pinRevokeError,
+    onLeaveFamily,
+    leaveLoading,
+    leaveError,
   } = props;
 
   return (
@@ -108,9 +114,20 @@ export default function FamilyHomeView(props: FamilyHomeViewProps) {
               <AlertDescription>{pinError}</AlertDescription>
             </Alert>
           )}
+          {pinRevokeError && (
+            <Alert variant="destructive">
+              <AlertDescription>{pinRevokeError}</AlertDescription>
+            </Alert>
+          )}
 
           {generatedPin ? (
-            <InvitePinBox pin={generatedPin} onCopy={onCopyPin} onShare={onShare} />
+            <InvitePinBox
+              pin={generatedPin}
+              onCopy={onCopyPin}
+              onShare={onShare}
+              onRevoke={onRevokePin}
+              revoking={pinRevoking}
+            />
           ) : (
             <Button onClick={onGeneratePin} disabled={pinLoading} className="w-full h-11">
               {pinLoading ? 'Generando…' : 'Generar PIN'}
@@ -138,6 +155,26 @@ export default function FamilyHomeView(props: FamilyHomeViewProps) {
           </ul>
         </ScreenState>
       </section>
+
+      {/* ── Salir de la familia ──────────────────────────────────────────── */}
+      {onLeaveFamily && (
+        <section>
+          <h2 className="font-semibold mb-3">Salir de la familia</h2>
+          {leaveError && (
+            <Alert variant="destructive" className="mb-3">
+              <AlertDescription>{leaveError}</AlertDescription>
+            </Alert>
+          )}
+          <Button
+            variant="destructive"
+            onClick={onLeaveFamily}
+            disabled={leaveLoading}
+            className="h-11"
+          >
+            {leaveLoading ? 'Saliendo…' : 'Salir de la familia'}
+          </Button>
+        </section>
+      )}
     </div>
   );
 }
@@ -148,10 +185,14 @@ export function InvitePinBox({
   pin,
   onCopy,
   onShare,
+  onRevoke,
+  revoking,
 }: {
   pin: GeneratePinResponse;
   onCopy: () => void;
   onShare: (channel: 'whatsapp' | 'telegram') => void;
+  onRevoke?: () => void;
+  revoking?: boolean;
 }) {
   return (
     <div className="space-y-3">
@@ -182,6 +223,16 @@ export function InvitePinBox({
       <p className="text-xs text-muted-foreground">
         Caduca: {new Date(pin.expiresAt).toLocaleString('es-ES')}
       </p>
+      {onRevoke && (
+        <Button
+          variant="ghost"
+          onClick={onRevoke}
+          disabled={revoking}
+          className="h-9 text-destructive hover:text-destructive"
+        >
+          {revoking ? 'Revocando…' : 'Revocar PIN'}
+        </Button>
+      )}
     </div>
   );
 }
