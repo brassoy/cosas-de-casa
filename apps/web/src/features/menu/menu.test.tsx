@@ -88,6 +88,10 @@ let mockToList: ReturnType<typeof vi.fn>;
 // ── Limpieza ──────────────────────────────────────────────────────────────────
 
 beforeEach(() => {
+  // ThemeView resuelve la vista por el `data-theme` de <html>. Este test solo
+  // sobreescribe la celda base (sync) en el registry, así que fijamos el theme a
+  // base para no depender del DEFAULT_THEME global (ahora 'springfield').
+  document.documentElement.setAttribute('data-theme', 'base');
   vi.clearAllMocks();
   mockSuggest = vi.fn();
   mockToList = vi.fn();
