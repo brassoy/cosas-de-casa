@@ -12,7 +12,7 @@
  */
 
 import { useState } from 'react';
-import { ChevronRight, Plus, ShoppingCart } from 'lucide-react';
+import { ChevronRight, Plus, ShoppingCart, Trash2 } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
@@ -39,6 +39,7 @@ export default function ShoppingListsView(props: ShoppingListsViewProps) {
     onCloseCreate,
     onOpenList,
     onCreateList,
+    onDeleteList,
   } = props;
 
   return (
@@ -61,11 +62,14 @@ export default function ShoppingListsView(props: ShoppingListsViewProps) {
       >
         <ul className="space-y-2">
           {lists.map((l) => (
-            <li key={l.id}>
+            <li
+              key={l.id}
+              className="flex min-h-[64px] items-center gap-1 rounded-card border border-border bg-background pr-2 transition-colors hover:bg-card"
+            >
               <button
                 type="button"
                 onClick={() => onOpenList(l.id)}
-                className="flex min-h-[64px] w-full items-center gap-3 rounded-card border border-border bg-background p-4 text-left transition-colors hover:bg-card"
+                className="flex min-w-0 flex-1 items-center gap-3 p-4 text-left"
               >
                 <div className="grid h-10 w-10 place-items-center rounded-full bg-primary/15 text-primary">
                   <ShoppingCart className="h-5 w-5" aria-hidden="true" />
@@ -79,6 +83,17 @@ export default function ShoppingListsView(props: ShoppingListsViewProps) {
                 {l.type === 'MAIN' && <Badge>Principal</Badge>}
                 <ChevronRight className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
               </button>
+              {l.type !== 'MAIN' && onDeleteList && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="shrink-0 text-muted-foreground hover:text-destructive"
+                  aria-label={`Borrar lista ${l.name}`}
+                  onClick={() => onDeleteList(l.id)}
+                >
+                  <Trash2 className="h-4 w-4" aria-hidden="true" />
+                </Button>
+              )}
             </li>
           ))}
         </ul>

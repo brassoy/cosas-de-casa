@@ -62,6 +62,12 @@ export interface ShoppingListsViewProps {
   onOpenList: (id: string) => void;
   /** Crea una lista nueva con el nombre dado (offline-first: Dexie + outbox). */
   onCreateList: (name: string) => void;
+  /**
+   * Borra una lista por su id (offline-first: Dexie + outbox). Solo se ofrece
+   * para listas que NO sean la principal (`type !== 'MAIN'`); la vista no debe
+   * mostrar la acción para la MAIN. Opcional para no romper consumidores previos.
+   */
+  onDeleteList?: (id: string) => void;
 }
 
 // ── shopping_list_detail ──────────────────────────────────────────────────────

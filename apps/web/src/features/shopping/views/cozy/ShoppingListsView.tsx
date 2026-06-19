@@ -42,6 +42,7 @@ export default function ShoppingListsView(props: ShoppingListsViewProps) {
     onCloseCreate,
     onOpenList,
     onCreateList,
+    onDeleteList,
   } = props;
 
   return (
@@ -65,11 +66,9 @@ export default function ShoppingListsView(props: ShoppingListsViewProps) {
         >
           <div className="space-y-4">
             {lists.map((l, i) => (
-              <button
+              <div
                 key={l.id}
-                type="button"
-                onClick={() => onOpenList(l.id)}
-                className="ck-card relative w-full p-4 text-left"
+                className="ck-card relative p-4"
                 style={{ transform: `rotate(${((i % 3) - 1) * 0.5}deg)` }}
               >
                 <span
@@ -79,12 +78,28 @@ export default function ShoppingListsView(props: ShoppingListsViewProps) {
                   }}
                   aria-hidden="true"
                 />
-                <p className="ck-marker text-2xl text-accent">{l.name}</p>
-                <p className="mt-1 text-sm opacity-70">
-                  Actualizada {new Date(l.updatedAt).toLocaleDateString('es-ES')}
-                </p>
-                {l.type === 'MAIN' && <span className="ck-tag mt-2 inline-block">Principal</span>}
-              </button>
+                <button
+                  type="button"
+                  onClick={() => onOpenList(l.id)}
+                  className="block w-full text-left"
+                >
+                  <p className="ck-marker text-2xl text-accent">{l.name}</p>
+                  <p className="mt-1 text-sm opacity-70">
+                    Actualizada {new Date(l.updatedAt).toLocaleDateString('es-ES')}
+                  </p>
+                  {l.type === 'MAIN' && <span className="ck-tag mt-2 inline-block">Principal</span>}
+                </button>
+                {l.type !== 'MAIN' && onDeleteList && (
+                  <button
+                    type="button"
+                    onClick={() => onDeleteList(l.id)}
+                    aria-label={`Borrar lista ${l.name}`}
+                    className="ck-marker absolute right-3 top-3 text-lg leading-none text-accent opacity-60 hover:opacity-100"
+                  >
+                    🗑️ borrar
+                  </button>
+                )}
+              </div>
             ))}
           </div>
         </ScreenState>

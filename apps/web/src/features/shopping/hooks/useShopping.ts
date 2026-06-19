@@ -105,6 +105,24 @@ export function useCreateList() {
   return { createList };
 }
 
+export function useDeleteList() {
+  async function deleteList(listId: string) {
+    // Borrado optimista en Dexie: quitamos la lista y todos sus ítems de inmediato.
+    // La UI lee de Dexie (useLiveQuery), así que desaparece al instante.
+    await db.transaction('rw', db.lists, db.items, async () => {
+      const itemIds = await db.items.where('listId').equals(listId).primaryKeys();
+      await db.items.bulkDelete(itemIds as string[]);
+      await db.lists.delete(listId);
+    });
+
+    // Encolar para la API (DELETE /lists/:listId). Solo listas CUSTOM: la MAIN
+    // no se puede borrar y el container ya no ofrece la acción para ella.
+    await enqueue('deleteList', { listId });
+  }
+
+  return { deleteList };
+}
+
 export function useAddItem() {
   async function addItem(
     listId: string,

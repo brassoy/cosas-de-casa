@@ -30,6 +30,7 @@ export default function ShoppingListsView(props: ShoppingListsViewProps) {
     onCloseCreate,
     onOpenList,
     onCreateList,
+    onDeleteList,
   } = props;
 
   return (
@@ -53,38 +54,52 @@ export default function ShoppingListsView(props: ShoppingListsViewProps) {
         >
           <div className="space-y-3">
             {lists.map((l, i) => (
-              <button
+              <div
                 key={l.id}
-                type="button"
-                onClick={() => onOpenList(l.id)}
-                className="sf-card sf-wob flex w-full items-center gap-3 p-4 text-left"
+                className="sf-card sf-wob flex items-center gap-3 p-4"
               >
-                <div
-                  className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border-[3px] text-2xl"
-                  style={{
-                    background: ACCENTS[i % ACCENTS.length]!,
-                    borderColor: 'var(--color-border)',
-                    boxShadow: '3px 3px 0 var(--color-border)',
-                  }}
-                  aria-hidden="true"
+                <button
+                  type="button"
+                  onClick={() => onOpenList(l.id)}
+                  className="flex min-w-0 flex-1 items-center gap-3 text-left"
                 >
-                  🛒
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="sf-fredoka truncate text-lg">{l.name}</p>
-                  <p className="text-xs opacity-60">
-                    Actualizada {new Date(l.updatedAt).toLocaleDateString('es-ES')}
-                  </p>
-                </div>
-                {l.type === 'MAIN' && (
-                  <span className="sf-tag" style={{ background: 'var(--color-accent)' }}>
-                    Principal
+                  <div
+                    className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border-[3px] text-2xl"
+                    style={{
+                      background: ACCENTS[i % ACCENTS.length]!,
+                      borderColor: 'var(--color-border)',
+                      boxShadow: '3px 3px 0 var(--color-border)',
+                    }}
+                    aria-hidden="true"
+                  >
+                    🛒
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="sf-fredoka truncate text-lg">{l.name}</p>
+                    <p className="text-xs opacity-60">
+                      Actualizada {new Date(l.updatedAt).toLocaleDateString('es-ES')}
+                    </p>
+                  </div>
+                  {l.type === 'MAIN' && (
+                    <span className="sf-tag" style={{ background: 'var(--color-accent)' }}>
+                      Principal
+                    </span>
+                  )}
+                  <span aria-hidden="true" className="text-lg opacity-50">
+                    ›
                   </span>
+                </button>
+                {l.type !== 'MAIN' && onDeleteList && (
+                  <button
+                    type="button"
+                    onClick={() => onDeleteList(l.id)}
+                    aria-label={`Borrar lista ${l.name}`}
+                    className="shrink-0 rounded-xl px-2 py-1 text-xl opacity-70 transition hover:opacity-100"
+                  >
+                    🗑️
+                  </button>
                 )}
-                <span aria-hidden="true" className="text-lg opacity-50">
-                  ›
-                </span>
-              </button>
+              </div>
             ))}
           </div>
         </ScreenState>

@@ -160,6 +160,17 @@ async function dispatchOp(entry: OutboxEntry): Promise<void> {
       );
       break;
 
+    case 'deleteList':
+      // Solo se encolan borrados de listas CUSTOM (la MAIN no se puede borrar;
+      // el backend lo rechaza). Si la lista ya no existe (404) lo tratamos como
+      // éxito idempotente: el efecto deseado —que no exista— ya se cumple.
+      try {
+        await api.delete<unknown>(`/lists/${payload.listId as string}`);
+      } catch (err: unknown) {
+        if ((err as { status?: number }).status !== 404) throw err;
+      }
+      break;
+
     case 'addItem':
       // Los adds del outbox son operaciones ya confirmadas por el usuario
       // (offline o error de red). Se envían siempre con forceAdd=true para

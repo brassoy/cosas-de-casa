@@ -27,6 +27,7 @@ export default function ShoppingListsView(props: ShoppingListsViewProps) {
     onCloseCreate,
     onOpenList,
     onCreateList,
+    onDeleteList,
   } = props;
 
   return (
@@ -56,30 +57,44 @@ export default function ShoppingListsView(props: ShoppingListsViewProps) {
         >
           <div className="space-y-3">
             {lists.map((l, i) => (
-              <button
+              <div
                 key={l.id}
-                type="button"
-                onClick={() => onOpenList(l.id)}
-                className="cz-frame cz-pop flex w-full items-center gap-3 text-left transition hover:-translate-y-0.5"
+                className="cz-frame cz-pop flex items-center gap-3 transition hover:-translate-y-0.5"
               >
-                <div
-                  className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-xl text-white"
-                  style={{ background: ACCENTS[i % ACCENTS.length] }}
-                  aria-hidden="true"
+                <button
+                  type="button"
+                  onClick={() => onOpenList(l.id)}
+                  className="flex min-w-0 flex-1 items-center gap-3 text-left"
                 >
-                  🛒
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="cz-serif truncate text-lg">{l.name}</p>
-                  <p className="text-xs opacity-70">
-                    Actualizada {new Date(l.updatedAt).toLocaleDateString('es-ES')}
-                  </p>
-                </div>
-                {l.type === 'MAIN' && <span className="cz-tag">Principal</span>}
-                <span aria-hidden="true" className="text-lg opacity-50">
-                  ›
-                </span>
-              </button>
+                  <div
+                    className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-xl text-white"
+                    style={{ background: ACCENTS[i % ACCENTS.length] }}
+                    aria-hidden="true"
+                  >
+                    🛒
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="cz-serif truncate text-lg">{l.name}</p>
+                    <p className="text-xs opacity-70">
+                      Actualizada {new Date(l.updatedAt).toLocaleDateString('es-ES')}
+                    </p>
+                  </div>
+                  {l.type === 'MAIN' && <span className="cz-tag">Principal</span>}
+                  <span aria-hidden="true" className="text-lg opacity-50">
+                    ›
+                  </span>
+                </button>
+                {l.type !== 'MAIN' && onDeleteList && (
+                  <button
+                    type="button"
+                    onClick={() => onDeleteList(l.id)}
+                    aria-label={`Borrar lista ${l.name}`}
+                    className="shrink-0 rounded-lg px-2 py-1 text-lg opacity-60 transition hover:opacity-100"
+                  >
+                    🗑️
+                  </button>
+                )}
+              </div>
             ))}
           </div>
         </ScreenState>

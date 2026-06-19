@@ -16,7 +16,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { useFamilyStore } from '@/features/family/store/family.store';
 import { ThemeView } from '@/shared/theme/ThemeView';
-import { useShoppingLists, useCreateList } from '../hooks/useShopping';
+import { useShoppingLists, useCreateList, useDeleteList } from '../hooks/useShopping';
 import type { LocalList } from '../offline/db';
 import type { ShoppingListSummaryView, ShoppingListsViewProps } from '../views/types';
 
@@ -37,6 +37,7 @@ export function ListsPage() {
   const activeFamily = useFamilyStore((s) => s.activeFamily);
   const { lists, loading } = useShoppingLists(activeFamily?.id);
   const { createList } = useCreateList();
+  const { deleteList } = useDeleteList();
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -76,6 +77,14 @@ export function ListsPage() {
       void createList(activeFamily.id, name)
         .then(() => setIsCreateOpen(false))
         .finally(() => setIsCreating(false));
+    },
+    onDeleteList: (id) => {
+      // La vista solo ofrece esta acción para listas CUSTOM (nunca la MAIN).
+      // Confirmación bloqueante: no hay un AlertDialog compartido en el repo.
+      if (!window.confirm('¿Seguro que quieres borrar esta lista? Se borrarán también sus artículos.')) {
+        return;
+      }
+      void deleteList(id);
     },
   };
 

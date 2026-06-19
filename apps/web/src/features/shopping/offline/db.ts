@@ -38,6 +38,7 @@ export interface LocalComment {
 
 export type OutboxOpType =
   | 'createList'
+  | 'deleteList'
   | 'addItem'
   | 'toggleItem'
   | 'updateItem'

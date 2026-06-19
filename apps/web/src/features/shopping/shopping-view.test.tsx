@@ -149,6 +149,35 @@ describe('ShoppingListsView', () => {
     expect(onOpenList).toHaveBeenCalledWith('list-9');
   });
 
+  it('ofrece borrar SOLO en listas CUSTOM y emite onDeleteList con su id', async () => {
+    const user = userEvent.setup();
+    const onDeleteList = vi.fn();
+    render(
+      <ShoppingListsView
+        {...listsProps({
+          lists: [
+            makeList({ id: 'm', name: 'La casa', type: 'MAIN' }),
+            makeList({ id: 'c', name: 'Vacaciones', type: 'CUSTOM' }),
+          ],
+          onDeleteList,
+        })}
+      />,
+    );
+    // La MAIN no expone acción de borrado; la CUSTOM sí.
+    expect(screen.queryByRole('button', { name: /borrar lista la casa/i })).toBeNull();
+    await user.click(screen.getByRole('button', { name: /borrar lista vacaciones/i }));
+    expect(onDeleteList).toHaveBeenCalledWith('c');
+  });
+
+  it('no muestra acción de borrado si no se pasa onDeleteList', () => {
+    render(
+      <ShoppingListsView
+        {...listsProps({ lists: [makeList({ id: 'c', name: 'Vacaciones', type: 'CUSTOM' })] })}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: /borrar lista/i })).toBeNull();
+  });
+
   it('crear lista: el diálogo abierto emite onCreateList con el nombre', async () => {
     const user = userEvent.setup();
     const onCreateList = vi.fn();
