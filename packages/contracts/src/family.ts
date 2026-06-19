@@ -118,3 +118,12 @@ export const AuthMeDtoSchema = z.object({
 });
 
 export type AuthMeDto = z.infer<typeof AuthMeDtoSchema>;
+
+/**
+ * Payload de `PATCH /auth/me`: el usuario autenticado cambia su nombre visible
+ * (`display_name`). Se hace `trim` y se exige un nombre no vacío.
+ */
+export const UpdateProfileInputSchema = z.object({
+  displayName: z.string().trim().min(1).max(80),
+});
+export type UpdateProfileInput = z.infer<typeof UpdateProfileInputSchema>;

@@ -46,4 +46,18 @@ export class DrizzleAppUserRepository implements AppUserRepository {
     }
     return { id: row.id, email: row.email, displayName: row.displayName };
   }
+
+  async updateDisplayName(id: string, displayName: string): Promise<AuthenticatedUser> {
+    // Cambio EXPLÍCITO del usuario: pisamos el display_name (sin COALESCE, a
+    // diferencia del upsert JIT que solo lo fija si aún no había uno).
+    const [row] = await this.db
+      .update(appUsers)
+      .set({ displayName })
+      .where(eq(appUsers.id, id))
+      .returning();
+
+    // `row` siempre existe: el usuario está aprovisionado por el guard antes de
+    // llegar aquí (request.user proviene del upsert JIT).
+    return { id: row!.id, email: row!.email, displayName: row!.displayName };
+  }
 }

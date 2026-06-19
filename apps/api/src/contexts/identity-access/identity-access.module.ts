@@ -13,6 +13,7 @@ import {
   JWKS_PROVIDER,
 } from './infrastructure/jose-token-verifier';
 import { AuthenticateRequestUseCase } from './application/authenticate-request.use-case';
+import { UpdateDisplayNameUseCase } from './application/update-display-name.use-case';
 import { JwtAuthGuard } from './interface/jwt-auth.guard';
 
 @Module({
@@ -40,8 +41,9 @@ import { JwtAuthGuard } from './interface/jwt-auth.guard';
       useFactory: (db: Database) => new DrizzleAppUserRepository(db),
     },
     AuthenticateRequestUseCase,
+    UpdateDisplayNameUseCase,
     JwtAuthGuard,
   ],
-  exports: [JwtAuthGuard, AuthenticateRequestUseCase],
+  exports: [JwtAuthGuard, AuthenticateRequestUseCase, UpdateDisplayNameUseCase],
 })
 export class IdentityAccessModule {}

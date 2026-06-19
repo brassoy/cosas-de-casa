@@ -27,6 +27,7 @@ import * as schema from '../../src/db/schema';
 import { AuthController } from '../../src/contexts/identity-access/interface/auth.controller';
 import { JwtAuthGuard } from '../../src/contexts/identity-access/interface/jwt-auth.guard';
 import { AuthenticateRequestUseCase } from '../../src/contexts/identity-access/application/authenticate-request.use-case';
+import { UpdateDisplayNameUseCase } from '../../src/contexts/identity-access/application/update-display-name.use-case';
 import { DrizzleAppUserRepository } from '../../src/contexts/identity-access/infrastructure/drizzle-app-user.repository';
 import {
   JoseTokenVerifier,
@@ -366,6 +367,7 @@ export async function createTestApp(): Promise<TestApp> {
         useExisting: DrizzleAppUserRepository,
       },
       AuthenticateRequestUseCase,
+      UpdateDisplayNameUseCase,
       JwtAuthGuard,
 
       // ── family: infraestructura ─────────────────────────────────────────

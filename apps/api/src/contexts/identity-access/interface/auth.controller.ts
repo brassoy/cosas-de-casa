@@ -1,10 +1,12 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Patch, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { AuthMeDto } from '@cosasdecasa/contracts';
 import { ListMyFamiliesUseCase } from '../../family/application/list-my-families.use-case';
 import { FamilyPresenter } from '../../family/interface/family.presenter';
+import { UpdateDisplayNameUseCase } from '../application/update-display-name.use-case';
 import type { AuthenticatedUser } from '../domain/authenticated-user';
 import { CurrentUser } from './current-user.decorator';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
 
 /**
@@ -12,18 +14,41 @@ import { JwtAuthGuard } from './jwt-auth.guard';
  *
  * `GET /auth/me` devuelve el usuario autenticado (aprovisionado JIT por el
  * guard) y las familias a las que pertenece, con su rol en cada una.
+ * `PATCH /auth/me` permite al usuario cambiar su nombre visible (display_name).
  */
 @ApiTags('auth')
 @ApiBearerAuth()
 @Controller('auth')
 @UseGuards(JwtAuthGuard)
 export class AuthController {
-  constructor(private readonly listMyFamilies: ListMyFamiliesUseCase) {}
+  constructor(
+    private readonly listMyFamilies: ListMyFamiliesUseCase,
+    private readonly updateDisplayName: UpdateDisplayNameUseCase,
+  ) {}
 
   @Get('me')
   @ApiOperation({ summary: 'Usuario autenticado y sus familias.' })
   @ApiOkResponse({ description: 'Datos del usuario y sus familias.' })
   async me(@CurrentUser() user: AuthenticatedUser): Promise<AuthMeDto> {
+    return this.toAuthMeDto(user);
+  }
+
+  @Patch('me')
+  @ApiOperation({ summary: 'Cambia el nombre visible del usuario autenticado.' })
+  @ApiOkResponse({ description: 'Datos del usuario actualizados y sus familias.' })
+  async updateMe(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: UpdateProfileDto,
+  ): Promise<AuthMeDto> {
+    const updated = await this.updateDisplayName.execute({
+      userId: user.id,
+      displayName: dto.displayName,
+    });
+    return this.toAuthMeDto(updated);
+  }
+
+  /** Compone el AuthMeDto: usuario + listado de familias con su rol. */
+  private async toAuthMeDto(user: AuthenticatedUser): Promise<AuthMeDto> {
     const families = await this.listMyFamilies.execute({ actingUserId: user.id });
     return {
       id: user.id,

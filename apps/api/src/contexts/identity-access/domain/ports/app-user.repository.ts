@@ -25,4 +25,11 @@ export interface AppUserRepository {
   upsertFromClaims(params: UpsertAppUserParams): Promise<AuthenticatedUser>;
 
   findById(id: string): Promise<AuthenticatedUser | null>;
+
+  /**
+   * Actualiza el `displayName` del usuario indicado y devuelve el usuario
+   * resultante. A diferencia de {@link upsertFromClaims}, esto PISA el valor
+   * existente (es un cambio explícito del usuario, no un default JIT).
+   */
+  updateDisplayName(id: string, displayName: string): Promise<AuthenticatedUser>;
 }
