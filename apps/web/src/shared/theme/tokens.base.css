@@ -146,13 +146,16 @@ html {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Themes alternativos (cozy / cozysitcom / springfield) son LIGHT-ONLY: su lienzo
-   es siempre blanco (en vez de su surface de color), pero sus cards y acentos
-   mantienen la identidad del theme. Su texto es oscuro, así que sobre blanco se
-   lee bien en cualquier modo. */
-html[data-theme='cozy'],
-html[data-theme='cozysitcom'],
-html[data-theme='springfield'] {
+/* Themes alternativos (cozy / cozysitcom / springfield):
+   - En modo CLARO el lienzo es blanco (neutralizamos su surface de color, que el
+     usuario pidió quitar) — pero las cards y acentos mantienen la identidad.
+   - En modo OSCURO SÍ tienen tema oscuro propio (themes/*.css definen surface y
+     texto oscuros), así que el lienzo debe seguir a --color-surface (su fondo
+     oscuro); si no, su texto claro quedaría sobre blanco e ilegible.
+   Por eso el blanco solo aplica fuera del modo oscuro (:not([data-mode='dark'])). */
+html[data-theme='cozy']:not([data-mode='dark']),
+html[data-theme='cozysitcom']:not([data-mode='dark']),
+html[data-theme='springfield']:not([data-mode='dark']) {
   --app-canvas: #ffffff;
 }
 
