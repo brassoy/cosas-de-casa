@@ -249,7 +249,7 @@ function FeatureRow({ feat, i }: { feat: (typeof FEATURES)[number]; i: number })
         </span>
         <h3 className="sf-bangers text-4xl leading-[0.95] sm:text-5xl">{feat.title}</h3>
         {look === 1 ? (
-          <p className="sf-fredoka mx-auto mt-5 max-w-xl rounded-2xl border-[3px] border-[var(--color-border)] bg-[var(--color-surface-raised)] p-4 text-lg font-medium sm:mx-0 sm:text-xl">
+          <p className="sf-fredoka mx-auto mt-5 max-w-xl rounded-2xl border-[3px] border-[var(--color-border)] bg-[var(--color-surface-raised)] p-4 text-lg font-medium text-[var(--color-text)] sm:mx-0 sm:text-xl">
             {feat.desc}
           </p>
         ) : look === 2 ? (
