@@ -200,6 +200,7 @@ IA **aplicada con cabeza**, no por moda:
 - 🤖 **GitHub Actions (CI)** — build · lint · type-check · unit en cada cambio.
 - 🧱 **Validación de extremo a extremo** con Zod.
 - 🔐 **Seguridad**: JWT por JWKS, *guards* de scope por recurso + RLS en Postgres.
+- 🔒 **Privacidad (GDPR)**: descarga de tus datos y borrado total de la cuenta.
 - 📚 **Documentación del *porqué***: ADRs, patrones y un módulo por contexto en `docs/`.
 
 ---

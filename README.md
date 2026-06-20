@@ -67,7 +67,8 @@ Está pensada como un producto real: multi-familia, con invitaciones por PIN, ro
 | 💕 | **Rincón de pareja** | Notas, retos y detalles privados para dos. |
 | 🎉 | **Peñas y familias amigas** | Lo social: grupos y conexiones entre hogares. |
 | 📊 | **Estadísticas** | Quién colabora más en casa (*leaderboard*). |
-| 👤 | **Cuenta y familia** | Avatar, cambio de nombre/contraseña/email, recuperación de contraseña, gestión de miembros (roles, expulsar), salir y borrar cuenta. |
+| 👤 | **Cuenta y familia** | Avatar, cambio de nombre/contraseña/email, recuperación de contraseña, gestión de miembros (roles, expulsar) y salir de una familia. |
+| 🔒 | **Privacidad (GDPR)** | **Descarga todos tus datos** en JSON (derecho de acceso) y **borra tu cuenta** con todo su contenido de forma permanente (derecho de supresión). |
 | 🎨 | **4 themes + claro/oscuro** | *Clásico* (shadcn), *Cuaderno*, *Sitcom 70s* y *Hommer* (cómic pop). La misma app, 4 personalidades. |
 | 📲 | **PWA offline-first** | Instálala como app; funciona sin conexión (Dexie + *outbox* que se sincroniza al reconectar). Realtime con Supabase. |
 
@@ -172,6 +173,7 @@ cosasdecasa/
 - **Contracts como fuente de verdad:** todo schema/validación nace en `packages/contracts` (Zod) y lo consumen API y web → cero duplicación de tipos.
 - **Offline-first (ADR 0006):** la UI lee **siempre** de Dexie (IndexedDB); las escrituras van a un *outbox* que se reproduce contra la API al reconectar. La caché de queries se persiste para sobrevivir a un *refresh* sin conexión.
 - **Seguridad:** JWT de Supabase verificado por JWKS, aprovisionamiento *just-in-time* del usuario, y **guards de scope por recurso** (familia/lista/…) además de RLS en Postgres.
+- **Privacidad (GDPR):** `GET /auth/me/export` vuelca todos los datos personales del usuario (acceso y portabilidad); `DELETE /auth/me` borra la cuenta y **todo** su contenido sin dejar huérfanos —reasigna las familias y peñas con más miembros, borra el resto—, respetando siempre al resto de personas.
 - **Themes:** sistema de 4 estéticas con tokens CSS semánticos por theme + modo claro/oscuro; cada pantalla tiene una celda presentacional por theme, *code-split* por `React.lazy`.
 
 > El *porqué* de cada decisión está documentado en [`docs/adr/`](docs/adr/), [`docs/didactica/`](docs/didactica/) y [`docs/modules/`](docs/modules/).
