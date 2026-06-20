@@ -212,9 +212,9 @@ Las variables de entorno necesarias están en la sección [Instalación](#-insta
 | **Landing** del proyecto | ruta `/landing` (estética Hommer) + [`apps/web/src/features/landing`](apps/web/src/features/landing) |
 | **Vídeo demo** del producto | [`apps/web/public/landing/demo.mp4`](apps/web/public/landing/demo.mp4) |
 | **Guion del vídeo** de explicación | [`docs/tfm/guion-video.md`](docs/tfm/guion-video.md) |
-| **Slides** de la presentación | [`docs/tfm/slides.md`](docs/tfm/slides.md) |
-| **Vídeo de explicación** (captura + voz) | **_(añadir aquí la URL pública del vídeo)_** |
-| **Presentación** (Slides/Canva) | **_(añadir aquí la URL pública de las slides)_** |
+| **Slides** de la presentación | [`docs/tfm/slides.md`](docs/tfm/slides.md) · PDF: [`docs/tfm/slides.pdf`](docs/tfm/slides.pdf) |
+| **Vídeo de explicación** (narrado) | [`docs/tfm/video-explicacion.mp4`](docs/tfm/video-explicacion.mp4) — slides + locución (~5,5 min). Reconstruible con mejor voz: ver [`docs/tfm/`](docs/tfm/) |
+| **URLs públicas** (vídeo + slides) | **_(añadir tras subirlas a YouTube/Drive)_** |
 
 ---
 

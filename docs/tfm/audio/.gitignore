@@ -1,0 +1,6 @@
+# Audio generado/baseline (no versionar; el .mp4 final ya lo lleva embebido)
+*.wav
+*.mp3
+*.m4a
+*.ogg
+!.gitkeep
