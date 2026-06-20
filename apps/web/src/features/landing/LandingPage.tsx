@@ -286,9 +286,9 @@ export function LandingPage() {
           </p>
           <div className="ld-reveal ld-reveal-pop relative inline-block">
             <span className="sf-sticker absolute -top-3 -right-3 z-10 sf-wob">▶ Demo</span>
-            <PhoneFrame large>
-              {/* El vídeo lo genera otra persona. Si /landing/demo.mp4 no existe,
-                  el <video> simplemente no pinta nada y no rompe la página. */}
+            <div className="ld-video-frame">
+              {/* El vídeo demo es apaisado (1920×1080) y YA lleva su propio móvil
+                  dentro: va en un marco 16:9, no en un marco de móvil vertical. */}
               <video
                 src="/landing/demo.mp4"
                 autoPlay
@@ -298,7 +298,7 @@ export function LandingPage() {
                 controls
                 aria-label="Vídeo demostración de Cosas de Casa"
               />
-            </PhoneFrame>
+            </div>
           </div>
         </div>
       </section>

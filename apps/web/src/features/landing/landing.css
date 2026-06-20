@@ -132,6 +132,27 @@
   border-width: 7px;
 }
 
+/* Marco apaisado (16:9) para el vídeo demo. El vídeo YA lleva su propio móvil
+ * dentro; meterlo en un marco de móvil vertical lo recortaba y se veía vacío. */
+.ld-video-frame {
+  position: relative;
+  width: 100%;
+  max-width: 900px;
+  margin-inline: auto;
+  aspect-ratio: 16 / 9;
+  border: 7px solid var(--color-border);
+  border-radius: 22px;
+  background: var(--color-border);
+  box-shadow: 12px 12px 0 var(--color-border);
+  overflow: hidden;
+}
+.ld-video-frame video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* 16:9 dentro de 16:9 → encaja exacto, sin recorte */
+}
+
 /* ─── Tarjeta de feature con hover pop ─────────────────────────────────────── */
 .ld-pop-hover {
   transition:
