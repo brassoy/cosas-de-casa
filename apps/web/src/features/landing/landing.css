@@ -126,6 +126,25 @@
   box-shadow: 14px 14px 0 var(--color-border);
 }
 
+/* "GIF" al hover (features): la captura ALTA se desplaza por la pantalla, como si
+ * recorrieras la app. Solo surte efecto donde la imagen desborda el marco. */
+@media (prefers-reduced-motion: no-preference) {
+  .ld-phone-scroll img {
+    transition: object-position 0.35s ease;
+  }
+  .ld-phone-scroll:hover img {
+    animation: ld-screenscroll 4.5s ease-in-out infinite alternate;
+  }
+}
+@keyframes ld-screenscroll {
+  from {
+    object-position: center top;
+  }
+  to {
+    object-position: center bottom;
+  }
+}
+
 /* Marco de móvil grande para el hero / demo. */
 .ld-phone-lg {
   max-width: 320px;

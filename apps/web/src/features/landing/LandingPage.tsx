@@ -82,15 +82,20 @@ function PhoneFrame({
   src,
   alt,
   large = false,
+  scroll = false,
   children,
 }: {
   src?: string;
   alt?: string;
   large?: boolean;
+  /** Si la captura es alta, al hover la pantalla se desplaza (efecto "GIF"). */
+  scroll?: boolean;
   children?: React.ReactNode;
 }) {
   return (
-    <div className={`ld-phone ld-phone-pop${large ? ' ld-phone-lg' : ''}`}>
+    <div
+      className={`ld-phone ld-phone-pop${large ? ' ld-phone-lg' : ''}${scroll ? ' ld-phone-scroll' : ''}`}
+    >
       {children ??
         (src ? (
           <img src={src} alt={alt ?? ''} loading="lazy" decoding="async" />
@@ -352,7 +357,7 @@ export function LandingPage() {
                 className={`${feat.card} ld-pop-hover ld-reveal p-5 flex flex-col items-center text-center gap-4`}
                 style={{ ['--ld-i' as string]: String(i % 3) }}
               >
-                <PhoneFrame src={`${SHOTS}/${feat.shot}`} alt={feat.title} />
+                <PhoneFrame src={`/landing/scroll/${feat.shot}`} alt={feat.title} scroll />
                 <div>
                   <h3 className="sf-bangers text-2xl">{feat.title}</h3>
                   <p className="sf-fredoka text-sm mt-2">{feat.desc}</p>
