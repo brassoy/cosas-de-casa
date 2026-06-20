@@ -238,11 +238,29 @@ async function requireFamily({ params }: { params: Record<string, string> }) {
 // ── Ruta raíz autenticada ─────────────────────────────────────────────────────
 // Comprueba si el usuario ya tiene familia; si no → onboarding.
 
+/**
+ * Pantalla del índice `/`. Sin sesión es la PORTADA pública (landing). Con sesión
+ * pero sin familia, onboarding. (Con familia, el loader ya redirige a
+ * `/family/:id` antes de renderizar este componente.)
+ */
+function IndexScreen() {
+  const session = useAuthStore((s) => s.session);
+  return session ? <OnboardingPage /> : <LandingPage />;
+}
+
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
-  beforeLoad: requireAuth,
+  // No exige sesión: un visitante en `/` ve la landing (portada pública); con
+  // sesión, el loader resuelve la familia y entra a la app. La landing sigue
+  // siendo accesible siempre en `/landing` (también con sesión).
+  beforeLoad: async () => {
+    await useAuthStore.getState().ready;
+  },
   loader: async () => {
+    const { session } = useAuthStore.getState();
+    if (!session) return; // visitante → la landing la pinta el componente
+
     const { activeFamily, setActiveFamily } = useFamilyStore.getState();
 
     // Resolvemos la familia: la activa del store o, si no hay, la primera del usuario.
@@ -267,8 +285,8 @@ const indexRoute = createRoute({
       throw redirect({ to: '/family/$familyId', params: { familyId } });
     }
   },
-  // Si el loader no redirigió, es que no hay familia → onboarding.
-  component: OnboardingPage,
+  // Con sesión sin familia → onboarding. Sin sesión → landing (portada pública).
+  component: IndexScreen,
 });
 
 // ── Onboarding ────────────────────────────────────────────────────────────────
