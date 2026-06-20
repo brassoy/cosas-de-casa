@@ -8,6 +8,7 @@ import { App } from '../App';
 import { LoginPage } from '@/features/auth/pages/LoginPage';
 import { SignupPage } from '@/features/auth/pages/SignupPage';
 import { ResetPasswordPage } from '@/features/auth/pages/ResetPasswordPage';
+import { LandingPage } from '@/features/landing/LandingPage';
 import { CreateFamilyPage } from '@/features/family/pages/CreateFamilyPage';
 import { JoinFamilyPage } from '@/features/family/pages/JoinFamilyPage';
 import { FamilyHomePage } from '@/features/family/pages/FamilyHomePage';
@@ -143,6 +144,15 @@ const rootRoute = createRootRoute({
 });
 
 // ── Rutas públicas ────────────────────────────────────────────────────────────
+
+// Landing de marketing: pública, sin guard ni sesión. Es una página full-screen
+// propia (overlay sobre el shell, fuerza la estética "Hommer"). No redirige a `/`
+// aunque haya sesión: es la portada y debe poder verse siempre.
+const landingRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/landing',
+  component: LandingPage,
+});
 
 const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -475,6 +485,7 @@ const settingsRoute = createRoute({
 // ── Route tree ────────────────────────────────────────────────────────────────
 
 const routeTree = rootRoute.addChildren([
+  landingRoute,
   loginRoute,
   signupRoute,
   resetPasswordRoute,

@@ -23,6 +23,7 @@ import type { AuthMeDto, UpdateProfileInput } from '@cosasdecasa/contracts';
 import imageCompression from 'browser-image-compression';
 import { api, ApiRequestError } from '@/shared/lib/api';
 import { supabase } from '@/shared/lib/supabase';
+import { useAuthStore } from '@/features/auth/store/auth.store';
 
 /** Clave de la query de perfil (compartida por la query y sus invalidaciones). */
 export const profileQueryKey = ['auth', 'me'] as const;
@@ -31,9 +32,13 @@ export const profileQueryKey = ['auth', 'me'] as const;
 
 /** Perfil del usuario autenticado (`GET /auth/me`). */
 export function useProfile() {
+  // Solo consulta el perfil si hay sesión. Sin esto, el AppHeader (que monta en
+  // todas las páginas, también las públicas: login, landing) dispararía un 401.
+  const session = useAuthStore((s) => s.session);
   return useQuery<AuthMeDto>({
     queryKey: profileQueryKey,
     queryFn: () => api.get<AuthMeDto>('/auth/me'),
+    enabled: !!session,
   });
 }
 
