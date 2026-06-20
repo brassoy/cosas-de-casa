@@ -136,65 +136,135 @@ function FeaturePhone({ shot, alt }: { shot: string; alt: string }) {
 
 const FEATURES: ReadonlyArray<{
   shot: string;
+  emoji: string;
+  tag: string;
   title: string;
   desc: string;
   card: string;
 }> = [
   {
     shot: 'sf-lists.png',
+    emoji: '🛒',
+    tag: 'Voz + IA',
     title: 'La compra, por voz e IA',
-    desc: 'Dicta la lista mientras cocinas. La IA agrupa y evita que metas dos veces lo mismo.',
+    desc: 'Dicta la compra mientras cocinas y la IA la entiende: separa los productos y evita que metas dos veces lo mismo. Todos en casa añaden lo que falta y se sincroniza al instante.',
     card: 'sf-card-y',
   },
   {
     shot: 'sf-tasks.png',
+    emoji: '✅',
+    tag: 'En familia',
     title: 'Tareas repartidas',
-    desc: 'Quién hace qué en casa, claro y sin discutir. Cada uno sabe lo que le toca.',
+    desc: 'Reparte las tareas de casa para que cada uno sepa lo que le toca, sin discutir. Asígnalas, márcalas como hechas y adjunta una foto cuando estén listas.',
     card: 'sf-card-s',
   },
   {
     shot: 'sf-fridge.png',
+    emoji: '🧊',
+    tag: 'Stock al día',
     title: 'Tu nevera bajo control',
-    desc: 'Nevera, congelador y despensa al día. Sabes qué tienes antes de salir a comprar.',
+    desc: 'Lleva al día la nevera, el congelador y la despensa. Sabes qué te queda antes de salir a comprar y dejas de tirar comida olvidada.',
     card: 'sf-card-p',
   },
   {
     shot: 'sf-calendar.png',
+    emoji: '📅',
+    tag: 'En tiempo real',
     title: 'El calendario de la familia',
-    desc: 'Los eventos de todos en un mismo sitio. Nadie se pierde un cumple ni una cita.',
-    card: 'sf-card',
-  },
-  {
-    shot: 'sf-plans.png',
-    title: 'Planes con mapa',
-    desc: 'Queda con tu gente y elige el sitio en el mapa. Proponer un plan es un momento.',
+    desc: 'Los eventos de toda la familia en un mismo calendario compartido. Cada uno ve lo que hay y nadie se pierde un cumple ni una cita.',
     card: 'sf-card-g',
   },
   {
-    shot: 'sf-budget.png',
-    title: 'Tickets y gasto',
-    desc: 'Escanea los tickets y mira en qué se va el dinero de casa, mes a mes.',
+    shot: 'sf-plans.png',
+    emoji: '🗺️',
+    tag: 'Con mapa',
+    title: 'Planes con mapa',
+    desc: 'Propón un plan, elige el sitio en el mapa y que tu gente confirme si se apunta. Con su chat propio para cuadrarlo todo sin salir de la app.',
     card: 'sf-card-y',
   },
   {
-    shot: 'sf-menu.png',
-    title: 'Qué cocino hoy',
-    desc: 'Menús pensados con lo que ya tienes en la nevera. Menos vueltas, menos desperdicio.',
+    shot: 'sf-budget.png',
+    emoji: '🧾',
+    tag: 'Escanea y listo',
+    title: 'Tickets y gasto',
+    desc: 'Escanea el ticket de la compra y la app saca el gasto por ti. Mira en qué se va el dinero de casa, mes a mes y por categorías.',
     card: 'sf-card-s',
   },
   {
-    shot: 'sf-rincon.png',
-    title: 'Vuestro rincón',
-    desc: 'Notas y retos para la pareja, en un espacio sólo vuestro dentro de casa.',
+    shot: 'sf-menu.png',
+    emoji: '🍳',
+    tag: 'Menos desperdicio',
+    title: 'Qué cocino hoy',
+    desc: 'Pídele ideas de menú con lo que ya tienes en la nevera. Cocinas con lo que hay, das menos vueltas y tiras menos comida.',
     card: 'sf-card-p',
   },
   {
+    shot: 'sf-rincon.png',
+    emoji: '💕',
+    tag: 'Solo para dos',
+    title: 'Vuestro rincón',
+    desc: 'Un espacio privado solo para la pareja, dentro de casa: notas, detalles y pequeños retos para cuidaros también en el día a día.',
+    card: 'sf-card-g',
+  },
+  {
     shot: 'sf-stats.png',
+    emoji: '📊',
+    tag: 'Quién colabora',
     title: 'Estadísticas',
-    desc: 'De un vistazo, quién colabora más en casa. Datos en vez de reproches.',
+    desc: 'De un vistazo, quién está echando una mano en casa y quién menos. Datos claros en lugar de reproches.',
     card: 'sf-card',
   },
 ];
+
+/* Fila de feature con diseño VARIADO: alterna el lado del móvil, su inclinación y
+ * rota entre 3 tratamientos de la descripción (grande en negrita / panel blanco /
+ * con barra de acento), más una etiqueta y un emoji de marca. Así la sección no
+ * resulta monótona y la descripción gana protagonismo. */
+function FeatureRow({ feat, i }: { feat: (typeof FEATURES)[number]; i: number }) {
+  const reverse = i % 2 === 1;
+  const look = i % 3;
+  const tilt = reverse ? 2 : -2;
+  return (
+    <article
+      className={`${feat.card} ${look === 1 ? 'sf-dot' : ''} ld-reveal ${
+        reverse ? 'ld-reveal-right' : 'ld-reveal-left'
+      } relative overflow-hidden p-6 sm:p-10 flex flex-col items-center gap-7 sm:gap-12 text-center sm:text-left ${
+        reverse ? 'sm:flex-row-reverse' : 'sm:flex-row'
+      }`}
+    >
+      <span
+        aria-hidden
+        className="pointer-events-none absolute -bottom-12 -right-4 select-none text-[11rem] leading-none opacity-10"
+      >
+        {feat.emoji}
+      </span>
+
+      <div className="shrink-0" style={{ transform: `rotate(${tilt}deg)` }}>
+        <FeaturePhone shot={feat.shot} alt={feat.title} />
+      </div>
+
+      <div className="relative flex-1">
+        <span className="sf-tag mb-3 inline-block">
+          {feat.emoji} {feat.tag}
+        </span>
+        <h3 className="sf-bangers text-4xl leading-[0.95] sm:text-5xl">{feat.title}</h3>
+        {look === 1 ? (
+          <p className="sf-fredoka mx-auto mt-5 max-w-xl rounded-2xl border-[3px] border-[var(--color-border)] bg-[var(--color-surface-raised)] p-4 text-lg font-medium sm:mx-0 sm:text-xl">
+            {feat.desc}
+          </p>
+        ) : look === 2 ? (
+          <p className="sf-fredoka mx-auto mt-5 max-w-xl text-xl font-semibold sm:mx-0 sm:border-l-[6px] sm:border-[var(--color-border)] sm:pl-5 sm:text-2xl">
+            {feat.desc}
+          </p>
+        ) : (
+          <p className="sf-fredoka mx-auto mt-5 max-w-xl text-xl font-bold sm:mx-0 sm:text-2xl">
+            {feat.desc}
+          </p>
+        )}
+      </div>
+    </article>
+  );
+}
 
 const STEPS: ReadonlyArray<{ emoji: string; title: string; desc: string }> = [
   {
@@ -378,19 +448,9 @@ export function LandingPage() {
             </p>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-7">
+          <div className="flex flex-col gap-6 sm:gap-8">
             {FEATURES.map((feat, i) => (
-              <article
-                key={feat.shot}
-                className={`${feat.card} ld-pop-hover ld-reveal p-5 flex flex-col items-center text-center gap-4`}
-                style={{ ['--ld-i' as string]: String(i % 3) }}
-              >
-                <FeaturePhone shot={feat.shot} alt={feat.title} />
-                <div>
-                  <h3 className="sf-bangers text-2xl">{feat.title}</h3>
-                  <p className="sf-fredoka text-sm mt-2">{feat.desc}</p>
-                </div>
-              </article>
+              <FeatureRow key={feat.shot} feat={feat} i={i} />
             ))}
           </div>
 
