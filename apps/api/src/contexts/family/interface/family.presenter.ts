@@ -18,6 +18,9 @@ export const FamilyPresenter = {
       // `displayName` no puede ir vacío en el contrato; si el usuario aún no
       // tiene nombre, mostramos un marcador legible en español.
       displayName: member.displayName?.trim() || 'Sin nombre',
+      // `avatarUrl` es opcional en el contrato: omitimos la clave si no hay foto
+      // (null → undefined) para no enviar `null` donde el schema espera URL.
+      avatarUrl: member.avatarUrl ?? undefined,
       role: member.role,
       joinedAt: member.joinedAt.toISOString(),
     };

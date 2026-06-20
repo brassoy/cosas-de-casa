@@ -7,6 +7,7 @@ import { appUsers } from '../../../db/schema';
 import type { AuthenticatedUser } from '../domain/authenticated-user';
 import type {
   AppUserRepository,
+  UpdateProfileParams,
   UpsertAppUserParams,
 } from '../domain/ports/app-user.repository';
 
@@ -35,7 +36,12 @@ export class DrizzleAppUserRepository implements AppUserRepository {
       .returning();
 
     // `row` siempre existe tras un upsert con returning.
-    return { id: row!.id, email: row!.email, displayName: row!.displayName };
+    return {
+      id: row!.id,
+      email: row!.email,
+      displayName: row!.displayName,
+      avatarUrl: row!.avatarUrl,
+    };
   }
 
   async findById(id: string): Promise<AuthenticatedUser | null> {
@@ -44,20 +50,40 @@ export class DrizzleAppUserRepository implements AppUserRepository {
     if (!row) {
       return null;
     }
-    return { id: row.id, email: row.email, displayName: row.displayName };
+    return {
+      id: row.id,
+      email: row.email,
+      displayName: row.displayName,
+      avatarUrl: row.avatarUrl,
+    };
   }
 
-  async updateDisplayName(id: string, displayName: string): Promise<AuthenticatedUser> {
-    // Cambio EXPLÍCITO del usuario: pisamos el display_name (sin COALESCE, a
-    // diferencia del upsert JIT que solo lo fija si aún no había uno).
+  async updateProfile(id: string, params: UpdateProfileParams): Promise<AuthenticatedUser> {
+    // Cambio EXPLÍCITO del usuario: pisamos los campos presentes (sin COALESCE, a
+    // diferencia del upsert JIT que solo fija el nombre si aún no había uno).
+    // Solo incluimos en el SET las claves presentes en `params`; así `avatarUrl:
+    // null` BORRA el avatar, mientras que `undefined` (ausente) lo deja intacto.
+    const set: Partial<typeof appUsers.$inferInsert> = {};
+    if (params.displayName !== undefined) {
+      set.displayName = params.displayName;
+    }
+    if (params.avatarUrl !== undefined) {
+      set.avatarUrl = params.avatarUrl;
+    }
+
     const [row] = await this.db
       .update(appUsers)
-      .set({ displayName })
+      .set(set)
       .where(eq(appUsers.id, id))
       .returning();
 
     // `row` siempre existe: el usuario está aprovisionado por el guard antes de
     // llegar aquí (request.user proviene del upsert JIT).
-    return { id: row!.id, email: row!.email, displayName: row!.displayName };
+    return {
+      id: row!.id,
+      email: row!.email,
+      displayName: row!.displayName,
+      avatarUrl: row!.avatarUrl,
+    };
   }
 }

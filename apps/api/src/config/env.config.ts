@@ -20,6 +20,12 @@ const EnvSchema = z.object({
   SUPABASE_URL: z.string().url().optional(),
   SUPABASE_PUBLISHABLE_KEY: z.string().optional(),
   SUPABASE_SECRET_KEY: z.string().optional(),
+  /**
+   * Clave `service_role` de Supabase (admin). OPCIONAL: si está presente, la baja
+   * de cuenta borra también el usuario del proveedor de Auth; si falta, ese paso
+   * se omite (no rompe el arranque). NUNCA debe llegar al cliente.
+   */
+  SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
   JWT_JWKS_URL: z.string().url().optional(),
   JWT_ISSUER: z.string().optional(),
   JWT_AUDIENCE: z.string().optional(),

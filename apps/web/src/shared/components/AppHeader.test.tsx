@@ -18,6 +18,12 @@ vi.mock('@tanstack/react-router', () => ({
     opts.select({ location: { pathname: '/' } }),
 }));
 
+// El header consulta el avatar del usuario vía useProfile (useQuery); lo
+// mockeamos para no necesitar QueryClientProvider en este test unitario.
+vi.mock('@/features/settings/hooks/useProfile', () => ({
+  useProfile: () => ({ data: undefined }),
+}));
+
 import { AppHeader } from './AppHeader';
 
 describe('AppHeader', () => {

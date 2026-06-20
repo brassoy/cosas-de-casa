@@ -22,18 +22,30 @@ import { useAuthStore } from '@/features/auth/store/auth.store';
 import { useFamilyStore } from '@/features/family/store/family.store';
 import { useLeaveFamily } from '@/features/family/hooks/useFamily';
 import { ApiRequestError } from '@/shared/lib/api';
-import { useProfile, useUpdateName, useChangeEmail, useChangePassword } from '../hooks/useProfile';
+import {
+  useProfile,
+  useUpdateName,
+  useChangeEmail,
+  useChangePassword,
+  useUpdateAvatar,
+  useRemoveAvatar,
+  useDeleteAccount,
+} from '../hooks/useProfile';
 import type { SettingsFamily, SettingsViewProps } from '../views/types';
 
 export function SettingsPage() {
   const navigate = useNavigate();
   const signOut = useAuthStore((s) => s.signOut);
   const activeFamily = useFamilyStore((s) => s.activeFamily);
+  const clearFamily = useFamilyStore((s) => s.clearFamily);
 
   const profile = useProfile();
   const updateName = useUpdateName();
   const changeEmail = useChangeEmail();
   const changePassword = useChangePassword();
+  const updateAvatar = useUpdateAvatar(profile.data?.id);
+  const removeAvatar = useRemoveAvatar();
+  const deleteAccount = useDeleteAccount();
   // El hook recibe el id de la familia a abandonar. Solo permitimos salir de la
   // familia activa, así que lo cableamos con su id (cadena vacía si no hay).
   const leaveFamily = useLeaveFamily(activeFamily?.id ?? '');
@@ -45,6 +57,8 @@ export function SettingsPage() {
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordOk, setPasswordOk] = useState(false);
   const [leaveError, setLeaveError] = useState<string | null>(null);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null);
 
   function handleSaveName(name: string) {
     setNameError(null);
@@ -94,6 +108,29 @@ export function SettingsPage() {
     );
   }
 
+  function handleChangeAvatar(file: File) {
+    setAvatarError(null);
+    updateAvatar.mutate(file, {
+      onError: (err) => {
+        const msg = err instanceof Error ? err.message : null;
+        setAvatarError(msg ?? 'No se ha podido subir la foto. Inténtalo de nuevo.');
+      },
+    });
+  }
+
+  function handleRemoveAvatar() {
+    setAvatarError(null);
+    removeAvatar.mutate(undefined, {
+      onError: (err) => {
+        const msg =
+          err instanceof ApiRequestError
+            ? err.body.message
+            : 'No se ha podido quitar la foto. Inténtalo de nuevo.';
+        setAvatarError(msg ?? 'No se ha podido quitar la foto. Inténtalo de nuevo.');
+      },
+    });
+  }
+
   function handleLeaveFamily(familyId: string) {
     // Solo soportamos salir de la familia activa (el hook se cableó con su id).
     if (familyId !== activeFamily?.id) return;
@@ -127,6 +164,28 @@ export function SettingsPage() {
     void navigate({ to: '/login' });
   }
 
+  // Borrado de cuenta: la vista ya exigió la confirmación FUERTE (escribir el
+  // email o "BORRAR"), así que aquí solo ejecutamos. Tras el éxito: cerrar sesión,
+  // vaciar el store de familia y navegar a /login. La caché de queries la vacía el
+  // propio hook en onSuccess.
+  function handleDeleteAccount() {
+    setDeleteAccountError(null);
+    deleteAccount.mutate(undefined, {
+      onSuccess: async () => {
+        clearFamily();
+        await signOut();
+        void navigate({ to: '/login' });
+      },
+      onError: (err) => {
+        const msg =
+          err instanceof ApiRequestError
+            ? err.body.message
+            : 'No se ha podido borrar la cuenta. Inténtalo de nuevo.';
+        setDeleteAccountError(msg ?? 'No se ha podido borrar la cuenta. Inténtalo de nuevo.');
+      },
+    });
+  }
+
   // Lista de familias para la vista. La fuente de verdad es `GET /auth/me`
   // (perfil), y marcamos como `active` la que esté seleccionada en el store.
   const families: SettingsFamily[] = (profile.data?.families ?? []).map((f) => ({
@@ -139,6 +198,12 @@ export function SettingsPage() {
     displayName: profile.data?.displayName ?? null,
     email: profile.data?.email ?? null,
     loading: profile.isLoading,
+    avatarUrl: profile.data?.avatarUrl ?? null,
+    onChangeAvatar: handleChangeAvatar,
+    uploadingAvatar: updateAvatar.isPending,
+    onRemoveAvatar: handleRemoveAvatar,
+    removingAvatar: removeAvatar.isPending,
+    avatarError,
     onSaveName: handleSaveName,
     savingName: updateName.isPending,
     nameError,
@@ -156,6 +221,10 @@ export function SettingsPage() {
     leavingFamily: leaveFamily.isPending,
     leaveError,
     onLogout: () => void handleLogout(),
+    accountEmail: profile.data?.email ?? null,
+    onDeleteAccount: handleDeleteAccount,
+    deletingAccount: deleteAccount.isPending,
+    deleteAccountError,
   };
 
   return <ThemeView screen="settings" props={props} />;

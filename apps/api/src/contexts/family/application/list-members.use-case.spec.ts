@@ -103,8 +103,8 @@ describe('ListMembersUseCase', () => {
     familyRepo.seed(family);
 
     const views: MemberView[] = [
-      { userId: OWNER_ID, displayName: 'El Dueño', role: MembershipRole.OWNER, joinedAt: NOW },
-      { userId: MEMBER_ID, displayName: 'El Miembro', role: MembershipRole.MEMBER, joinedAt: NOW },
+      { userId: OWNER_ID, displayName: 'El Dueño', avatarUrl: null, role: MembershipRole.OWNER, joinedAt: NOW },
+      { userId: MEMBER_ID, displayName: 'El Miembro', avatarUrl: null, role: MembershipRole.MEMBER, joinedAt: NOW },
     ];
     readModel.setViews(views);
 

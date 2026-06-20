@@ -10,6 +10,17 @@ export interface UpsertAppUserParams {
 }
 
 /**
+ * Cambios explícitos al perfil del usuario. Cada campo es opcional: solo se
+ * actualizan los presentes (`undefined` = no tocar). `avatarUrl: null` BORRA el
+ * avatar (no es COALESCE).
+ */
+export interface UpdateProfileParams {
+  displayName?: string;
+  /** URL pública del avatar, o `null` para quitarlo. `undefined` no lo toca. */
+  avatarUrl?: string | null;
+}
+
+/**
  * Puerto de persistencia de los usuarios de la aplicación (`app_users`).
  *
  * El aprovisionamiento es "just-in-time": en cada petición autenticada se hace
@@ -27,9 +38,10 @@ export interface AppUserRepository {
   findById(id: string): Promise<AuthenticatedUser | null>;
 
   /**
-   * Actualiza el `displayName` del usuario indicado y devuelve el usuario
-   * resultante. A diferencia de {@link upsertFromClaims}, esto PISA el valor
-   * existente (es un cambio explícito del usuario, no un default JIT).
+   * Actualiza el perfil del usuario (nombre visible y/o avatar) y devuelve el
+   * usuario resultante. A diferencia de {@link upsertFromClaims}, esto PISA los
+   * valores existentes (cambio explícito del usuario, no un default JIT). Solo
+   * actualiza los campos presentes en `params`; `avatarUrl: null` BORRA el avatar.
    */
-  updateDisplayName(id: string, displayName: string): Promise<AuthenticatedUser>;
+  updateProfile(id: string, params: UpdateProfileParams): Promise<AuthenticatedUser>;
 }

@@ -39,6 +39,8 @@ export const appUsers = pgTable('app_users', {
   id: uuid('id').primaryKey(),
   email: text('email').notNull().unique(),
   displayName: text('display_name'),
+  /** URL pública de la foto de perfil (bucket `avatars`). Null si no tiene. */
+  avatarUrl: text('avatar_url'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 

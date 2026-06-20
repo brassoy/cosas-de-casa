@@ -1,6 +1,7 @@
 import { useNavigate } from '@tanstack/react-router';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { useFamilyStore } from '@/features/family/store/family.store';
+import { useProfile } from '@/features/settings/hooks/useProfile';
 import { ThemeSelector } from './ThemeSelector';
 import { NavDrawer } from './NavDrawer';
 import { APP_MAX_WIDTH } from '@/shared/layout';
@@ -11,6 +12,14 @@ export function AppHeader() {
   const activeFamily = useFamilyStore((s) => s.activeFamily);
   const clearFamily = useFamilyStore((s) => s.clearFamily);
   const navigate = useNavigate();
+
+  // Avatar del usuario: solo se consulta si hay sesión (la query corre igualmente,
+  // pero sin token el endpoint daría 401; `useProfile` ya depende de la sesión en
+  // su flujo normal). Mostramos un avatarcito que lleva a Ajustes.
+  const profile = useProfile();
+  const avatarUrl = session ? profile.data?.avatarUrl ?? null : null;
+  const displayName = profile.data?.displayName ?? null;
+  const avatarInitial = displayName?.trim()?.[0]?.toUpperCase() ?? '?';
 
   async function handleLogout() {
     clearFamily();
@@ -90,6 +99,27 @@ export function AppHeader() {
         {session && (
           <button
             type="button"
+            onClick={() => void navigate({ to: '/settings' })}
+            aria-label="Ir a ajustes"
+            style={avatarBtnStyle}
+          >
+            {avatarUrl ? (
+              <img
+                src={avatarUrl}
+                alt="Tu foto de perfil"
+                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+              />
+            ) : (
+              <span aria-hidden="true" style={avatarInitialStyle}>
+                {avatarInitial}
+              </span>
+            )}
+          </button>
+        )}
+
+        {session && (
+          <button
+            type="button"
             onClick={() => void handleLogout()}
             style={btnStyle}
             aria-label="Cerrar sesión"
@@ -113,4 +143,30 @@ const btnStyle: React.CSSProperties = {
   fontSize: 'var(--font-size-sm)',
   fontFamily: 'var(--font-body)',
   whiteSpace: 'nowrap',
+};
+
+// Avatarcito redondo en la cabecera (lleva a Ajustes). Tamaño fijo para no
+// descolocar la barra; recorta la imagen con object-fit:cover.
+const avatarBtnStyle: React.CSSProperties = {
+  width: '2rem',
+  height: '2rem',
+  padding: 0,
+  borderRadius: '9999px',
+  border: '1px solid var(--color-border)',
+  overflow: 'hidden',
+  cursor: 'pointer',
+  background: 'var(--color-surface, var(--app-canvas))',
+  flexShrink: 0,
+};
+
+const avatarInitialStyle: React.CSSProperties = {
+  display: 'flex',
+  width: '100%',
+  height: '100%',
+  alignItems: 'center',
+  justifyContent: 'center',
+  fontSize: 'var(--font-size-sm)',
+  fontWeight: 'var(--font-weight-semibold)',
+  color: 'var(--color-text-muted)',
+  fontFamily: 'var(--font-heading)',
 };

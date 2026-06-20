@@ -57,6 +57,13 @@
       "when": 1779795071824,
       "tag": "0007_realtime_calendar_events",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1781935601364,
+      "tag": "0008_gray_quasar",
+      "breakpoints": true
     }
   ]
 }

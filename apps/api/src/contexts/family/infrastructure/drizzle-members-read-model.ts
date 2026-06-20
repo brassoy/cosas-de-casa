@@ -18,6 +18,7 @@ export class DrizzleMembersReadModel implements MembersReadModel {
       .select({
         userId: memberships.userId,
         displayName: appUsers.displayName,
+        avatarUrl: appUsers.avatarUrl,
         role: memberships.role,
         joinedAt: memberships.joinedAt,
       })
@@ -29,6 +30,7 @@ export class DrizzleMembersReadModel implements MembersReadModel {
     return rows.map((row) => ({
       userId: row.userId,
       displayName: row.displayName,
+      avatarUrl: row.avatarUrl,
       role: row.role,
       joinedAt: row.joinedAt,
     }));

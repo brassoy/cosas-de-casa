@@ -39,6 +39,16 @@ export function isValidEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
+/**
+ * Inicial para el placeholder del avatar (cuando el usuario no tiene foto).
+ * Devuelve la primera letra del nombre en mayúscula, o "?" si no hay nombre.
+ * Compartida por las 4 vistas para mantener el placeholder consistente.
+ */
+export function avatarInitial(displayName: string | null): string {
+  const trimmed = displayName?.trim();
+  return trimmed ? trimmed[0]!.toUpperCase() : '?';
+}
+
 export interface SettingsViewProps {
   /** Nombre visible actual; `null` mientras carga o si no está definido. */
   displayName: string | null;
@@ -46,6 +56,19 @@ export interface SettingsViewProps {
   email: string | null;
   /** Carga inicial del perfil en curso. */
   loading?: boolean;
+
+  /** URL de la foto de perfil actual; `null` si no tiene (mostrar placeholder). */
+  avatarUrl?: string | null;
+  /** Sube/cambia la foto de perfil (la vista entrega el `File` elegido). */
+  onChangeAvatar: (file: File) => void;
+  /** Subida del avatar en curso. */
+  uploadingAvatar?: boolean;
+  /** Quita la foto de perfil actual. */
+  onRemoveAvatar: () => void;
+  /** Borrado del avatar en curso. */
+  removingAvatar?: boolean;
+  /** Error al subir/quitar el avatar; `null`/`undefined` si no hay. */
+  avatarError?: string | null;
 
   /** Guarda el nombre (ya recortado por la vista). */
   onSaveName: (name: string) => void;
@@ -85,4 +108,22 @@ export interface SettingsViewProps {
 
   /** Cierra la sesión (el container hace signOut + navega a /login). */
   onLogout: () => void;
+
+  // ── Zona peligrosa: borrar cuenta ───────────────────────────────────────────
+  /**
+   * Email del usuario, usado por la vista para la confirmación FUERTE: el usuario
+   * debe escribir su email (o la palabra "BORRAR") para habilitar el botón. Es el
+   * mismo valor que `email`; se expone aparte para dejar clara su intención aquí.
+   */
+  accountEmail?: string | null;
+  /**
+   * Borra la cuenta de forma PERMANENTE. El container confirma a nivel de datos
+   * (la vista ya exigió la confirmación escrita), cierra sesión, vacía los stores
+   * y navega a /login tras el éxito.
+   */
+  onDeleteAccount: () => void;
+  /** Borrado de la cuenta en curso. */
+  deletingAccount?: boolean;
+  /** Error al borrar la cuenta; `null`/`undefined` si no hay. */
+  deleteAccountError?: string | null;
 }

@@ -7,7 +7,10 @@
  * Cobertura:
  *  ✓ GET   /api/v1/auth/me            → usuario autenticado (display_name JIT)
  *  ✓ PATCH /api/v1/auth/me            → cambia el display_name; GET lo refleja
+ *  ✓ PATCH /api/v1/auth/me            → fija el avatar_url; GET lo refleja
+ *  ✓ PATCH /api/v1/auth/me            → avatarUrl: null BORRA el avatar
  *  ✓ PATCH con nombre vacío           → 400 (validación de contrato)
+ *  ✓ PATCH con body vacío             → 400 (refine: al menos un campo)
  *  ✓ PATCH con propiedad desconocida  → 400 (forbidNonWhitelisted vía .strict())
  *  ✓ Sin token                        → 401
  */
@@ -44,10 +47,17 @@ describe('Identity-access – integración (/auth)', () => {
     it('devuelve el usuario autenticado con un display_name por defecto', async () => {
       const res = await request(server).get('/api/v1/auth/me').set(auth(user.accessToken));
       expect(res.status).toBe(200);
-      const body = res.body as { id: string; email: string; displayName: string | null };
+      const body = res.body as {
+        id: string;
+        email: string;
+        displayName: string | null;
+        avatarUrl: string | null;
+      };
       expect(body.email).toBe(user.email);
       // display_name JIT = parte local del email.
       expect(body.displayName).toBe(user.email.split('@')[0]);
+      // Sin avatar al provisionar.
+      expect(body.avatarUrl).toBeNull();
     });
 
     it('sin token → 401', async () => {
@@ -82,11 +92,51 @@ describe('Identity-access – integración (/auth)', () => {
       expect((res.body as { displayName: string }).displayName).toBe('Con Espacios');
     });
 
+    it('fija el avatar_url y GET /auth/me lo refleja', async () => {
+      const avatarUrl = 'https://cdn.example.com/avatars/foto.webp';
+
+      const patchRes = await request(server)
+        .patch('/api/v1/auth/me')
+        .set(auth(user.accessToken))
+        .send({ avatarUrl });
+      expect(patchRes.status).toBe(200);
+      expect((patchRes.body as { avatarUrl: string }).avatarUrl).toBe(avatarUrl);
+
+      const meRes = await request(server).get('/api/v1/auth/me').set(auth(user.accessToken));
+      expect(meRes.status).toBe(200);
+      expect((meRes.body as { avatarUrl: string }).avatarUrl).toBe(avatarUrl);
+    });
+
+    it('avatarUrl: null BORRA el avatar (no es COALESCE)', async () => {
+      const avatarUrl = 'https://cdn.example.com/avatars/foto.webp';
+      // Primero lo fijamos…
+      await request(server)
+        .patch('/api/v1/auth/me')
+        .set(auth(user.accessToken))
+        .send({ avatarUrl });
+
+      // …y luego lo borramos enviando null explícito.
+      const delRes = await request(server)
+        .patch('/api/v1/auth/me')
+        .set(auth(user.accessToken))
+        .send({ avatarUrl: null });
+      expect(delRes.status).toBe(200);
+      expect((delRes.body as { avatarUrl: string | null }).avatarUrl).toBeNull();
+    });
+
     it('nombre vacío → 400', async () => {
       const res = await request(server)
         .patch('/api/v1/auth/me')
         .set(auth(user.accessToken))
         .send({ displayName: '' });
+      expect(res.status).toBe(400);
+    });
+
+    it('body vacío → 400 (refine: al menos un campo)', async () => {
+      const res = await request(server)
+        .patch('/api/v1/auth/me')
+        .set(auth(user.accessToken))
+        .send({});
       expect(res.status).toBe(400);
     });
 

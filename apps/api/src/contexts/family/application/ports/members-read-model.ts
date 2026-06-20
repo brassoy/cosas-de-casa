@@ -6,6 +6,8 @@ export const MEMBERS_READ_MODEL = Symbol('MEMBERS_READ_MODEL');
 export interface MemberView {
   userId: string;
   displayName: string | null;
+  /** URL pública de la foto de perfil; `null` si no tiene avatar. */
+  avatarUrl: string | null;
   role: MembershipRole;
   joinedAt: Date;
 }

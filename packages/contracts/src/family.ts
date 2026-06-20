@@ -141,16 +141,29 @@ export const AuthMeDtoSchema = z.object({
   id: UuidSchema,
   email: z.string().email(),
   displayName: z.string().min(1).max(100).nullable(),
+  /** URL pública de la foto de perfil; `null` si el usuario no tiene avatar. */
+  avatarUrl: z.string().url().nullable(),
   families: z.array(FamilySummaryDtoSchema),
 });
 
 export type AuthMeDto = z.infer<typeof AuthMeDtoSchema>;
 
 /**
- * Payload de `PATCH /auth/me`: el usuario autenticado cambia su nombre visible
- * (`display_name`). Se hace `trim` y se exige un nombre no vacío.
+ * Payload de `PATCH /auth/me`: el usuario autenticado actualiza su perfil
+ * (nombre visible y/o foto de perfil). Ambos campos son opcionales (actualización
+ * parcial), pero debe enviarse al menos uno.
+ *
+ * - `displayName`: se hace `trim` y se exige un nombre no vacío.
+ * - `avatarUrl`: URL pública de la foto subida a Storage, o `null` para QUITAR el
+ *   avatar (borrado explícito). `undefined` (ausente) deja el avatar intacto.
  */
-export const UpdateProfileInputSchema = z.object({
-  displayName: z.string().trim().min(1).max(80),
-});
+export const UpdateProfileInputSchema = z
+  .object({
+    displayName: z.string().trim().min(1).max(80).optional(),
+    avatarUrl: z.string().url().nullable().optional(),
+  })
+  .strict()
+  .refine((data) => data.displayName !== undefined || data.avatarUrl !== undefined, {
+    message: 'Debes enviar al menos un campo para actualizar.',
+  });
 export type UpdateProfileInput = z.infer<typeof UpdateProfileInputSchema>;

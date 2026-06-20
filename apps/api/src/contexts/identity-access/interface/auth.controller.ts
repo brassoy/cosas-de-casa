@@ -1,9 +1,24 @@
-import { Body, Controller, Get, Patch, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Patch,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiNoContentResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import type { AuthMeDto } from '@cosasdecasa/contracts';
 import { ListMyFamiliesUseCase } from '../../family/application/list-my-families.use-case';
 import { FamilyPresenter } from '../../family/interface/family.presenter';
 import { UpdateDisplayNameUseCase } from '../application/update-display-name.use-case';
+import { DeleteAccountUseCase } from '../application/delete-account.use-case';
 import type { AuthenticatedUser } from '../domain/authenticated-user';
 import { CurrentUser } from './current-user.decorator';
 import { UpdateProfileDto } from './dto/update-profile.dto';
@@ -15,6 +30,7 @@ import { JwtAuthGuard } from './jwt-auth.guard';
  * `GET /auth/me` devuelve el usuario autenticado (aprovisionado JIT por el
  * guard) y las familias a las que pertenece, con su rol en cada una.
  * `PATCH /auth/me` permite al usuario cambiar su nombre visible (display_name).
+ * `DELETE /auth/me` borra la cuenta del usuario de forma permanente.
  */
 @ApiTags('auth')
 @ApiBearerAuth()
@@ -24,6 +40,7 @@ export class AuthController {
   constructor(
     private readonly listMyFamilies: ListMyFamiliesUseCase,
     private readonly updateDisplayName: UpdateDisplayNameUseCase,
+    private readonly deleteAccount: DeleteAccountUseCase,
   ) {}
 
   @Get('me')
@@ -43,8 +60,19 @@ export class AuthController {
     const updated = await this.updateDisplayName.execute({
       userId: user.id,
       displayName: dto.displayName,
+      avatarUrl: dto.avatarUrl,
     });
     return this.toAuthMeDto(updated);
+  }
+
+  @Delete('me')
+  @HttpCode(204)
+  @ApiOperation({
+    summary: 'Borra la cuenta del usuario autenticado de forma permanente.',
+  })
+  @ApiNoContentResponse({ description: 'Cuenta borrada. Sin contenido.' })
+  async deleteMe(@CurrentUser() user: AuthenticatedUser): Promise<void> {
+    await this.deleteAccount.execute({ userId: user.id });
   }
 
   /** Compone el AuthMeDto: usuario + listado de familias con su rol. */
@@ -54,6 +82,7 @@ export class AuthController {
       id: user.id,
       email: user.email,
       displayName: user.displayName,
+      avatarUrl: user.avatarUrl,
       families: families.map((family) => FamilyPresenter.toSummaryDto(family, user.id)),
     };
   }

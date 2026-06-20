@@ -20,6 +20,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { AuthMeDto, UpdateProfileInput } from '@cosasdecasa/contracts';
+import imageCompression from 'browser-image-compression';
 import { api, ApiRequestError } from '@/shared/lib/api';
 import { supabase } from '@/shared/lib/supabase';
 
@@ -52,6 +53,80 @@ export function useUpdateName() {
   });
 }
 
+// ── Avatar: comprimir → subir a Storage → PATCH /auth/me { avatarUrl } ─────────
+
+/** Bucket público de avatares (declarado en config.toml + migración de Storage). */
+const AVATAR_BUCKET = 'avatars';
+
+/**
+ * Comprime la imagen y la sube al bucket `avatars`, devolviendo su URL pública.
+ *
+ * El bucket se aprovisiona como infraestructura (config.toml + migración de
+ * Storage), NO desde el cliente: crear buckets con el anon key es un anti-patrón.
+ * Si no existiera, el upload falla con un mensaje claro.
+ *
+ * Compresión agresiva (es un avatar, no una foto): máx ~0.3 MB y máx 512 px.
+ */
+async function uploadAvatarToStorage(userId: string, file: File): Promise<string> {
+  const compressed = await imageCompression(file, {
+    maxSizeMB: 0.3,
+    maxWidthOrHeight: 512,
+    useWebWorker: true,
+  });
+
+  // Ruta única dentro del bucket: avatars/<userId>/<timestamp>-<uuid>.<ext>
+  const ext = file.name.split('.').pop() ?? 'jpg';
+  const path = `avatars/${userId}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
+
+  const { error } = await supabase.storage
+    .from(AVATAR_BUCKET)
+    .upload(path, compressed, { contentType: compressed.type });
+
+  if (error) throw new Error(`Error al subir la foto: ${error.message}`);
+
+  const { data } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(path);
+  return data.publicUrl;
+}
+
+/**
+ * Sube una nueva foto de perfil: comprime, la sube a Storage y hace
+ * `PATCH /auth/me { avatarUrl }` con la URL pública. Necesita el `userId` (de
+ * `useProfile().data.id`) para construir la ruta dentro del bucket. Invalida el
+ * perfil para reflejar el avatar al instante.
+ */
+export function useUpdateAvatar(userId: string | undefined) {
+  const qc = useQueryClient();
+
+  return useMutation<AuthMeDto, Error, File>({
+    mutationFn: async (file: File) => {
+      if (!userId) throw new Error('No hay sesión activa.');
+      const avatarUrl = await uploadAvatarToStorage(userId, file);
+      return api.patch<AuthMeDto>('/auth/me', { avatarUrl });
+    },
+    onSuccess: (me) => {
+      qc.setQueryData(profileQueryKey, me);
+      void qc.invalidateQueries({ queryKey: profileQueryKey });
+    },
+  });
+}
+
+/**
+ * Quita la foto de perfil: `PATCH /auth/me { avatarUrl: null }` (borrado
+ * explícito en el backend, no COALESCE). No borra el objeto de Storage (queda
+ * huérfano; un job de limpieza podría recogerlo más adelante).
+ */
+export function useRemoveAvatar() {
+  const qc = useQueryClient();
+
+  return useMutation<AuthMeDto, ApiRequestError, void>({
+    mutationFn: () => api.patch<AuthMeDto>('/auth/me', { avatarUrl: null }),
+    onSuccess: (me) => {
+      qc.setQueryData(profileQueryKey, me);
+      void qc.invalidateQueries({ queryKey: profileQueryKey });
+    },
+  });
+}
+
 /**
  * Cambia la contraseña del usuario autenticado vía Supabase. No requiere la
  * contraseña actual (la sesión ya está autenticada). La validación de mínimo y
@@ -78,6 +153,29 @@ export function useChangeEmail() {
     mutationFn: async ({ email }) => {
       const { error } = await supabase.auth.updateUser({ email });
       if (error) throw error;
+    },
+  });
+}
+
+/**
+ * Borra la cuenta del usuario de forma PERMANENTE (`DELETE /auth/me`, responde
+ * 204). La política del backend reasigna o borra las familias que creó, borra
+ * sus PINs de invitación y su `app_user`, y (si hay service-role) lo elimina de
+ * Supabase Auth.
+ *
+ * El cierre de sesión, el vaciado de stores y la navegación a /login los hace el
+ * container en `onSuccess` (igual que el resto de acciones destructivas). Aquí
+ * solo lanzamos la petición y, al lograrlo, vaciamos la caché de React Query para
+ * que no queden datos del usuario borrado en memoria.
+ */
+export function useDeleteAccount() {
+  const qc = useQueryClient();
+
+  return useMutation<void, ApiRequestError, void>({
+    mutationFn: () => api.delete<void>('/auth/me'),
+    onSuccess: () => {
+      // La cuenta ya no existe: limpiamos toda la caché de queries.
+      qc.clear();
     },
   });
 }

@@ -5,7 +5,11 @@ import { TOKEN_VERIFIER } from '../domain/ports/token-verifier';
 import { APP_USER_REPOSITORY } from '../domain/ports/app-user.repository';
 import { InvalidTokenError } from '../domain/auth.errors';
 import type { TokenVerifier, VerifiedClaims } from '../domain/ports/token-verifier';
-import type { AppUserRepository, UpsertAppUserParams } from '../domain/ports/app-user.repository';
+import type {
+  AppUserRepository,
+  UpdateProfileParams,
+  UpsertAppUserParams,
+} from '../domain/ports/app-user.repository';
 import type { AuthenticatedUser } from '../domain/authenticated-user';
 
 // ─── fakes ──────────────────────────────────────────────────────────────────
@@ -41,6 +45,7 @@ class FakeAppUserRepository implements AppUserRepository {
       id: params.id,
       email: params.email,
       displayName: existing?.displayName ?? params.defaultDisplayName ?? null,
+      avatarUrl: existing?.avatarUrl ?? null,
     };
     this.users.set(user.id, user);
     return user;
@@ -48,6 +53,19 @@ class FakeAppUserRepository implements AppUserRepository {
 
   async findById(id: string): Promise<AuthenticatedUser | null> {
     return this.users.get(id) ?? null;
+  }
+
+  async updateProfile(id: string, params: UpdateProfileParams): Promise<AuthenticatedUser> {
+    const existing = this.users.get(id);
+    const user: AuthenticatedUser = {
+      id,
+      email: existing?.email ?? 'unknown@example.com',
+      displayName:
+        params.displayName !== undefined ? params.displayName : existing?.displayName ?? null,
+      avatarUrl: params.avatarUrl !== undefined ? params.avatarUrl : existing?.avatarUrl ?? null,
+    };
+    this.users.set(id, user);
+    return user;
   }
 }
 
@@ -105,7 +123,7 @@ describe('AuthenticateRequestUseCase', () => {
   });
 
   it('no pisa el displayName existente del usuario', async () => {
-    appUsers.seed({ id: 'uid-4', email: 'pepe@casa.com', displayName: 'Pepe Personalizado' });
+    appUsers.seed({ id: 'uid-4', email: 'pepe@casa.com', displayName: 'Pepe Personalizado', avatarUrl: null });
     tokenVerifier.addToken('tok', { sub: 'uid-4', email: 'pepe@casa.com' });
 
     const result = await useCase.execute('tok');

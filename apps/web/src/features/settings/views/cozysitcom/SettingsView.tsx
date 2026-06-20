@@ -10,9 +10,9 @@
  * aquí; el error de negocio llega por props.
  * ─────────────────────────────────────────────────────────────────────────── */
 
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useRef, useState } from 'react';
 import { getTheme, setTheme, type ThemeName } from '@/shared/theme/theme-bootstrap';
-import { isValidEmail, type SettingsViewProps } from '../types';
+import { avatarInitial, isValidEmail, type SettingsViewProps } from '../types';
 
 const THEMES: { value: ThemeName; label: string; emoji: string }[] = [
   { value: 'base', label: 'Clásico', emoji: '◉' },
@@ -26,6 +26,12 @@ export default function SettingsView(props: SettingsViewProps) {
     displayName,
     email,
     loading,
+    avatarUrl,
+    onChangeAvatar,
+    uploadingAvatar,
+    onRemoveAvatar,
+    removingAvatar,
+    avatarError,
     onSaveName,
     savingName,
     nameError,
@@ -43,7 +49,28 @@ export default function SettingsView(props: SettingsViewProps) {
     leavingFamily,
     leaveError,
     onLogout,
+    accountEmail,
+    onDeleteAccount,
+    deletingAccount,
+    deleteAccountError,
   } = props;
+
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+
+  function handleAvatarPicked(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (file) onChangeAvatar(file);
+  }
+
+  // Zona peligrosa: confirmación FUERTE (escribir el email o "BORRAR").
+  const [deleteConfirm, setDeleteConfirm] = useState('');
+  const expectedEmail = (accountEmail ?? email ?? '').trim().toLowerCase();
+  const typedDelete = deleteConfirm.trim();
+  const deleteEnabled =
+    typedDelete.length > 0 &&
+    (typedDelete.toUpperCase() === 'BORRAR' ||
+      (expectedEmail !== '' && typedDelete.toLowerCase() === expectedEmail));
 
   const [name, setName] = useState(displayName ?? '');
   const [nameLocalError, setNameLocalError] = useState<string | null>(null);
@@ -134,6 +161,60 @@ export default function SettingsView(props: SettingsViewProps) {
         {/* ── Perfil ──────────────────────────────────────────────────────── */}
         <section className="cz-frame space-y-3">
           <h2 className="cz-serif text-2xl">Perfil</h2>
+
+          {/* Foto de perfil: avatar actual (o placeholder) + subir/quitar. */}
+          <div className="flex items-center gap-4">
+            {avatarUrl ? (
+              <img
+                src={avatarUrl}
+                alt="Tu foto de perfil"
+                className="h-16 w-16 rounded-full object-cover"
+                style={{ border: '3px solid #2F5D8C' }}
+              />
+            ) : (
+              <span
+                aria-hidden="true"
+                className="cz-serif flex h-16 w-16 items-center justify-center rounded-full text-3xl"
+                style={{ border: '3px solid #2F5D8C', background: '#FFF8EA' }}
+              >
+                {avatarInitial(displayName)}
+              </span>
+            )}
+            <div className="flex flex-col gap-1.5 items-start">
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                className="hidden"
+                onChange={handleAvatarPicked}
+                aria-label="Elegir foto de perfil"
+              />
+              <button
+                type="button"
+                onClick={() => avatarInputRef.current?.click()}
+                disabled={uploadingAvatar || removingAvatar}
+                className="cz-btn-denim disabled:opacity-60"
+              >
+                {uploadingAvatar ? 'Subiendo…' : avatarUrl ? 'Cambiar foto' : 'Subir foto'}
+              </button>
+              {avatarUrl && (
+                <button
+                  type="button"
+                  onClick={onRemoveAvatar}
+                  disabled={uploadingAvatar || removingAvatar}
+                  className="cz-serif text-sm opacity-70 disabled:opacity-40"
+                >
+                  {removingAvatar ? 'Quitando…' : 'Quitar foto'}
+                </button>
+              )}
+            </div>
+          </div>
+          {avatarError && (
+            <div role="alert" style={{ color: '#A63A3A' }}>
+              <p className="font-bold text-sm">{avatarError}</p>
+            </div>
+          )}
+
           <form onSubmit={handleSaveName} noValidate className="space-y-3">
             <div className="space-y-1.5">
               <label htmlFor="settings-name" className="text-xs font-bold uppercase opacity-70 block">
@@ -339,6 +420,47 @@ export default function SettingsView(props: SettingsViewProps) {
         <section className="cz-frame">
           <button type="button" onClick={onLogout} className="cz-btn-garnet">
             Cerrar sesión
+          </button>
+        </section>
+
+        {/* ── Zona peligrosa: borrar cuenta ───────────────────────────────── */}
+        <section className="cz-frame space-y-3" style={{ borderColor: '#A63A3A' }}>
+          <h2 className="cz-serif text-2xl" style={{ color: '#A63A3A' }}>
+            Zona peligrosa
+          </h2>
+          <p className="text-sm opacity-80">
+            Borrar tu cuenta es <strong>permanente</strong> y no se puede deshacer. Se eliminarán tus
+            datos. Las familias que creaste con más miembros seguirán existiendo (otra persona pasará
+            a gestionarlas); las que solo tuvieras tú se borrarán.
+          </p>
+          <div className="space-y-1.5">
+            <label htmlFor="delete-confirm" className="text-xs font-bold uppercase opacity-70 block">
+              Escribe «{accountEmail ?? email ?? 'BORRAR'}» para confirmar
+            </label>
+            <input
+              id="delete-confirm"
+              className="cz-input"
+              value={deleteConfirm}
+              onChange={(e) => setDeleteConfirm(e.target.value)}
+              placeholder={accountEmail ?? email ?? 'BORRAR'}
+              autoComplete="off"
+              disabled={deletingAccount}
+            />
+          </div>
+
+          {deleteAccountError && (
+            <div role="alert" style={{ color: '#A63A3A' }}>
+              <p className="font-bold text-sm">{deleteAccountError}</p>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={onDeleteAccount}
+            disabled={!deleteEnabled || deletingAccount}
+            className="cz-btn-garnet disabled:opacity-40"
+          >
+            {deletingAccount ? 'Borrando…' : 'Borrar cuenta permanentemente'}
           </button>
         </section>
       </div>

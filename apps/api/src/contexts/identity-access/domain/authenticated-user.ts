@@ -7,4 +7,6 @@ export interface AuthenticatedUser {
   id: string;
   email: string;
   displayName: string | null;
+  /** URL pública de la foto de perfil; `null` si no tiene avatar. */
+  avatarUrl: string | null;
 }

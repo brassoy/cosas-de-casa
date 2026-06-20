@@ -125,6 +125,13 @@ public = true
 file_size_limit = "2MiB"
 allowed_mime_types = ["image/png", "image/jpeg", "image/webp"]
 
+# Fotos de perfil (avatares de usuario). Las políticas RLS de storage.objects
+# viven en la migración supabase/migrations/*_avatars_storage.sql.
+[storage.buckets.avatars]
+public = true
+file_size_limit = "1MiB"
+allowed_mime_types = ["image/png", "image/jpeg", "image/webp"]
+
 # Allow connections via S3 compatible clients
 [storage.s3_protocol]
 enabled = true

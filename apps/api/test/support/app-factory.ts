@@ -28,7 +28,9 @@ import { AuthController } from '../../src/contexts/identity-access/interface/aut
 import { JwtAuthGuard } from '../../src/contexts/identity-access/interface/jwt-auth.guard';
 import { AuthenticateRequestUseCase } from '../../src/contexts/identity-access/application/authenticate-request.use-case';
 import { UpdateDisplayNameUseCase } from '../../src/contexts/identity-access/application/update-display-name.use-case';
+import { DeleteAccountUseCase } from '../../src/contexts/identity-access/application/delete-account.use-case';
 import { DrizzleAppUserRepository } from '../../src/contexts/identity-access/infrastructure/drizzle-app-user.repository';
+import { DrizzleAccountDeletionRepository } from '../../src/contexts/identity-access/infrastructure/drizzle-account-deletion.repository';
 import {
   JoseTokenVerifier,
   JWKS_PROVIDER,
@@ -36,6 +38,8 @@ import {
 import {
   APP_USER_REPOSITORY,
 } from '../../src/contexts/identity-access/domain/ports/app-user.repository';
+import { ACCOUNT_DELETION_REPOSITORY } from '../../src/contexts/identity-access/domain/ports/account-deletion.repository';
+import { AUTH_USER_ADMIN } from '../../src/contexts/identity-access/domain/ports/auth-user-admin.port';
 import { TOKEN_VERIFIER } from '../../src/contexts/identity-access/domain/ports/token-verifier';
 
 // ── family ─────────────────────────────────────────────────────────────────
@@ -377,8 +381,25 @@ export async function createTestApp(): Promise<TestApp> {
         provide: APP_USER_REPOSITORY,
         useExisting: DrizzleAppUserRepository,
       },
+      {
+        provide: ACCOUNT_DELETION_REPOSITORY,
+        inject: [DRIZZLE],
+        useFactory: (db: ReturnType<typeof drizzle>) =>
+          new DrizzleAccountDeletionRepository(
+            db as Parameters<typeof DrizzleAccountDeletionRepository.prototype.constructor>[0],
+          ),
+      },
+      {
+        // Service-role stub no-op en tests: la baja de DATOS sí se ejecuta; el
+        // borrado en Supabase Auth se omite (no hay service-role en integración).
+        provide: AUTH_USER_ADMIN,
+        useValue: {
+          deleteAuthUser: async () => undefined,
+        },
+      },
       AuthenticateRequestUseCase,
       UpdateDisplayNameUseCase,
+      DeleteAccountUseCase,
       JwtAuthGuard,
 
       // ── family: infraestructura ─────────────────────────────────────────

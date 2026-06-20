@@ -10,9 +10,9 @@
  * aquí; el error de negocio llega por props.
  * ─────────────────────────────────────────────────────────────────────────── */
 
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useRef, useState } from 'react';
 import { getTheme, setTheme, type ThemeName } from '@/shared/theme/theme-bootstrap';
-import { isValidEmail, type SettingsViewProps } from '../types';
+import { avatarInitial, isValidEmail, type SettingsViewProps } from '../types';
 
 const THEMES: { value: ThemeName; label: string; emoji: string }[] = [
   { value: 'base', label: 'Clásico', emoji: '◉' },
@@ -26,6 +26,12 @@ export default function SettingsView(props: SettingsViewProps) {
     displayName,
     email,
     loading,
+    avatarUrl,
+    onChangeAvatar,
+    uploadingAvatar,
+    onRemoveAvatar,
+    removingAvatar,
+    avatarError,
     onSaveName,
     savingName,
     nameError,
@@ -43,7 +49,28 @@ export default function SettingsView(props: SettingsViewProps) {
     leavingFamily,
     leaveError,
     onLogout,
+    accountEmail,
+    onDeleteAccount,
+    deletingAccount,
+    deleteAccountError,
   } = props;
+
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+
+  // Zona peligrosa: confirmación FUERTE (escribir el email o "BORRAR").
+  const [deleteConfirm, setDeleteConfirm] = useState('');
+  const expectedEmail = (accountEmail ?? email ?? '').trim().toLowerCase();
+  const typed = deleteConfirm.trim();
+  const deleteEnabled =
+    typed.length > 0 &&
+    (typed.toUpperCase() === 'BORRAR' ||
+      (expectedEmail !== '' && typed.toLowerCase() === expectedEmail));
+
+  function handleAvatarPicked(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (file) onChangeAvatar(file);
+  }
 
   const [name, setName] = useState(displayName ?? '');
   const [nameLocalError, setNameLocalError] = useState<string | null>(null);
@@ -132,6 +159,58 @@ export default function SettingsView(props: SettingsViewProps) {
         <section className="ck-card p-5 space-y-3 relative">
           <span className="ck-tape" aria-hidden="true" />
           <h2 className="ck-marker text-2xl text-primary">Perfil</h2>
+
+          {/* Foto de perfil: avatar actual (o placeholder) + subir/quitar. */}
+          <div className="flex items-center gap-4">
+            {avatarUrl ? (
+              <img
+                src={avatarUrl}
+                alt="Tu foto de perfil"
+                className="h-16 w-16 rounded-full object-cover border-2 border-primary"
+              />
+            ) : (
+              <span
+                aria-hidden="true"
+                className="ck-marker flex h-16 w-16 items-center justify-center rounded-full border-2 border-primary text-3xl text-primary"
+              >
+                {avatarInitial(displayName)}
+              </span>
+            )}
+            <div className="flex flex-col gap-1.5">
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                className="hidden"
+                onChange={handleAvatarPicked}
+                aria-label="Elegir foto de perfil"
+              />
+              <button
+                type="button"
+                onClick={() => avatarInputRef.current?.click()}
+                disabled={uploadingAvatar || removingAvatar}
+                className="ck-btn ck-btn-blue self-start disabled:opacity-60"
+              >
+                {uploadingAvatar ? 'subiendo…' : avatarUrl ? 'Cambiar foto' : 'Subir foto'}
+              </button>
+              {avatarUrl && (
+                <button
+                  type="button"
+                  onClick={onRemoveAvatar}
+                  disabled={uploadingAvatar || removingAvatar}
+                  className="ck-marker text-lg text-primary self-start opacity-70 disabled:opacity-40"
+                >
+                  {removingAvatar ? 'quitando…' : 'quitar foto'}
+                </button>
+              )}
+            </div>
+          </div>
+          {avatarError && (
+            <div role="alert">
+              <p className="text-base text-error">{avatarError}</p>
+            </div>
+          )}
+
           <form onSubmit={handleSaveName} noValidate className="space-y-3">
             <div>
               <label htmlFor="settings-name" className="ck-marker text-xl block">
@@ -330,6 +409,45 @@ export default function SettingsView(props: SettingsViewProps) {
         <section className="ck-card p-5">
           <button type="button" onClick={onLogout} className="ck-btn ck-btn-red self-start">
             Cerrar sesión
+          </button>
+        </section>
+
+        {/* ── Zona peligrosa: borrar cuenta ───────────────────────────────── */}
+        <section className="ck-card p-5 space-y-3" style={{ borderColor: 'var(--color-error, #B23A3A)' }}>
+          <h2 className="ck-marker text-2xl text-error">Zona peligrosa</h2>
+          <p className="text-base opacity-80">
+            Borrar tu cuenta es <strong>permanente</strong> y no se puede deshacer. Se eliminarán tus
+            datos. Las familias que creaste con más miembros seguirán existiendo (otra persona pasará
+            a gestionarlas); las que solo tuvieras tú se borrarán.
+          </p>
+          <div>
+            <label htmlFor="delete-confirm" className="ck-marker text-xl block">
+              escribe «{accountEmail ?? email ?? 'BORRAR'}» para confirmar
+            </label>
+            <input
+              id="delete-confirm"
+              className="ck-input"
+              value={deleteConfirm}
+              onChange={(e) => setDeleteConfirm(e.target.value)}
+              placeholder={accountEmail ?? email ?? 'BORRAR'}
+              autoComplete="off"
+              disabled={deletingAccount}
+            />
+          </div>
+
+          {deleteAccountError && (
+            <div role="alert">
+              <p className="text-base text-error">{deleteAccountError}</p>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={onDeleteAccount}
+            disabled={!deleteEnabled || deletingAccount}
+            className="ck-btn ck-btn-red self-start disabled:opacity-40"
+          >
+            {deletingAccount ? 'borrando…' : 'Borrar cuenta permanentemente'}
           </button>
         </section>
       </div>

@@ -10,9 +10,9 @@
  * aquí; el error de negocio llega por props.
  * ─────────────────────────────────────────────────────────────────────────── */
 
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useRef, useState } from 'react';
 import { getTheme, setTheme, type ThemeName } from '@/shared/theme/theme-bootstrap';
-import { isValidEmail, type SettingsViewProps } from '../types';
+import { avatarInitial, isValidEmail, type SettingsViewProps } from '../types';
 
 const THEMES: { value: ThemeName; label: string; emoji: string }[] = [
   { value: 'base', label: 'Clásico', emoji: '◉' },
@@ -26,6 +26,12 @@ export default function SettingsView(props: SettingsViewProps) {
     displayName,
     email,
     loading,
+    avatarUrl,
+    onChangeAvatar,
+    uploadingAvatar,
+    onRemoveAvatar,
+    removingAvatar,
+    avatarError,
     onSaveName,
     savingName,
     nameError,
@@ -43,7 +49,28 @@ export default function SettingsView(props: SettingsViewProps) {
     leavingFamily,
     leaveError,
     onLogout,
+    accountEmail,
+    onDeleteAccount,
+    deletingAccount,
+    deleteAccountError,
   } = props;
+
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+
+  function handleAvatarPicked(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (file) onChangeAvatar(file);
+  }
+
+  // Zona peligrosa: confirmación FUERTE (escribir el email o "BORRAR").
+  const [deleteConfirm, setDeleteConfirm] = useState('');
+  const expectedEmail = (accountEmail ?? email ?? '').trim().toLowerCase();
+  const typedDelete = deleteConfirm.trim();
+  const deleteEnabled =
+    typedDelete.length > 0 &&
+    (typedDelete.toUpperCase() === 'BORRAR' ||
+      (expectedEmail !== '' && typedDelete.toLowerCase() === expectedEmail));
 
   const [name, setName] = useState(displayName ?? '');
   const [nameLocalError, setNameLocalError] = useState<string | null>(null);
@@ -131,6 +158,59 @@ export default function SettingsView(props: SettingsViewProps) {
         {/* ── Perfil ──────────────────────────────────────────────────────── */}
         <section className="sf-card p-4 space-y-3">
           <h2 className="sf-bangers text-2xl">Perfil</h2>
+
+          {/* Foto de perfil: avatar actual (o placeholder) + subir/quitar. */}
+          <div className="flex items-center gap-4">
+            {avatarUrl ? (
+              <img
+                src={avatarUrl}
+                alt="Tu foto de perfil"
+                className="h-16 w-16 rounded-full object-cover border-[3px] border-black"
+              />
+            ) : (
+              <span
+                aria-hidden="true"
+                className="sf-bangers flex h-16 w-16 items-center justify-center rounded-full border-[3px] border-black text-3xl"
+                style={{ background: '#FFD90F' }}
+              >
+                {avatarInitial(displayName)}
+              </span>
+            )}
+            <div className="flex flex-col gap-1.5 items-start">
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                className="hidden"
+                onChange={handleAvatarPicked}
+                aria-label="Elegir foto de perfil"
+              />
+              <button
+                type="button"
+                onClick={() => avatarInputRef.current?.click()}
+                disabled={uploadingAvatar || removingAvatar}
+                className="sf-btn text-lg disabled:opacity-60"
+              >
+                {uploadingAvatar ? 'Subiendo…' : avatarUrl ? 'Cambiar foto' : 'Subir foto'}
+              </button>
+              {avatarUrl && (
+                <button
+                  type="button"
+                  onClick={onRemoveAvatar}
+                  disabled={uploadingAvatar || removingAvatar}
+                  className="sf-fredoka text-sm underline disabled:opacity-40"
+                >
+                  {removingAvatar ? 'Quitando…' : 'Quitar foto'}
+                </button>
+              )}
+            </div>
+          </div>
+          {avatarError && (
+            <div role="alert" className="sf-card-p p-3">
+              <p className="sf-fredoka text-sm">{avatarError}</p>
+            </div>
+          )}
+
           <form onSubmit={handleSaveName} noValidate className="space-y-3">
             <div className="space-y-1.5">
               <label htmlFor="settings-name" className="sf-fredoka text-xs uppercase block">
@@ -340,6 +420,45 @@ export default function SettingsView(props: SettingsViewProps) {
         <section className="sf-card p-4">
           <button type="button" onClick={onLogout} className="sf-btn sf-btn-r text-lg">
             Cerrar sesión
+          </button>
+        </section>
+
+        {/* ── Zona peligrosa: borrar cuenta ───────────────────────────────── */}
+        <section className="sf-card-p p-4 space-y-3">
+          <h2 className="sf-bangers text-2xl">Zona peligrosa</h2>
+          <p className="sf-fredoka text-sm">
+            Borrar tu cuenta es <strong>permanente</strong> y no se puede deshacer. Se eliminarán tus
+            datos. Las familias que creaste con más miembros seguirán existiendo (otra persona pasará
+            a gestionarlas); las que solo tuvieras tú se borrarán.
+          </p>
+          <div className="space-y-1.5">
+            <label htmlFor="delete-confirm" className="sf-fredoka text-xs uppercase block">
+              Escribe «{accountEmail ?? email ?? 'BORRAR'}» para confirmar
+            </label>
+            <input
+              id="delete-confirm"
+              className="sf-input"
+              value={deleteConfirm}
+              onChange={(e) => setDeleteConfirm(e.target.value)}
+              placeholder={accountEmail ?? email ?? 'BORRAR'}
+              autoComplete="off"
+              disabled={deletingAccount}
+            />
+          </div>
+
+          {deleteAccountError && (
+            <div role="alert" className="sf-card p-3">
+              <p className="sf-fredoka text-sm">{deleteAccountError}</p>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={onDeleteAccount}
+            disabled={!deleteEnabled || deletingAccount}
+            className="sf-btn sf-btn-r text-lg disabled:opacity-40"
+          >
+            {deletingAccount ? 'Borrando…' : 'Borrar cuenta permanentemente'}
           </button>
         </section>
       </div>

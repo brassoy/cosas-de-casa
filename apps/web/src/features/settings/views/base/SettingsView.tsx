@@ -11,13 +11,13 @@
  * desde el container.
  * ─────────────────────────────────────────────────────────────────────────── */
 
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useRef, useState } from 'react';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
 import { Alert, AlertDescription } from '@/shared/ui/alert';
 import { getTheme, setTheme, type ThemeName } from '@/shared/theme/theme-bootstrap';
-import { isValidEmail, type SettingsViewProps } from '../types';
+import { avatarInitial, isValidEmail, type SettingsViewProps } from '../types';
 
 const THEMES: { value: ThemeName; label: string; emoji: string; description: string }[] = [
   { value: 'base', label: 'Clásico', emoji: '◉', description: 'Limpio y neutro (shadcn)' },
@@ -31,6 +31,12 @@ export default function SettingsView(props: SettingsViewProps) {
     displayName,
     email,
     loading,
+    avatarUrl,
+    onChangeAvatar,
+    uploadingAvatar,
+    onRemoveAvatar,
+    removingAvatar,
+    avatarError,
     onSaveName,
     savingName,
     nameError,
@@ -48,7 +54,31 @@ export default function SettingsView(props: SettingsViewProps) {
     leavingFamily,
     leaveError,
     onLogout,
+    accountEmail,
+    onDeleteAccount,
+    deletingAccount,
+    deleteAccountError,
   } = props;
+
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+
+  // Zona peligrosa: confirmación FUERTE. El botón solo se habilita si el usuario
+  // escribe su email (o la palabra "BORRAR"). `email`/`accountEmail` es el mismo
+  // valor; usamos `accountEmail` por intención semántica.
+  const [deleteConfirm, setDeleteConfirm] = useState('');
+  const expectedEmail = (accountEmail ?? email ?? '').trim().toLowerCase();
+  const typed = deleteConfirm.trim();
+  const deleteEnabled =
+    typed.length > 0 &&
+    (typed.toUpperCase() === 'BORRAR' ||
+      (expectedEmail !== '' && typed.toLowerCase() === expectedEmail));
+
+  function handleAvatarPicked(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    // Reseteamos el input para poder volver a elegir el MISMO archivo después.
+    e.target.value = '';
+    if (file) onChangeAvatar(file);
+  }
 
   const [name, setName] = useState(displayName ?? '');
   const [nameLocalError, setNameLocalError] = useState<string | null>(null);
@@ -139,6 +169,60 @@ export default function SettingsView(props: SettingsViewProps) {
       {/* ── Perfil ──────────────────────────────────────────────────────── */}
       <section className="space-y-3">
         <h2 className="font-semibold">Perfil</h2>
+
+        {/* Foto de perfil: avatar actual (o placeholder) + subir/quitar. */}
+        <div className="flex items-center gap-4">
+          {avatarUrl ? (
+            <img
+              src={avatarUrl}
+              alt="Tu foto de perfil"
+              className="h-16 w-16 rounded-full border border-border object-cover"
+            />
+          ) : (
+            <span
+              aria-hidden="true"
+              className="flex h-16 w-16 items-center justify-center rounded-full border border-border bg-muted text-2xl font-bold text-muted-foreground"
+            >
+              {avatarInitial(displayName)}
+            </span>
+          )}
+          <div className="flex flex-col gap-2">
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              className="hidden"
+              onChange={handleAvatarPicked}
+              aria-label="Elegir foto de perfil"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => avatarInputRef.current?.click()}
+              disabled={uploadingAvatar || removingAvatar}
+              className="h-10"
+            >
+              {uploadingAvatar ? 'Subiendo…' : avatarUrl ? 'Cambiar foto' : 'Subir foto'}
+            </Button>
+            {avatarUrl && (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={onRemoveAvatar}
+                disabled={uploadingAvatar || removingAvatar}
+                className="h-9 text-muted-foreground"
+              >
+                {removingAvatar ? 'Quitando…' : 'Quitar foto'}
+              </Button>
+            )}
+          </div>
+        </div>
+        {avatarError && (
+          <Alert variant="destructive">
+            <AlertDescription>{avatarError}</AlertDescription>
+          </Alert>
+        )}
+
         <form onSubmit={handleSaveName} noValidate className="space-y-3">
           <div className="space-y-1.5">
             <Label htmlFor="settings-name">Nombre</Label>
@@ -328,6 +412,46 @@ export default function SettingsView(props: SettingsViewProps) {
       <section className="border-t border-border pt-6">
         <Button variant="destructive" onClick={onLogout} className="h-11">
           Cerrar sesión
+        </Button>
+      </section>
+
+      {/* ── Zona peligrosa: borrar cuenta ───────────────────────────────── */}
+      <section className="space-y-3 rounded-card border border-destructive/50 bg-destructive/5 p-4">
+        <h2 className="font-semibold text-destructive">Zona peligrosa</h2>
+        <p className="text-sm text-muted-foreground">
+          Borrar tu cuenta es <strong>permanente</strong> y no se puede deshacer. Se eliminarán tus
+          datos. Las familias que creaste y que tengan más miembros seguirán existiendo (otra
+          persona pasará a gestionarlas); las que solo tuvieras tú se borrarán.
+        </p>
+        <div className="space-y-1.5">
+          <Label htmlFor="delete-confirm">
+            Escribe <span className="font-mono">{accountEmail ?? email ?? 'BORRAR'}</span> para
+            confirmar
+          </Label>
+          <Input
+            id="delete-confirm"
+            value={deleteConfirm}
+            onChange={(e) => setDeleteConfirm(e.target.value)}
+            placeholder={accountEmail ?? email ?? 'BORRAR'}
+            autoComplete="off"
+            disabled={deletingAccount}
+          />
+        </div>
+
+        {deleteAccountError && (
+          <Alert variant="destructive">
+            <AlertDescription>{deleteAccountError}</AlertDescription>
+          </Alert>
+        )}
+
+        <Button
+          type="button"
+          variant="destructive"
+          onClick={onDeleteAccount}
+          disabled={!deleteEnabled || deletingAccount}
+          className="h-11"
+        >
+          {deletingAccount ? 'Borrando…' : 'Borrar cuenta permanentemente'}
         </Button>
       </section>
     </div>
