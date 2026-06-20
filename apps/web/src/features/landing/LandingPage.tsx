@@ -22,6 +22,8 @@ import {
   useScrollReveal,
   useParallax,
 } from './useLandingChrome';
+import { InstallPrompt } from './InstallPrompt';
+import { CookieBanner } from './CookieBanner';
 
 /* ─── SVG decorativos (presentacionales, sin lógica) ───────────────────────── */
 
@@ -298,6 +300,62 @@ const THEMES: ReadonlyArray<{ shot: string; name: string; tag: string }> = [
 
 const SHOTS = '/landing/shots';
 
+/* Profesorado del máster: retratos YA en estilo cómic (encajan con el theme). */
+const TEACHERS: ReadonlyArray<{ img: string; name: string }> = [
+  { img: '/landing/profesores/01-brais-moure.png', name: 'Brais Moure' },
+  { img: '/landing/profesores/02-martin-cristobal.png', name: 'Martín Cristóbal' },
+  { img: '/landing/profesores/03-carlos-azaustre.png', name: 'Carlos Azaustre' },
+  { img: '/landing/profesores/04-aris-guimera.png', name: 'Aris Guimerá' },
+  { img: '/landing/profesores/05-alan-buscaglia.png', name: 'Alan Buscaglia' },
+  { img: '/landing/profesores/06-kiko-palomares.png', name: 'Kiko Palomares' },
+  { img: '/landing/profesores/07-nerea-luis.png', name: 'Nerea Luis' },
+  { img: '/landing/profesores/08-xavi-portilla.png', name: 'Xavi Portilla' },
+  { img: '/landing/profesores/09-daniela-maissi.png', name: 'Daniela Maissi' },
+];
+
+const MASTER_URL = 'https://thebigschool.com/master-desarrollo-con-ia/';
+const LINKEDIN_URL = 'https://www.linkedin.com/in/pabloruizsanmiguel/';
+
+/* "Acerca de": lo interesante del README, en tarjetas en vez de muro de texto. */
+const ABOUT_CARDS: ReadonlyArray<{
+  emoji: string;
+  card: string;
+  title: string;
+  desc: string;
+  tags: string[];
+  light?: boolean;
+}> = [
+  {
+    emoji: '🏠',
+    card: 'sf-card-y',
+    title: 'Qué es',
+    desc: 'Una PWA para organizar el hogar en familia: compra, tareas, nevera, calendario, planes y presupuesto. En tiempo real y offline-first: funciona aunque te quedes sin conexión.',
+    tags: ['PWA', 'Offline-first', 'Multi-familia'],
+  },
+  {
+    emoji: '🧰',
+    card: 'sf-card-s',
+    title: 'El stack',
+    desc: 'Monorepo pnpm + Turborepo. Backend NestJS hexagonal por contexto (15 bounded contexts). Frontend React 19 + Vite, offline-first con Dexie. Contratos Zod compartidos. Supabase de plataforma.',
+    tags: ['NestJS', 'React 19', 'Zod', 'Supabase'],
+  },
+  {
+    emoji: '🤖',
+    card: 'sf-card-g',
+    title: 'IA aplicada',
+    desc: 'La compra por voz, OCR para escanear tickets, sugerencia de menús con lo que tienes en la nevera y deduplicación semántica por embeddings para no repetir productos.',
+    tags: ['Voz', 'OCR', 'Menús', 'Embeddings'],
+    light: true,
+  },
+  {
+    emoji: '🎨',
+    card: 'sf-card-p',
+    title: 'Diseño y calidad',
+    desc: '4 themes intercambiables con modo claro y oscuro. Tests con Vitest y Playwright, y CI con GitHub Actions para que todo se mantenga sano.',
+    tags: ['4 themes', 'Vitest', 'Playwright', 'CI'],
+  },
+];
+
 /* ─── Página ───────────────────────────────────────────────────────────────── */
 
 export function LandingPage() {
@@ -516,6 +574,138 @@ export function LandingPage() {
         </div>
       </section>
 
+      {/* ── SOBRE EL MÁSTER ────────────────────────────────────────────────── */}
+      <section className="py-16 sm:py-20 sf-dot">
+        <div className="ld-wrap">
+          <div className="text-center mb-10 ld-reveal">
+            <span className="ld-badge rotate-1">El origen</span>
+            <h2 className="ld-display text-4xl sm:text-6xl mt-3">Sobre el máster</h2>
+          </div>
+          <div className="sf-card-y ld-reveal ld-reveal-pop ld-pop-hover p-6 sm:p-10 flex flex-col sm:flex-row items-center gap-6 text-center sm:text-left">
+            <span className="text-6xl shrink-0 ld-float" aria-hidden="true">
+              🎓
+            </span>
+            <div>
+              <h3 className="sf-bangers text-2xl sm:text-3xl mb-2">
+                El Proyecto Fin de Máster del Máster de Desarrollo con IA de BIG School
+              </h3>
+              <p className="sf-fredoka text-base sm:text-lg mb-4">
+                Cosas de Casa es el Trabajo Fin de Máster del Máster de Desarrollo con
+                Inteligencia Artificial de BIG School: una formación 100% práctica en la
+                que aprendes a construir software real usando la IA como copiloto, sin
+                soltar los fundamentos de la ingeniería —arquitectura, calidad y
+                seguridad del código—. Con masterclasses en directo de profesionales en
+                activo y un proyecto final que resuelve una necesidad real… como esta
+                app.
+              </p>
+              <div className="flex flex-wrap gap-2 justify-center sm:justify-start mb-5">
+                {[
+                  '100% práctico',
+                  'IA como copiloto',
+                  'Masterclasses en directo',
+                  'Profesores en activo',
+                  'Proyecto real',
+                ].map((t) => (
+                  <span key={t} className="sf-tag">
+                    {t}
+                  </span>
+                ))}
+              </div>
+              <a
+                href={MASTER_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="sf-btn sf-btn-r"
+              >
+                Conoce el máster ↗
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── PROFESORES ─────────────────────────────────────────────────────── */}
+      <section className="py-16 sm:py-20" style={{ background: 'var(--color-info)' }}>
+        <div className="ld-wrap">
+          <div className="text-center mb-12 ld-reveal">
+            <span className="ld-badge -rotate-2">El claustro</span>
+            <h2 className="ld-display text-4xl sm:text-6xl mt-3">Aprendido de los mejores</h2>
+            <p className="sf-fredoka text-lg mt-3">
+              Estos son los profesores del máster. Toda una liga.
+            </p>
+          </div>
+          <ul className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5 sm:gap-6">
+            {TEACHERS.map((t, i) => (
+              <li
+                key={t.img}
+                className="ld-reveal ld-pop-hover ld-teacher"
+                style={{ ['--ld-i' as string]: String(i) }}
+              >
+                <img
+                  className="ld-teacher-img"
+                  src={t.img}
+                  alt={t.name}
+                  loading="lazy"
+                  decoding="async"
+                />
+                <span className="sf-bangers ld-teacher-name">{t.name}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      {/* ── ACERCA DE ──────────────────────────────────────────────────────── */}
+      <section className="py-16 sm:py-20 sf-dot">
+        <div className="ld-wrap">
+          <div className="text-center mb-12 ld-reveal">
+            <span className="ld-badge rotate-2">El proyecto</span>
+            <h2 className="ld-display text-4xl sm:text-6xl mt-3">Acerca de</h2>
+            <p className="sf-fredoka text-lg mt-3 max-w-2xl mx-auto">
+              Un Trabajo Fin de Máster desarrollado por Pablo Ruiz San Miguel. Esto
+              es lo que hay debajo del capó.
+            </p>
+            <a
+              href={LINKEDIN_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="sf-btn sf-btn-r mt-5 inline-block"
+            >
+              💼 Pablo en LinkedIn ↗
+            </a>
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-6">
+            {ABOUT_CARDS.map((c, i) => (
+              <article
+                key={c.title}
+                className={`${c.card} ld-reveal ld-pop-hover p-6 flex flex-col gap-3`}
+                style={{ ['--ld-i' as string]: String(i) }}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-4xl" aria-hidden="true">
+                    {c.emoji}
+                  </span>
+                  <h3 className="sf-bangers text-2xl sm:text-3xl">{c.title}</h3>
+                </div>
+                <p className="sf-fredoka text-base">{c.desc}</p>
+                <div className="flex flex-wrap gap-2 mt-1">
+                  {c.tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="sf-tag"
+                      style={c.light ? { color: 'var(--color-text)' } : undefined}
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ── CTA FINAL ──────────────────────────────────────────────────────── */}
       <section className="py-20 sf-dot text-center relative overflow-hidden">
         <Lightning className="ld-parallax ld-float absolute w-16 top-8 left-10 hidden sm:block" data-speed="0.2" />
@@ -548,16 +738,36 @@ export function LandingPage() {
             <Lightning className="w-4" />
             Cosas de Casa
           </span>
-          <div className="sf-fredoka text-sm flex items-center gap-4">
+          <div className="sf-fredoka text-sm flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
             <Link to="/login" className="underline">
               Iniciar sesión
             </Link>
             <Link to="/signup" className="underline">
               Crear cuenta
             </Link>
+            <a
+              href={MASTER_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline"
+            >
+              The Big School
+            </a>
+            <a
+              href={LINKEDIN_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline"
+            >
+              LinkedIn
+            </a>
           </div>
         </div>
       </footer>
+
+      {/* ── Overlays fijos (no afectan al flujo de la página) ──────────────── */}
+      <InstallPrompt />
+      <CookieBanner />
     </div>
   );
 }
