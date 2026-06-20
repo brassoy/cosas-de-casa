@@ -5,6 +5,7 @@ import { ACCOUNT_DELETION_REPOSITORY } from '../domain/ports/account-deletion.re
 import type {
   AccountDeletionRepository,
   CreatedFamilySummary,
+  CreatedGroupSummary,
 } from '../domain/ports/account-deletion.repository';
 import { AUTH_USER_ADMIN } from '../domain/ports/auth-user-admin.port';
 import type { AuthUserAdmin } from '../domain/ports/auth-user-admin.port';
@@ -14,10 +15,20 @@ import type { AuthUserAdmin } from '../domain/ports/auth-user-admin.port';
 class FakeAccountDeletionRepository implements AccountDeletionRepository {
   public reassignCalls: Array<{ familyId: string; newCreatorId: string }> = [];
   public deleteFamilyCalls: string[] = [];
+  public reassignGroupCalls: Array<{ groupId: string; newCreatorId: string }> = [];
+  public deleteGroupCalls: string[] = [];
   public deleteJoinPinsCalls: string[] = [];
+  public deleteGroupJoinPinsCalls: string[] = [];
+  public deleteFriendInvitePinsCalls: string[] = [];
+  public deletePlanMessagesCalls: string[] = [];
+  public deletePlansCalls: string[] = [];
+  public deleteReceiptsCalls: string[] = [];
   public deleteAppUserCalls: string[] = [];
 
-  constructor(private readonly createdFamilies: CreatedFamilySummary[] = []) {}
+  constructor(
+    private readonly createdFamilies: CreatedFamilySummary[] = [],
+    private readonly createdGroups: CreatedGroupSummary[] = [],
+  ) {}
 
   async findFamiliesCreatedBy(_userId: string): Promise<CreatedFamilySummary[]> {
     return this.createdFamilies;
@@ -33,6 +44,38 @@ class FakeAccountDeletionRepository implements AccountDeletionRepository {
 
   async deleteJoinPinsCreatedBy(userId: string): Promise<void> {
     this.deleteJoinPinsCalls.push(userId);
+  }
+
+  async findGroupsCreatedBy(_userId: string): Promise<CreatedGroupSummary[]> {
+    return this.createdGroups;
+  }
+
+  async reassignGroupCreator(groupId: string, newCreatorId: string): Promise<void> {
+    this.reassignGroupCalls.push({ groupId, newCreatorId });
+  }
+
+  async deleteGroup(groupId: string): Promise<void> {
+    this.deleteGroupCalls.push(groupId);
+  }
+
+  async deleteGroupJoinPinsCreatedBy(userId: string): Promise<void> {
+    this.deleteGroupJoinPinsCalls.push(userId);
+  }
+
+  async deleteFriendInvitePinsCreatedBy(userId: string): Promise<void> {
+    this.deleteFriendInvitePinsCalls.push(userId);
+  }
+
+  async deletePlanMessagesByUser(userId: string): Promise<void> {
+    this.deletePlanMessagesCalls.push(userId);
+  }
+
+  async deletePlansCreatedBy(userId: string): Promise<void> {
+    this.deletePlansCalls.push(userId);
+  }
+
+  async deleteReceiptsCreatedBy(userId: string): Promise<void> {
+    this.deleteReceiptsCalls.push(userId);
   }
 
   async deleteAppUser(userId: string): Promise<void> {
@@ -131,14 +174,53 @@ describe('DeleteAccountUseCase', () => {
     expect(repo.deleteFamilyCalls).toEqual(['fam-solo']);
   });
 
-  it('BORRA los join_pins del usuario y el app_user en orden', async () => {
+  it('PEÑAS: reasigna las que sobreviven y borra las que están en solitario', async () => {
+    const repo = new FakeAccountDeletionRepository(
+      [],
+      [
+        { groupId: 'grp-survive', otherMembers: [{ userId: 'heredero', isOwner: true }] },
+        { groupId: 'grp-solo', otherMembers: [] },
+      ],
+    );
+    const useCase = await buildUseCase(repo, admin);
+
+    await useCase.execute({ userId: 'uid-grp' });
+
+    expect(repo.reassignGroupCalls).toEqual([
+      { groupId: 'grp-survive', newCreatorId: 'heredero' },
+    ]);
+    expect(repo.deleteGroupCalls).toEqual(['grp-solo']);
+  });
+
+  it('BORRA todo lo que apunta al usuario por RESTRICT (pins, mensajes, planes, recibos) y el app_user', async () => {
     const repo = new FakeAccountDeletionRepository([]);
     const useCase = await buildUseCase(repo, admin);
 
     await useCase.execute({ userId: 'uid-5' });
 
     expect(repo.deleteJoinPinsCalls).toEqual(['uid-5']);
+    expect(repo.deleteGroupJoinPinsCalls).toEqual(['uid-5']);
+    expect(repo.deleteFriendInvitePinsCalls).toEqual(['uid-5']);
+    expect(repo.deletePlanMessagesCalls).toEqual(['uid-5']);
+    expect(repo.deletePlansCalls).toEqual(['uid-5']);
+    expect(repo.deleteReceiptsCalls).toEqual(['uid-5']);
     expect(repo.deleteAppUserCalls).toEqual(['uid-5']);
+  });
+
+  it('borra los mensajes del usuario ANTES que sus planes (evita el RESTRICT de plan_messages)', async () => {
+    const repo = new FakeAccountDeletionRepository([]);
+    const order: string[] = [];
+    repo.deletePlanMessagesByUser = async (userId: string) => {
+      order.push(`messages:${userId}`);
+    };
+    repo.deletePlansCreatedBy = async (userId: string) => {
+      order.push(`plans:${userId}`);
+    };
+    const useCase = await buildUseCase(repo, admin);
+
+    await useCase.execute({ userId: 'uid-order' });
+
+    expect(order).toEqual(['messages:uid-order', 'plans:uid-order']);
   });
 
   it('llama a deleteAuthUser (borrado en el proveedor de Auth) cuando hay service-role', async () => {
