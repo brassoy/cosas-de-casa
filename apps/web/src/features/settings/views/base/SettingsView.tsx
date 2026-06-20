@@ -54,6 +54,9 @@ export default function SettingsView(props: SettingsViewProps) {
     leavingFamily,
     leaveError,
     onLogout,
+    onExportData,
+    exportingData,
+    exportError,
     accountEmail,
     onDeleteAccount,
     deletingAccount,
@@ -412,6 +415,30 @@ export default function SettingsView(props: SettingsViewProps) {
       <section className="border-t border-border pt-6">
         <Button variant="destructive" onClick={onLogout} className="h-11">
           Cerrar sesión
+        </Button>
+      </section>
+
+      {/* ── Tus datos: derecho de acceso (GDPR) ─────────────────────────── */}
+      <section className="space-y-3">
+        <h2 className="font-semibold">Tus datos</h2>
+        <p className="text-sm text-muted-foreground">
+          Descarga una copia de toda tu información en formato JSON.
+        </p>
+
+        {exportError && (
+          <Alert variant="destructive">
+            <AlertDescription>{exportError}</AlertDescription>
+          </Alert>
+        )}
+
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onExportData}
+          disabled={exportingData}
+          className="h-11"
+        >
+          {exportingData ? 'Descargando…' : 'Descargar mis datos'}
         </Button>
       </section>
 

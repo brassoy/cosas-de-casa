@@ -184,3 +184,29 @@ export function useDeleteAccount() {
     },
   });
 }
+
+/**
+ * Descarga una copia de TODOS los datos del usuario (derecho de acceso, GDPR).
+ * `GET /auth/me/export` devuelve un objeto JSON con toda su información; aquí lo
+ * serializamos a un Blob y forzamos la descarga como `cosas-de-casa-mis-datos.json`
+ * mediante un <a download> temporal y `URL.createObjectURL`/`revokeObjectURL`.
+ *
+ * No toca la caché de React Query: es una exportación puntual, no un dato vivo de
+ * la UI. El error de negocio lo propaga el container a la vista por props.
+ */
+export function useExportData() {
+  return useMutation<void, ApiRequestError, void>({
+    mutationFn: async () => {
+      const data = await api.get<unknown>('/auth/me/export');
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'cosas-de-casa-mis-datos.json';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    },
+  });
+}

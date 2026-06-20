@@ -7,10 +7,12 @@ import type { Database } from '../../db/db.types';
 
 import { APP_USER_REPOSITORY } from './domain/ports/app-user.repository';
 import { ACCOUNT_DELETION_REPOSITORY } from './domain/ports/account-deletion.repository';
+import { PERSONAL_DATA_EXPORT_REPOSITORY } from './domain/ports/personal-data-export.repository';
 import { AUTH_USER_ADMIN } from './domain/ports/auth-user-admin.port';
 import { TOKEN_VERIFIER } from './domain/ports/token-verifier';
 import { DrizzleAppUserRepository } from './infrastructure/drizzle-app-user.repository';
 import { DrizzleAccountDeletionRepository } from './infrastructure/drizzle-account-deletion.repository';
+import { DrizzlePersonalDataExportRepository } from './infrastructure/drizzle-personal-data-export.repository';
 import {
   NoopAuthUserAdmin,
   SupabaseAuthUserAdmin,
@@ -22,6 +24,7 @@ import {
 import { AuthenticateRequestUseCase } from './application/authenticate-request.use-case';
 import { UpdateDisplayNameUseCase } from './application/update-display-name.use-case';
 import { DeleteAccountUseCase } from './application/delete-account.use-case';
+import { ExportPersonalDataUseCase } from './application/export-personal-data.use-case';
 import { JwtAuthGuard } from './interface/jwt-auth.guard';
 
 @Module({
@@ -54,6 +57,11 @@ import { JwtAuthGuard } from './interface/jwt-auth.guard';
       useFactory: (db: Database) => new DrizzleAccountDeletionRepository(db),
     },
     {
+      provide: PERSONAL_DATA_EXPORT_REPOSITORY,
+      inject: [DRIZZLE],
+      useFactory: (db: Database) => new DrizzlePersonalDataExportRepository(db),
+    },
+    {
       // Adaptador OPCIONAL: con service-role borra el usuario de Supabase Auth;
       // sin ella, un no-op que solo avisa (la baja de DATOS sí se completa).
       provide: AUTH_USER_ADMIN,
@@ -69,6 +77,7 @@ import { JwtAuthGuard } from './interface/jwt-auth.guard';
     AuthenticateRequestUseCase,
     UpdateDisplayNameUseCase,
     DeleteAccountUseCase,
+    ExportPersonalDataUseCase,
     JwtAuthGuard,
   ],
   exports: [
@@ -76,6 +85,7 @@ import { JwtAuthGuard } from './interface/jwt-auth.guard';
     AuthenticateRequestUseCase,
     UpdateDisplayNameUseCase,
     DeleteAccountUseCase,
+    ExportPersonalDataUseCase,
   ],
 })
 export class IdentityAccessModule {}

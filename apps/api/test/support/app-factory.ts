@@ -29,8 +29,10 @@ import { JwtAuthGuard } from '../../src/contexts/identity-access/interface/jwt-a
 import { AuthenticateRequestUseCase } from '../../src/contexts/identity-access/application/authenticate-request.use-case';
 import { UpdateDisplayNameUseCase } from '../../src/contexts/identity-access/application/update-display-name.use-case';
 import { DeleteAccountUseCase } from '../../src/contexts/identity-access/application/delete-account.use-case';
+import { ExportPersonalDataUseCase } from '../../src/contexts/identity-access/application/export-personal-data.use-case';
 import { DrizzleAppUserRepository } from '../../src/contexts/identity-access/infrastructure/drizzle-app-user.repository';
 import { DrizzleAccountDeletionRepository } from '../../src/contexts/identity-access/infrastructure/drizzle-account-deletion.repository';
+import { DrizzlePersonalDataExportRepository } from '../../src/contexts/identity-access/infrastructure/drizzle-personal-data-export.repository';
 import {
   JoseTokenVerifier,
   JWKS_PROVIDER,
@@ -39,6 +41,7 @@ import {
   APP_USER_REPOSITORY,
 } from '../../src/contexts/identity-access/domain/ports/app-user.repository';
 import { ACCOUNT_DELETION_REPOSITORY } from '../../src/contexts/identity-access/domain/ports/account-deletion.repository';
+import { PERSONAL_DATA_EXPORT_REPOSITORY } from '../../src/contexts/identity-access/domain/ports/personal-data-export.repository';
 import { AUTH_USER_ADMIN } from '../../src/contexts/identity-access/domain/ports/auth-user-admin.port';
 import { TOKEN_VERIFIER } from '../../src/contexts/identity-access/domain/ports/token-verifier';
 
@@ -390,6 +393,14 @@ export async function createTestApp(): Promise<TestApp> {
           ),
       },
       {
+        provide: PERSONAL_DATA_EXPORT_REPOSITORY,
+        inject: [DRIZZLE],
+        useFactory: (db: ReturnType<typeof drizzle>) =>
+          new DrizzlePersonalDataExportRepository(
+            db as Parameters<typeof DrizzlePersonalDataExportRepository.prototype.constructor>[0],
+          ),
+      },
+      {
         // Service-role stub no-op en tests: la baja de DATOS sí se ejecuta; el
         // borrado en Supabase Auth se omite (no hay service-role en integración).
         provide: AUTH_USER_ADMIN,
@@ -400,6 +411,7 @@ export async function createTestApp(): Promise<TestApp> {
       AuthenticateRequestUseCase,
       UpdateDisplayNameUseCase,
       DeleteAccountUseCase,
+      ExportPersonalDataUseCase,
       JwtAuthGuard,
 
       // ── family: infraestructura ─────────────────────────────────────────

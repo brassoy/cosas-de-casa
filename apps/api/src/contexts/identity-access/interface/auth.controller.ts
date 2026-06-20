@@ -19,6 +19,7 @@ import { ListMyFamiliesUseCase } from '../../family/application/list-my-families
 import { FamilyPresenter } from '../../family/interface/family.presenter';
 import { UpdateDisplayNameUseCase } from '../application/update-display-name.use-case';
 import { DeleteAccountUseCase } from '../application/delete-account.use-case';
+import { ExportPersonalDataUseCase } from '../application/export-personal-data.use-case';
 import type { AuthenticatedUser } from '../domain/authenticated-user';
 import { CurrentUser } from './current-user.decorator';
 import { UpdateProfileDto } from './dto/update-profile.dto';
@@ -41,6 +42,7 @@ export class AuthController {
     private readonly listMyFamilies: ListMyFamiliesUseCase,
     private readonly updateDisplayName: UpdateDisplayNameUseCase,
     private readonly deleteAccount: DeleteAccountUseCase,
+    private readonly exportPersonalData: ExportPersonalDataUseCase,
   ) {}
 
   @Get('me')
@@ -48,6 +50,16 @@ export class AuthController {
   @ApiOkResponse({ description: 'Datos del usuario y sus familias.' })
   async me(@CurrentUser() user: AuthenticatedUser): Promise<AuthMeDto> {
     return this.toAuthMeDto(user);
+  }
+
+  @Get('me/export')
+  @ApiOperation({
+    summary: 'Descarga TODOS los datos personales del usuario (GDPR acceso/portabilidad).',
+  })
+  @ApiOkResponse({ description: 'Volcado serializable de los datos del usuario.' })
+  async exportMe(@CurrentUser() user: AuthenticatedUser) {
+    const data = await this.exportPersonalData.execute({ userId: user.id });
+    return { generatedAt: new Date().toISOString(), userId: user.id, ...data };
   }
 
   @Patch('me')

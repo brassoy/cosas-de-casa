@@ -49,6 +49,9 @@ export default function SettingsView(props: SettingsViewProps) {
     leavingFamily,
     leaveError,
     onLogout,
+    onExportData,
+    exportingData,
+    exportError,
     accountEmail,
     onDeleteAccount,
     deletingAccount,
@@ -420,6 +423,29 @@ export default function SettingsView(props: SettingsViewProps) {
         <section className="cz-frame">
           <button type="button" onClick={onLogout} className="cz-btn-garnet">
             Cerrar sesión
+          </button>
+        </section>
+
+        {/* ── Tus datos: derecho de acceso (GDPR) ─────────────────────────── */}
+        <section className="cz-frame space-y-3">
+          <h2 className="cz-serif text-2xl">Tus datos</h2>
+          <p className="text-sm opacity-80">
+            Descarga una copia de toda tu información en formato JSON.
+          </p>
+
+          {exportError && (
+            <div role="alert" style={{ color: '#A63A3A' }}>
+              <p className="font-bold text-sm">{exportError}</p>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={onExportData}
+            disabled={exportingData}
+            className="cz-btn-denim disabled:opacity-60"
+          >
+            {exportingData ? 'Descargando…' : 'Descargar mis datos'}
           </button>
         </section>
 

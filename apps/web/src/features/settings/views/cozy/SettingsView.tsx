@@ -49,6 +49,9 @@ export default function SettingsView(props: SettingsViewProps) {
     leavingFamily,
     leaveError,
     onLogout,
+    onExportData,
+    exportingData,
+    exportError,
     accountEmail,
     onDeleteAccount,
     deletingAccount,
@@ -409,6 +412,29 @@ export default function SettingsView(props: SettingsViewProps) {
         <section className="ck-card p-5">
           <button type="button" onClick={onLogout} className="ck-btn ck-btn-red self-start">
             Cerrar sesión
+          </button>
+        </section>
+
+        {/* ── Tus datos: derecho de acceso (GDPR) ─────────────────────────── */}
+        <section className="ck-card p-5 space-y-3">
+          <h2 className="ck-marker text-2xl text-primary">Tus datos</h2>
+          <p className="text-base opacity-80">
+            Descarga una copia de toda tu información en formato JSON.
+          </p>
+
+          {exportError && (
+            <div role="alert">
+              <p className="text-base text-error">{exportError}</p>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={onExportData}
+            disabled={exportingData}
+            className="ck-btn ck-btn-blue self-start disabled:opacity-60"
+          >
+            {exportingData ? 'descargando…' : 'Descargar mis datos'}
           </button>
         </section>
 

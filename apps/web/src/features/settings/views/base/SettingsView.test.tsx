@@ -18,6 +18,7 @@ function setup(overrides: Partial<SettingsViewProps> = {}) {
     families: [{ id: 'fam-1', name: 'Los Ruiz', active: true }],
     onLeaveFamily: vi.fn(),
     onLogout: vi.fn(),
+    onExportData: vi.fn(),
     accountEmail: 'pablo@example.com',
     onDeleteAccount: vi.fn(),
     ...overrides,
@@ -236,6 +237,22 @@ describe('SettingsView (base)', () => {
   it('muestra el error de salir de la familia que llega por props', () => {
     setup({ leaveError: 'No se ha podido salir de la familia.' });
     expect(screen.getByRole('alert')).toHaveTextContent(/no se ha podido salir/i);
+  });
+
+  // ── Tus datos: derecho de acceso (GDPR) ────────────────────────────────────────
+
+  it('dispara onExportData al pulsar "Descargar mis datos"', async () => {
+    const user = userEvent.setup();
+    const props = setup();
+
+    expect(screen.getByRole('heading', { name: /tus datos/i })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /descargar mis datos/i }));
+    expect(props.onExportData).toHaveBeenCalledOnce();
+  });
+
+  it('muestra el error de descarga de datos que llega por props', () => {
+    setup({ exportError: 'No se han podido descargar tus datos.' });
+    expect(screen.getByRole('alert')).toHaveTextContent(/no se han podido descargar tus datos/i);
   });
 
   // ── Zona peligrosa: borrar cuenta ──────────────────────────────────────────────

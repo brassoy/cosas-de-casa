@@ -30,6 +30,7 @@ import {
   useUpdateAvatar,
   useRemoveAvatar,
   useDeleteAccount,
+  useExportData,
 } from '../hooks/useProfile';
 import type { SettingsFamily, SettingsViewProps } from '../views/types';
 
@@ -46,6 +47,7 @@ export function SettingsPage() {
   const updateAvatar = useUpdateAvatar(profile.data?.id);
   const removeAvatar = useRemoveAvatar();
   const deleteAccount = useDeleteAccount();
+  const exportData = useExportData();
   // El hook recibe el id de la familia a abandonar. Solo permitimos salir de la
   // familia activa, así que lo cableamos con su id (cadena vacía si no hay).
   const leaveFamily = useLeaveFamily(activeFamily?.id ?? '');
@@ -59,6 +61,7 @@ export function SettingsPage() {
   const [leaveError, setLeaveError] = useState<string | null>(null);
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   function handleSaveName(name: string) {
     setNameError(null);
@@ -164,6 +167,21 @@ export function SettingsPage() {
     void navigate({ to: '/login' });
   }
 
+  // Descarga de datos (derecho de acceso, GDPR): el hook pide `GET /auth/me/export`,
+  // genera el Blob JSON y dispara la descarga. Aquí solo reportamos el error.
+  function handleExportData() {
+    setExportError(null);
+    exportData.mutate(undefined, {
+      onError: (err) => {
+        const msg =
+          err instanceof ApiRequestError
+            ? err.body.message
+            : 'No se han podido descargar tus datos. Inténtalo de nuevo.';
+        setExportError(msg ?? 'No se han podido descargar tus datos. Inténtalo de nuevo.');
+      },
+    });
+  }
+
   // Borrado de cuenta: la vista ya exigió la confirmación FUERTE (escribir el
   // email o "BORRAR"), así que aquí solo ejecutamos. Tras el éxito: cerrar sesión,
   // vaciar el store de familia y navegar a /login. La caché de queries la vacía el
@@ -221,6 +239,9 @@ export function SettingsPage() {
     leavingFamily: leaveFamily.isPending,
     leaveError,
     onLogout: () => void handleLogout(),
+    onExportData: handleExportData,
+    exportingData: exportData.isPending,
+    exportError,
     accountEmail: profile.data?.email ?? null,
     onDeleteAccount: handleDeleteAccount,
     deletingAccount: deleteAccount.isPending,

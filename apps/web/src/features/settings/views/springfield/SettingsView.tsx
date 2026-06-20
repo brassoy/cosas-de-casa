@@ -49,6 +49,9 @@ export default function SettingsView(props: SettingsViewProps) {
     leavingFamily,
     leaveError,
     onLogout,
+    onExportData,
+    exportingData,
+    exportError,
     accountEmail,
     onDeleteAccount,
     deletingAccount,
@@ -420,6 +423,31 @@ export default function SettingsView(props: SettingsViewProps) {
         <section className="sf-card p-4">
           <button type="button" onClick={onLogout} className="sf-btn sf-btn-r text-lg">
             Cerrar sesión
+          </button>
+        </section>
+
+        {/* ── Tus datos: derecho de acceso (GDPR) ─────────────────────────── */}
+        {/* Tarjeta blanca (sf-card) con texto oscuro: NO usar sf-card-g/-y aquí
+            para no perder contraste, igual que el resto de secciones neutras. */}
+        <section className="sf-card p-4 space-y-3">
+          <h2 className="sf-bangers text-2xl">Tus datos</h2>
+          <p className="sf-fredoka text-sm">
+            Descarga una copia de toda tu información en formato JSON.
+          </p>
+
+          {exportError && (
+            <div role="alert" className="sf-card-p p-3">
+              <p className="sf-fredoka text-sm">{exportError}</p>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={onExportData}
+            disabled={exportingData}
+            className="sf-btn text-lg disabled:opacity-60"
+          >
+            {exportingData ? 'Descargando…' : 'Descargar mis datos'}
           </button>
         </section>
 

@@ -109,6 +109,18 @@ export interface SettingsViewProps {
   /** Cierra la sesión (el container hace signOut + navega a /login). */
   onLogout: () => void;
 
+  // ── Tus datos: derecho de acceso (GDPR) ─────────────────────────────────────
+  /**
+   * Descarga una copia de toda la información del usuario en un fichero JSON
+   * (`GET /auth/me/export`). El container pide los datos, genera el Blob y
+   * dispara la descarga; la vista solo invoca el callback y refleja el estado.
+   */
+  onExportData: () => void;
+  /** Descarga de los datos en curso. */
+  exportingData?: boolean;
+  /** Error al descargar los datos; `null`/`undefined` si no hay. */
+  exportError?: string | null;
+
   // ── Zona peligrosa: borrar cuenta ───────────────────────────────────────────
   /**
    * Email del usuario, usado por la vista para la confirmación FUERTE: el usuario
