@@ -82,24 +82,52 @@ function PhoneFrame({
   src,
   alt,
   large = false,
-  scroll = false,
   children,
 }: {
   src?: string;
   alt?: string;
   large?: boolean;
-  /** Si la captura es alta, al hover la pantalla se desplaza (efecto "GIF"). */
-  scroll?: boolean;
   children?: React.ReactNode;
 }) {
   return (
-    <div
-      className={`ld-phone ld-phone-pop${large ? ' ld-phone-lg' : ''}${scroll ? ' ld-phone-scroll' : ''}`}
-    >
+    <div className={`ld-phone ld-phone-pop${large ? ' ld-phone-lg' : ''}`}>
       {children ??
         (src ? (
           <img src={src} alt={alt ?? ''} loading="lazy" decoding="async" />
         ) : null)}
+    </div>
+  );
+}
+
+/* Marco de móvil con MOCKUP REAL: muestra una captura estática (poster) y, al
+ * pasar el ratón, reproduce un vídeo del scroll REAL de la app. El menú inferior
+ * (fijo) permanece y el contenido se desplaza por debajo, como en la app. */
+function FeaturePhone({ shot, alt }: { shot: string; alt: string }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  const play = () => {
+    const v = ref.current;
+    if (!v) return;
+    v.currentTime = 0;
+    void v.play().catch(() => {});
+  };
+  const stop = () => {
+    const v = ref.current;
+    if (!v) return;
+    v.pause();
+    v.currentTime = 0;
+  };
+  return (
+    <div className="ld-phone ld-phone-pop" onMouseEnter={play} onMouseLeave={stop}>
+      <video
+        ref={ref}
+        src={`/landing/scroll/${shot.replace('.png', '.mp4')}`}
+        poster={`${SHOTS}/${shot}`}
+        muted
+        loop
+        playsInline
+        preload="none"
+        aria-label={alt}
+      />
     </div>
   );
 }
@@ -357,7 +385,7 @@ export function LandingPage() {
                 className={`${feat.card} ld-pop-hover ld-reveal p-5 flex flex-col items-center text-center gap-4`}
                 style={{ ['--ld-i' as string]: String(i % 3) }}
               >
-                <PhoneFrame src={`/landing/scroll/${feat.shot}`} alt={feat.title} scroll />
+                <FeaturePhone shot={feat.shot} alt={feat.title} />
                 <div>
                   <h3 className="sf-bangers text-2xl">{feat.title}</h3>
                   <p className="sf-fredoka text-sm mt-2">{feat.desc}</p>
