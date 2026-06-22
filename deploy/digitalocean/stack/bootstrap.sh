@@ -48,8 +48,8 @@ chown -R 1000:1000 "$DATA_DIR/storage" 2>/dev/null || true
 # El `pnpm build` de la web (Vite) y el build de la imagen de la API son
 # hambrientos; sin swap el OOM killer puede matar el primer deploy a mitad.
 if ! swapon --show 2>/dev/null | grep -q /swapfile; then
-  log "Creando 2G de swap (evita OOM en los builds)..."
-  fallocate -l 2G /swapfile 2>/dev/null || dd if=/dev/zero of=/swapfile bs=1M count=2048
+  log "Creando 4G de swap (CLAVE en un droplet de 4GB: evita OOM en los builds)..."
+  fallocate -l 4G /swapfile 2>/dev/null || dd if=/dev/zero of=/swapfile bs=1M count=4096
   chmod 600 /swapfile
   mkswap /swapfile >/dev/null
   swapon /swapfile

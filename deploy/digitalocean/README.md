@@ -162,12 +162,14 @@ las `VAPID_PUBLIC_KEY`/`VITE_VAPID_PUBLIC_KEY` deben coincidir y la web hay que 
 
 ## 6. Tamaño y costes
 
-- **Droplet `s-4vcpu-8gb`** (4 vCPU / 8 GB), región **`fra1`**, imagen `ubuntu-24-04-x64`
-  — mismo tipo/importe que la referencia HADARA.
-- **Block volume 50 GB** (Postgres + Storage + Caddy + secretos).
+- **Droplet `s-2vcpu-4gb`** (Basic: 2 vCPU / 4 GB / 80 GB SSD), región **`fra1`**, imagen
+  `ubuntu-24-04-x64` — el MISMO tipo/importe que la referencia HADARA (~24 $/mes).
+- **Block volume 50 GB** (Postgres + Storage + Caddy + secretos): ~5 $/mes.
 - **Reserved IP** (asignada): gratis.
+- En 4 GB la pila va justa en los **builds**: el bootstrap crea **4G de swap** para evitar OOM.
+  Si notas que el primer deploy se queda corto de RAM, sube a `s-2vcpu-8gb`.
 
-Consulta los precios actuales de DigitalOcean para el total mensual.
+Consulta los precios actuales de DigitalOcean para el total mensual (~29 $/mes con el volumen).
 
 ---
 

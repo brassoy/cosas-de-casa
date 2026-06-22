@@ -9,7 +9,7 @@ do_token = "dop_v1_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 region   = "fra1"
 
 # --- Droplet ---
-droplet_size = "s-4vcpu-8gb" # mismo tipo/importe que la referencia; 8GB es el suelo sano para la pila completa
+droplet_size = "s-2vcpu-4gb" # Basic 2 vCPU / 4 GB / 80 GB — mismo tipo/importe que la referencia
 # droplet_name = "cosasdecasa-prod"
 
 # --- Volumen de datos ---

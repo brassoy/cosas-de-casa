@@ -26,8 +26,8 @@ variable "droplet_image" {
 
 variable "droplet_size" {
   type        = string
-  description = "Tamaño del droplet. La pila completa (API NestJS + Supabase self-hosted: Postgres+Kong+GoTrue+PostgREST+Realtime+Storage+imgproxy+postgres-meta + el build de la web con Vite) pide 8GB de RAM como suelo sano. El build de la web y de la imagen de la API son hambrientos: con menos RAM el OOM killer puede matar el primer deploy a mitad (hay 2G de swap, pero no sustituye a la RAM)."
-  default     = "s-4vcpu-8gb"
+  description = "Tamaño del droplet. `s-2vcpu-4gb` (Basic: 2 vCPU / 4 GB / 80 GB) — el MISMO tipo/importe que la referencia. La pila completa (API NestJS + Supabase self-hosted + build de la web con Vite) cabe en 4 GB gracias a 4G de swap que crea el bootstrap (los builds son hambrientos; sin swap el OOM killer puede matar el primer deploy). Si vas muy justo, sube a `s-2vcpu-8gb`."
+  default     = "s-2vcpu-4gb"
 }
 
 variable "droplet_name" {
