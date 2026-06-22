@@ -57,6 +57,9 @@ resource "digitalocean_droplet" "cosasdecasa" {
     # se come el newline al exportar TF_VAR_git_deploy_private_key.
     git_deploy_key = "${trimspace(var.git_deploy_private_key)}\n"
     data_device    = "/dev/disk/by-id/scsi-0DO_Volume_${var.volume_name}"
+
+    # Clave pública de CI para el auto-deploy (vacía = sin auto-deploy).
+    ci_deploy_pubkey = trimspace(var.ci_deploy_pubkey)
   })
 
   # OJO: user_data es ForceNew. Cambiar el cloud-init o cualquier var inyectada

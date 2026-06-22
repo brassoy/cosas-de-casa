@@ -29,10 +29,22 @@ write_files:
     encoding: b64
     content: ${base64encode(git_deploy_key)}
 
+  # Clave pública de CI para el auto-deploy por SSH (vacía si no se usa).
+  - path: /root/.ssh/ci_deploy_pubkey
+    permissions: "0644"
+    owner: root:root
+    content: |
+      ${ci_deploy_pubkey}
+
 runcmd:
   - |
     set -eux
     install -d -m 0700 /root/.ssh
+    # Autoriza la clave de CI (auto-deploy por SSH) si se proporcionó una real.
+    if grep -q '^ssh-' /root/.ssh/ci_deploy_pubkey 2>/dev/null; then
+      cat /root/.ssh/ci_deploy_pubkey >> /root/.ssh/authorized_keys
+      chmod 600 /root/.ssh/authorized_keys
+    fi
     ssh-keyscan -t rsa,ed25519 github.com >> /root/.ssh/known_hosts 2>/dev/null || true
     export GIT_SSH_COMMAND="ssh -i /root/.ssh/cosasdecasa_deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
     curl -fsSL https://get.docker.com | sh

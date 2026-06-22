@@ -30,6 +30,13 @@ manage_dns = false
 admin_ssh_pubkey = "ssh-ed25519 AAAA... tu_clave_publica"
 ssh_allowed_cidr = "0.0.0.0/0" # restríngelo a tu IP/CIDR si puedes (p.ej. "203.0.113.10/32")
 
+# --- Auto-deploy de CI (opcional) ---
+# Clave PÚBLICA SSH dedicada que el droplet autoriza para que GitHub Actions entre
+# por SSH y re-despliegue. Genera el par:  ssh-keygen -t ed25519 -f cosasdecasa_ci -N ""
+# Pon aquí cosasdecasa_ci.pub, y el privado (cosasdecasa_ci) en el secret
+# DEPLOY_SSH_KEY del repo. La reserved IP va en el secret DEPLOY_HOST. Vacío = sin auto-deploy.
+# ci_deploy_pubkey = "ssh-ed25519 AAAA... cosasdecasa-ci"
+
 # --- Origen del código ---
 git_repo   = "git@github.com:brassoy/cosas-de-casa.git"
 git_branch = "main"

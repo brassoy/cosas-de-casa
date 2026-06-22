@@ -51,6 +51,40 @@ jobs:
           # son opcionales — sin ellos simplemente usa caché local.
           TURBO_TELEMETRY_DISABLED: 1
 
+  # ─── Auto-deploy a producción (DigitalOcean) ─────────────────────────────
+  # Solo en push a `main` y SOLO si `quality` ha pasado. Entra por SSH al droplet,
+  # trae el código nuevo y re-despliega (redeploy.sh: rebuild API+web, migra,
+  # reinicia la pila). Requiere dos secrets del repo (Settings → Secrets → Actions):
+  #   - DEPLOY_HOST     → IP/host del droplet (la reserved IP del output de Terraform)
+  #   - DEPLOY_SSH_KEY  → clave PRIVADA SSH cuya pública está en `ci_deploy_pubkey`
+  # Si no están definidos, el job falla (solo afecta a main); los PR no lo ejecutan.
+  deploy:
+    name: Auto-deploy a producción
+    needs: quality
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    # No solapar despliegues ni cancelar uno a medias (puede dejar la pila a medio build).
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+
+    steps:
+      - name: Redeploy por SSH en el droplet
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: root
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 30m
+          script_stop: true
+          script: |
+            set -euo pipefail
+            cd /opt/cosasdecasa
+            git fetch --depth 1 origin main
+            git reset --hard origin/main
+            chmod +x deploy/digitalocean/stack/redeploy.sh
+            deploy/digitalocean/stack/redeploy.sh
+
   # ─── Tests de integración (desactivado hasta configurar Supabase) ─────────
   # Los tests de integración de apps/api usan una instancia NestJS real
   # contra Supabase local (CLI de Supabase con PostgreSQL + Auth + Storage).

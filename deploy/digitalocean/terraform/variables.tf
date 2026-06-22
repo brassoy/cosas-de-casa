@@ -98,6 +98,12 @@ variable "ssh_allowed_cidr" {
   default     = "0.0.0.0/0"
 }
 
+variable "ci_deploy_pubkey" {
+  type        = string
+  description = "Clave PÚBLICA SSH dedicada al auto-deploy de CI (GitHub Actions). Si se define, el cloud-init la autoriza en el droplet (authorized_keys de root) para que el workflow entre por SSH. Genera el par con `ssh-keygen -t ed25519 -f cosasdecasa_ci -N \"\"`: pon aquí el .pub y el privado en el secret DEPLOY_SSH_KEY de GitHub. Vacío = sin auto-deploy."
+  default     = ""
+}
+
 ###############################################################################
 # Origen del código (clone en el droplet)
 ###############################################################################

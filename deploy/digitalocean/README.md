@@ -189,6 +189,21 @@ dc run --rm --no-deps --env-file /opt/cosasdecasa/.env -v /mnt/cosasdecasa-data/
 dc up -d
 ```
 
+**Auto-deploy (CI/CD).** El workflow `.github/workflows/ci.yml` despliega en cada **push a `main`**
+y SOLO si pasa la calidad (lint/tipos/tests unitarios): entra por SSH al droplet, hace
+`git reset --hard origin/main` y corre `deploy/digitalocean/stack/redeploy.sh` (rebuild API+web,
+migra, reinicia). Para activarlo:
+
+1. **Clave de CI** (ya contemplada en Terraform): `ssh-keygen -t ed25519 -f cosasdecasa_ci -N ""`,
+   pon `cosasdecasa_ci.pub` en `ci_deploy_pubkey` del tfvars → el droplet la autoriza en el `apply`.
+2. **Secrets del repo** (GitHub → Settings → Secrets and variables → Actions):
+   - `DEPLOY_HOST` = la `reserved_ip` del output de Terraform.
+   - `DEPLOY_SSH_KEY` = el contenido de la clave **privada** `cosasdecasa_ci`.
+3. Cada push a `main` re-despliega solo. (En PR no se ejecuta; si faltan los secrets, el job falla.)
+
+> El **primer** despliegue lo hace `terraform apply` (cloud-init → `bootstrap.sh`). El auto-deploy
+> cubre las **actualizaciones** posteriores con `redeploy.sh` (no re-toca secretos ni el `.env`).
+
 **Backups:** lo crítico vive en `/mnt/cosasdecasa-data` (Postgres, Storage, secretos).
 Activa **snapshots automáticos del volumen** en DO y/o un `pg_dump` programado a Spaces.
 
