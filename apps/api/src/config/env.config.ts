@@ -30,6 +30,13 @@ const EnvSchema = z.object({
   JWT_ISSUER: z.string().optional(),
   JWT_AUDIENCE: z.string().optional(),
   /**
+   * Secreto compartido para verificar el JWT en HS256 (Supabase self-hosted, que
+   * firma con un secreto en vez de claves asimétricas). Si está definido, la API
+   * verifica en modo simétrico con este secreto EN LUGAR del JWKS (JWT_JWKS_URL).
+   * Mínimo 32 caracteres. En Supabase Cloud / CLI local no se usa (se deja vacío).
+   */
+  SUPABASE_JWT_SECRET: z.string().min(32).optional(),
+  /**
    * Pepper de servidor para el hash (scrypt) de los PIN de invitación. Hace el
    * hash determinista (permite buscar por code_hash) y resistente a ataques
    * offline si se filtra la tabla. Tiene un valor por defecto SOLO para dev/test
@@ -61,7 +68,7 @@ const EnvSchema = z.object({
   }
 
   const requireNonEmpty = (
-    key: 'JWT_JWKS_URL' | 'JWT_ISSUER' | 'JWT_AUDIENCE' | 'DATABASE_URL',
+    key: 'JWT_ISSUER' | 'JWT_AUDIENCE' | 'DATABASE_URL',
   ): void => {
     const value = env[key];
     if (value == null || value.trim() === '') {
@@ -73,10 +80,22 @@ const EnvSchema = z.object({
     }
   };
 
-  requireNonEmpty('JWT_JWKS_URL');
   requireNonEmpty('JWT_ISSUER');
   requireNonEmpty('JWT_AUDIENCE');
   requireNonEmpty('DATABASE_URL');
+
+  // Verificación del JWT: hace falta JWKS asimétrico (Supabase Cloud / CLI) O el
+  // secreto compartido HS256 (Supabase self-hosted). Al menos uno de los dos.
+  const hasJwks = env.JWT_JWKS_URL != null && env.JWT_JWKS_URL.trim() !== '';
+  const hasSecret = env.SUPABASE_JWT_SECRET != null && env.SUPABASE_JWT_SECRET.trim() !== '';
+  if (!hasJwks && !hasSecret) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['JWT_JWKS_URL'],
+      message:
+        'En producción define JWT_JWKS_URL (verificación JWKS asimétrica) o SUPABASE_JWT_SECRET (HS256 self-hosted).',
+    });
+  }
 
   if (env.JOIN_PIN_PEPPER === 'dev-only-join-pin-pepper-change-me') {
     ctx.addIssue({

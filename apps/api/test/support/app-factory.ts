@@ -33,10 +33,7 @@ import { ExportPersonalDataUseCase } from '../../src/contexts/identity-access/ap
 import { DrizzleAppUserRepository } from '../../src/contexts/identity-access/infrastructure/drizzle-app-user.repository';
 import { DrizzleAccountDeletionRepository } from '../../src/contexts/identity-access/infrastructure/drizzle-account-deletion.repository';
 import { DrizzlePersonalDataExportRepository } from '../../src/contexts/identity-access/infrastructure/drizzle-personal-data-export.repository';
-import {
-  JoseTokenVerifier,
-  JWKS_PROVIDER,
-} from '../../src/contexts/identity-access/infrastructure/jose-token-verifier';
+import { JoseTokenVerifier } from '../../src/contexts/identity-access/infrastructure/jose-token-verifier';
 import {
   APP_USER_REPOSITORY,
 } from '../../src/contexts/identity-access/domain/ports/app-user.repository';
@@ -82,7 +79,6 @@ import { SystemClock } from '../../src/contexts/family/infrastructure/system-clo
 import { CryptoRandomBytes } from '../../src/contexts/family/infrastructure/crypto-random-bytes';
 import { DrizzleMembersReadModel } from '../../src/contexts/family/infrastructure/drizzle-members-read-model';
 
-import { createRemoteJWKSet } from 'jose';
 
 // ── shopping ───────────────────────────────────────────────────────────────
 import { ShoppingListsController } from '../../src/contexts/shopping/interface/shopping-lists.controller';
@@ -357,27 +353,10 @@ export async function createTestApp(): Promise<TestApp> {
 
       // ── identity-access ────────────────────────────────────────────────
       {
-        provide: JWKS_PROVIDER,
-        inject: [ConfigService],
-        useFactory: (config: ConfigService<Env, true>) => {
-          const jwksUrl = config.get('JWT_JWKS_URL', { infer: true });
-          const issuer = config.get('JWT_ISSUER', { infer: true });
-          const audience = config.get('JWT_AUDIENCE', { infer: true });
-          if (!jwksUrl || !issuer || !audience) {
-            throw new Error('Faltan variables JWT_* para los tests de integración.');
-          }
-          return {
-            jwks: createRemoteJWKSet(new URL(jwksUrl)),
-            issuer,
-            audience,
-          };
-        },
-      },
-      {
+        // Integración: usa el Supabase local (JWKS asimétrico) vía fromConfig.
         provide: TOKEN_VERIFIER,
-        inject: [JWKS_PROVIDER],
-        useFactory: (config: { jwks: ReturnType<typeof createRemoteJWKSet>; issuer: string; audience: string }) =>
-          new JoseTokenVerifier(config),
+        inject: [ConfigService],
+        useFactory: (config: ConfigService<Env, true>) => JoseTokenVerifier.fromConfig(config),
       },
       DrizzleAppUserRepository,
       {

@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createRemoteJWKSet } from 'jose';
 import type { Env } from '../../config/env.config';
 import { DRIZZLE } from '../../db/drizzle.tokens';
 import type { Database } from '../../db/db.types';
@@ -17,10 +16,7 @@ import {
   NoopAuthUserAdmin,
   SupabaseAuthUserAdmin,
 } from './infrastructure/supabase-auth-user-admin.adapter';
-import {
-  JoseTokenVerifier,
-  JWKS_PROVIDER,
-} from './infrastructure/jose-token-verifier';
+import { JoseTokenVerifier } from './infrastructure/jose-token-verifier';
 import { AuthenticateRequestUseCase } from './application/authenticate-request.use-case';
 import { UpdateDisplayNameUseCase } from './application/update-display-name.use-case';
 import { DeleteAccountUseCase } from './application/delete-account.use-case';
@@ -32,19 +28,11 @@ import { JwtAuthGuard } from './interface/jwt-auth.guard';
   // y mantener identity-access como capa baja (sin depender de family) evita el ciclo.
   providers: [
     {
-      provide: JWKS_PROVIDER,
-      inject: [ConfigService],
-      useFactory: (config: ConfigService<Env, true>) => ({
-        jwks: createRemoteJWKSet(new URL(config.get('JWT_JWKS_URL', { infer: true }))),
-        issuer: config.get('JWT_ISSUER', { infer: true }),
-        audience: config.get('JWT_AUDIENCE', { infer: true }),
-      }),
-    },
-    {
+      // Verificador de tokens: HS256 (SUPABASE_JWT_SECRET) o JWKS asimétrico
+      // (JWT_JWKS_URL) según el entorno. La lógica vive en JoseTokenVerifier.fromConfig.
       provide: TOKEN_VERIFIER,
-      inject: [JWKS_PROVIDER],
-      useFactory: (cfg: ConstructorParameters<typeof JoseTokenVerifier>[0]) =>
-        new JoseTokenVerifier(cfg),
+      inject: [ConfigService],
+      useFactory: (config: ConfigService<Env, true>) => JoseTokenVerifier.fromConfig(config),
     },
     {
       provide: APP_USER_REPOSITORY,
