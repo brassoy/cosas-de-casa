@@ -1,0 +1,43 @@
+#cloud-config
+# Primer boot del droplet: instala Docker, clona el repo con la deploy key y
+# lanza el bootstrap de la pila. La lógica pesada vive en bootstrap.sh (no en
+# este template) para no pelear con el escapado $${...} de Terraform templatefile.
+package_update: true
+package_upgrade: false
+packages:
+  - git
+  - curl
+  - ca-certificates
+
+write_files:
+  # Valores inyectados por Terraform que el bootstrap necesita.
+  - path: /opt/cosasdecasa-deploy.env
+    permissions: "0600"
+    owner: root:root
+    content: |
+      APP_DOMAIN=${app_domain}
+      ACME_EMAIL=${acme_email}
+      GIT_REPO=${git_repo}
+      GIT_BRANCH=${git_branch}
+      DATA_DEVICE=${data_device}
+
+  # Deploy key SSH (read-only) para clonar el repo privado. base64 + encoding b64
+  # evita la corrupción por indentación/newline que sufre un PEM en un block scalar.
+  - path: /root/.ssh/cosasdecasa_deploy_key
+    permissions: "0600"
+    owner: root:root
+    encoding: b64
+    content: ${base64encode(git_deploy_key)}
+
+runcmd:
+  - |
+    set -eux
+    install -d -m 0700 /root/.ssh
+    ssh-keyscan -t rsa,ed25519 github.com >> /root/.ssh/known_hosts 2>/dev/null || true
+    export GIT_SSH_COMMAND="ssh -i /root/.ssh/cosasdecasa_deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
+    curl -fsSL https://get.docker.com | sh
+    set -a; . /opt/cosasdecasa-deploy.env; set +a
+    rm -rf /opt/cosasdecasa
+    git clone --branch "$GIT_BRANCH" --depth 1 "$GIT_REPO" /opt/cosasdecasa
+    chmod +x /opt/cosasdecasa/deploy/digitalocean/stack/bootstrap.sh
+    /opt/cosasdecasa/deploy/digitalocean/stack/bootstrap.sh 2>&1 | tee /var/log/cosasdecasa-bootstrap.log

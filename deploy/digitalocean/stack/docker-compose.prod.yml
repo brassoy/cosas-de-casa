@@ -1,0 +1,269 @@
+# Cosas de Casa — pila de producción (1 droplet all-in-one).
+#
+# Diferencias clave con el entorno de desarrollo (Supabase CLI + vite/nest --watch):
+#   - Caddy al frente termina TLS (Let's Encrypt) y es el ÚNICO que publica puertos (80/443).
+#   - Supabase se SELF-HOSTEA con las imágenes oficiales (postgres, kong, gotrue,
+#     postgrest, realtime, storage + imgproxy, postgres-meta). En dev lo daba el CLI.
+#   - La API NestJS corre desde su imagen (Dockerfile.api); la web es estática.
+#   - Ningún servicio salvo Caddy publica puertos: todo vive en la red docker interna.
+#   - Los datos persistentes viven en el block volume montado en /mnt/cosasdecasa-data.
+#
+# Se invoca SIEMPRE con --env-file apuntando al .env renderizado por el bootstrap:
+#   docker compose --env-file /opt/cosasdecasa/.env -f docker-compose.prod.yml up -d
+# (el bootstrap.sh ya lo hace por ti).
+
+services:
+  ###########################################################################
+  # Borde: Caddy (TLS automático + reverse proxy + estáticos de la web)
+  ###########################################################################
+  caddy:
+    image: caddy:2-alpine
+    container_name: cosasdecasa_caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # HTTP/3
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # La web estática que construye el bootstrap (apps/web/dist) — Caddy la sirve.
+      - /mnt/cosasdecasa-data/web:/srv/web:ro
+      - /mnt/cosasdecasa-data/caddy/data:/data
+      - /mnt/cosasdecasa-data/caddy/config:/config
+    depends_on:
+      - api
+      - kong
+    networks:
+      - cosasdecasa
+
+  ###########################################################################
+  # API NestJS (casos de uso, IA MiniMax, Web Push, baja GDPR...)
+  # Interna; Caddy la expone en /api/*. Verifica el JWT de Supabase por JWKS.
+  ###########################################################################
+  api:
+    build:
+      context: ../../../
+      dockerfile: deploy/digitalocean/stack/Dockerfile.api
+    image: cosasdecasa-api:latest
+    container_name: cosasdecasa_api
+    restart: unless-stopped
+    env_file:
+      - /opt/cosasdecasa/.env
+    depends_on:
+      db:
+        condition: service_healthy
+      kong:
+        condition: service_started
+    networks:
+      - cosasdecasa
+
+  ###########################################################################
+  # Supabase self-hosted
+  ###########################################################################
+
+  # --- Postgres (la base; el dominio se conecta con un rol que respeta RLS) ---
+  db:
+    image: supabase/postgres:17.6.1.136
+    container_name: cosasdecasa_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST: /var/run/postgresql
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXP: ${JWT_EXP}
+    volumes:
+      - /mnt/cosasdecasa-data/db:/var/lib/postgresql/data
+      # Scripts de init que el bootstrap renderiza en el volumen (roles de
+      # Supabase + alta de la publicación de Realtime). Solo corren si la base
+      # está vacía (primer arranque).
+      - /mnt/cosasdecasa-data/db-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -h localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+    networks:
+      - cosasdecasa
+
+  # --- Kong: gateway de Supabase (reparte /auth /rest /realtime /storage) ---
+  kong:
+    image: kong/kong:3.9.1
+    container_name: cosasdecasa_kong
+    restart: unless-stopped
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /home/kong/kong.yml
+      # Kong sustituye variables de entorno en el yml declarativo:
+      KONG_NGINX_WORKER_PROCESSES: "1"
+      KONG_PLUGINS: request-transformer,cors,key-auth,acl,basic-auth
+      SUPABASE_ANON_KEY: ${ANON_KEY}
+      SUPABASE_SERVICE_KEY: ${SERVICE_ROLE_KEY}
+    volumes:
+      # kong.yml lo renderiza el bootstrap con las keys ya sustituidas.
+      - /mnt/cosasdecasa-data/kong/kong.yml:/home/kong/kong.yml:ro
+    depends_on:
+      - auth
+      - rest
+      - realtime
+      - storage
+    networks:
+      - cosasdecasa
+
+  # --- GoTrue (Auth) ---
+  auth:
+    image: supabase/gotrue:v2.189.0
+    container_name: cosasdecasa_auth
+    restart: unless-stopped
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: 9999
+      API_EXTERNAL_URL: https://${APP_DOMAIN}
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      GOTRUE_SITE_URL: https://${APP_DOMAIN}
+      GOTRUE_URI_ALLOW_LIST: https://${APP_DOMAIN}
+      GOTRUE_DISABLE_SIGNUP: "false"
+      GOTRUE_JWT_ADMIN_ROLES: service_role
+      GOTRUE_JWT_AUD: authenticated
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+      GOTRUE_JWT_EXP: ${JWT_EXP}
+      GOTRUE_JWT_SECRET: ${JWT_SECRET}
+      GOTRUE_JWT_ISSUER: https://${APP_DOMAIN}/auth/v1
+      GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
+      GOTRUE_MAILER_AUTOCONFIRM: "true"
+      # SMTP real: rellénalo en /opt/cosasdecasa/.env para enviar correos de verdad.
+      GOTRUE_SMTP_HOST: ${SMTP_HOST:-}
+      GOTRUE_SMTP_PORT: ${SMTP_PORT:-}
+      GOTRUE_SMTP_USER: ${SMTP_USER:-}
+      GOTRUE_SMTP_PASS: ${SMTP_PASS:-}
+      GOTRUE_SMTP_ADMIN_EMAIL: ${SMTP_ADMIN_EMAIL:-no-reply@${APP_DOMAIN}}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - cosasdecasa
+
+  # --- PostgREST (REST API sobre el esquema public) ---
+  rest:
+    image: postgrest/postgrest:v14.12
+    container_name: cosasdecasa_rest
+    restart: unless-stopped
+    environment:
+      PGRST_DB_URI: postgres://authenticator:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      PGRST_DB_SCHEMAS: public,graphql_public
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: ${JWT_SECRET}
+      PGRST_DB_USE_LEGACY_GUCS: "false"
+      PGRST_APP_SETTINGS_JWT_SECRET: ${JWT_SECRET}
+      PGRST_APP_SETTINGS_JWT_EXP: ${JWT_EXP}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - cosasdecasa
+
+  # --- Realtime (postgres_changes; lo usa la web para nevera/tareas/chat...) ---
+  realtime:
+    image: supabase/realtime:v2.102.3
+    # OJO: Kong enruta /realtime/v1 al host "realtime-dev.supabase-realtime".
+    # Mantenemos ese hostname de red (network alias) por compatibilidad con la
+    # config declarativa oficial de Kong.
+    container_name: cosasdecasa_realtime
+    restart: unless-stopped
+    environment:
+      PORT: 4000
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: supabase_admin
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_NAME: ${POSTGRES_DB}
+      DB_AFTER_CONNECT_QUERY: "SET search_path TO _realtime"
+      DB_ENC_KEY: supabaserealtime
+      API_JWT_SECRET: ${JWT_SECRET}
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+      ERL_AFLAGS: -proto_dist inet_tcp
+      DNS_NODES: "''"
+      RLIMIT_NOFILE: "10000"
+      APP_NAME: realtime
+      SEED_SELF_HOST: "true"
+      RUN_JANITOR: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      cosasdecasa:
+        aliases:
+          - realtime-dev.supabase-realtime
+
+  # --- Storage (objetos: fotos de tareas y avatares) + imgproxy ---
+  storage:
+    image: supabase/storage-api:v1.60.4
+    container_name: cosasdecasa_storage
+    restart: unless-stopped
+    environment:
+      ANON_KEY: ${ANON_KEY}
+      SERVICE_KEY: ${SERVICE_ROLE_KEY}
+      POSTGREST_URL: http://rest:3000
+      PGRST_JWT_SECRET: ${JWT_SECRET}
+      DATABASE_URL: postgres://supabase_storage_admin:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      FILE_SIZE_LIMIT: 52428800
+      STORAGE_BACKEND: file
+      FILE_STORAGE_BACKEND_PATH: /var/lib/storage
+      TENANT_ID: stub
+      REGION: stub
+      GLOBAL_S3_BUCKET: stub
+      ENABLE_IMAGE_TRANSFORMATION: "true"
+      IMGPROXY_URL: http://imgproxy:5001
+    volumes:
+      - /mnt/cosasdecasa-data/storage:/var/lib/storage
+    depends_on:
+      db:
+        condition: service_healthy
+      rest:
+        condition: service_started
+      imgproxy:
+        condition: service_started
+    networks:
+      - cosasdecasa
+
+  imgproxy:
+    image: darthsim/imgproxy:v3.30.1
+    container_name: cosasdecasa_imgproxy
+    restart: unless-stopped
+    environment:
+      IMGPROXY_BIND: ":5001"
+      IMGPROXY_LOCAL_FILESYSTEM_ROOT: /
+      IMGPROXY_USE_ETAG: "true"
+      IMGPROXY_ENABLE_WEBP_DETECTION: "true"
+    volumes:
+      - /mnt/cosasdecasa-data/storage:/var/lib/storage
+    networks:
+      - cosasdecasa
+
+  # --- postgres-meta (lo usa Storage/otros para introspección del esquema) ---
+  meta:
+    image: supabase/postgres-meta:v0.96.6
+    container_name: cosasdecasa_meta
+    restart: unless-stopped
+    environment:
+      PG_META_PORT: 8080
+      PG_META_DB_HOST: db
+      PG_META_DB_PORT: 5432
+      PG_META_DB_NAME: ${POSTGRES_DB}
+      PG_META_DB_USER: supabase_admin
+      PG_META_DB_PASSWORD: ${POSTGRES_PASSWORD}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - cosasdecasa
+
+networks:
+  cosasdecasa:
+    driver: bridge

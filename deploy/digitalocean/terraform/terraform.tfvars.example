@@ -1,0 +1,46 @@
+# Copia este archivo a terraform.tfvars y rellena tus valores.
+# terraform.tfvars está en .gitignore: NUNCA lo subas (contiene secretos).
+
+# --- Credenciales DO ---
+# MISMA cuenta DigitalOcean que HADARA: reutiliza su API token. Mejor pásalo por
+# entorno (no en git) →  export TF_VAR_do_token="dop_v1_..."  (es el mismo que usas
+# para desplegar HADARA). Si lo pones aquí, recuerda que terraform.tfvars NO se sube.
+do_token = "dop_v1_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+region   = "fra1"
+
+# --- Droplet ---
+droplet_size = "s-4vcpu-8gb" # mismo tipo/importe que la referencia; 8GB es el suelo sano para la pila completa
+# droplet_name = "cosasdecasa-prod"
+
+# --- Volumen de datos ---
+volume_size_gb = 50
+
+# --- Dominio ---
+# Realtime de Supabase va por Kong en el MISMO dominio (/realtime/*), no hace
+# falta un subdominio aparte.
+app_domain = "cosasdecasa.hadara.app"
+# hadara.app es un dominio de la cuenta DO de HADARA. Como esto es un SUBDOMINIO,
+# deja manage_dns=false y crea a mano un registro A `cosasdecasa` en la zona
+# hadara.app apuntando a la `reserved_ip` del output (Networking → Domains →
+# hadara.app → Add A record). NO pongas manage_dns=true: crearía una zona nueva
+# "cosasdecasa.hadara.app", no el registro dentro de hadara.app.
+manage_dns = false
+
+# --- Acceso SSH ---
+admin_ssh_pubkey = "ssh-ed25519 AAAA... tu_clave_publica"
+ssh_allowed_cidr = "0.0.0.0/0" # restríngelo a tu IP/CIDR si puedes (p.ej. "203.0.113.10/32")
+
+# --- Origen del código ---
+git_repo   = "git@github.com:brassoy/cosas-de-casa.git"
+git_branch = "main"
+# Deploy key read-only del repo (clave privada SSH completa, multilínea).
+# Genera una con:  ssh-keygen -t ed25519 -f cosasdecasa_deploy -N ""
+# y añade cosasdecasa_deploy.pub como Deploy Key (read-only) en GitHub → repo → Settings → Deploy keys.
+git_deploy_private_key = <<-EOK
+  -----BEGIN OPENSSH PRIVATE KEY-----
+  ...pega aquí la clave privada de la deploy key...
+  -----END OPENSSH PRIVATE KEY-----
+  EOK
+
+# --- TLS ---
+acme_email = "ofertucas@gmail.com"

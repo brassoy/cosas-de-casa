@@ -34,3 +34,11 @@ dev-dist/
 
 # caché de modelos de fastembed (binarios grandes)
 local_cache/
+
+# Terraform (despliegue DigitalOcean) — NUNCA versionar secretos ni estado
+deploy/digitalocean/terraform/terraform.tfvars
+deploy/digitalocean/terraform/*.tfstate
+deploy/digitalocean/terraform/*.tfstate.*
+deploy/digitalocean/terraform/.terraform/
+deploy/digitalocean/terraform/.terraform.lock.hcl
+deploy/digitalocean/terraform/tfplan

@@ -1,0 +1,51 @@
+# =============================================================================
+# Cosas de Casa — imagen de la API (NestJS) construida desde el monorepo.
+# =============================================================================
+# Una sola fase de build que instala las deps con pnpm y compila con turbo
+# (turbo respeta `^build`, así compila packages/contracts ANTES que apps/api).
+# El artefacto es apps/api/dist y el arranque es `node apps/api/dist/main.js`.
+#
+# Por qué NO hacemos prune con `pnpm deploy`:
+#   - apps/api no declara un campo `files`, así que `pnpm deploy` se guiaría por
+#     .gitignore, donde `dist/` suele estar ignorado → el deploy se quedaría SIN
+#     el build. Demasiado frágil.
+#   - drizzle-kit (devDep) hace falta para las migraciones; un árbol --prod las
+#     dejaría fuera.
+# Mantener las deps completas en la imagen es más pesado pero CORRECTO y nos
+# permite además correr las migraciones Drizzle desde esta misma imagen (mismo
+# node_modules, mismo workspace) sin sorpresas. Es un v1 all-in-one, prioriza
+# que arranque a la primera sobre optimizar megas.
+#
+# El contexto de build es la RAÍZ del monorepo (ver `build.context` en el compose):
+# necesitamos pnpm-workspace.yaml, turbo.json, el lockfile y los tres paquetes.
+# =============================================================================
+
+FROM node:20-bookworm-slim
+
+# pnpm vía corepack (la versión la fija el campo packageManager del package.json raíz).
+RUN corepack enable
+WORKDIR /repo
+
+# Copiamos primero los manifiestos para aprovechar la caché de capas de Docker:
+# si solo cambia el código (no las deps), `pnpm install` no se reejecuta.
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.json ./
+COPY apps/api/package.json apps/api/
+COPY apps/web/package.json apps/web/
+COPY packages/contracts/package.json packages/contracts/
+
+# Instalación reproducible: el lockfile manda. Incluye devDeps (nest-cli, tsc,
+# drizzle-kit…), necesarias para compilar Y para migrar.
+RUN pnpm install --frozen-lockfile
+
+# Código completo y build (turbo compila contracts → api).
+COPY . .
+RUN pnpm build --filter @cosasdecasa/api...
+
+ENV NODE_ENV=production
+# La API arranca desde apps/api (su main.js está en apps/api/dist).
+WORKDIR /repo/apps/api
+
+# El prefijo global (api/v1) y el puerto (API_PORT=3000) los aplica el propio
+# main.ts leyendo el entorno (env_file en el compose).
+EXPOSE 3000
+CMD ["node", "dist/main.js"]

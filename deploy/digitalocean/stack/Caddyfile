@@ -1,0 +1,62 @@
+# Caddy: TLS automático (Let's Encrypt) + reverse proxy + servidor estático.
+# Las variables {$...} llegan desde el environment del servicio caddy (ver compose).
+#
+# Cosas de Casa vive ENTERA en un solo dominio. Caddy reparte por ruta:
+#   /api/*                              → la API NestJS (prefijo global api/v1)
+#   /auth/*, /rest/*, /realtime/*,      → Kong, el gateway de Supabase, que a su
+#   /storage/*                            vez enruta a GoTrue / PostgREST / Realtime
+#                                         / Storage. El cliente supabase-js del
+#                                         navegador pega contra estas rutas con
+#                                         VITE_SUPABASE_URL = https://{dominio}.
+#   resto                              → la PWA estática (apps/web/dist), con
+#                                         fallback a index.html (SPA / TanStack Router).
+#
+# Caddy añade X-Forwarded-Proto: https al proxear; la API ya corre detrás de
+# proxy sin configuración extra (lee el host público de las VITE_* horneadas).
+
+{
+	email {$ACME_EMAIL}
+	# Descomenta para probar contra el staging de Let's Encrypt (evita rate limits
+	# mientras ajustas el DNS). Vuelve a comentarlo para emitir el cert real:
+	# acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+}
+
+{$APP_DOMAIN} {
+	encode zstd gzip
+
+	# Límite de subida alineado con los buckets de Storage (fotos de tareas 2MB,
+	# avatares 1MB); damos holgura por el multipart/overhead.
+	request_body {
+		max_size 10MB
+	}
+
+	# --- API NestJS (casos de uso, IA, push, GDPR...) ---
+	handle /api/* {
+		reverse_proxy api:3000
+	}
+
+	# --- Supabase, vía Kong (gateway) ---
+	# Auth (GoTrue), REST (PostgREST), Realtime (websockets) y Storage. Kong
+	# escucha en el 8000 dentro de la red docker y reparte por prefijo de ruta.
+	handle /auth/* {
+		reverse_proxy kong:8000
+	}
+	handle /rest/* {
+		reverse_proxy kong:8000
+	}
+	handle /realtime/* {
+		reverse_proxy kong:8000
+	}
+	handle /storage/* {
+		reverse_proxy kong:8000
+	}
+
+	# --- PWA estática (todo lo demás) ---
+	# El bootstrap construye apps/web/dist y lo deja en /srv/web (volumen montado).
+	# try_files con fallback a index.html para que las rutas del SPA no den 404.
+	handle {
+		root * /srv/web
+		try_files {path} /index.html
+		file_server
+	}
+}
