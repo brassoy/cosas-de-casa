@@ -57,11 +57,13 @@ jobs:
   # reinicia la pila). Requiere dos secrets del repo (Settings → Secrets → Actions):
   #   - DEPLOY_HOST     → IP/host del droplet (la reserved IP del output de Terraform)
   #   - DEPLOY_SSH_KEY  → clave PRIVADA SSH cuya pública está en `ci_deploy_pubkey`
-  # Si no están definidos, el job falla (solo afecta a main); los PR no lo ejecutan.
+  # Solo se ejecuta si la VARIABLE de repo `DEPLOY_ENABLED` = "true" (Settings →
+  # Secrets and variables → Actions → Variables). Así el CI NO falla mientras el
+  # droplet/secrets no existan: activas el auto-deploy cuando todo esté listo.
   deploy:
     name: Auto-deploy a producción
     needs: quality
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && vars.DEPLOY_ENABLED == 'true'
     runs-on: ubuntu-latest
     # No solapar despliegues ni cancelar uno a medias (puede dejar la pila a medio build).
     concurrency:

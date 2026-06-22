@@ -196,10 +196,12 @@ migra, reinicia). Para activarlo:
 
 1. **Clave de CI** (ya contemplada en Terraform): `ssh-keygen -t ed25519 -f cosasdecasa_ci -N ""`,
    pon `cosasdecasa_ci.pub` en `ci_deploy_pubkey` del tfvars → el droplet la autoriza en el `apply`.
-2. **Secrets del repo** (GitHub → Settings → Secrets and variables → Actions):
+2. **Secrets del repo** (GitHub → Settings → Secrets and variables → Actions → *Secrets*):
    - `DEPLOY_HOST` = la `reserved_ip` del output de Terraform.
    - `DEPLOY_SSH_KEY` = el contenido de la clave **privada** `cosasdecasa_ci`.
-3. Cada push a `main` re-despliega solo. (En PR no se ejecuta; si faltan los secrets, el job falla.)
+3. **Activa** el auto-deploy: crea la **variable** de repo `DEPLOY_ENABLED` = `true`
+   (misma pantalla, pestaña *Variables*). Mientras no exista, el deploy se **salta**
+   (el CI sigue verde). A partir de ahí, cada push a `main` re-despliega solo. (En PR nunca se ejecuta.)
 
 > El **primer** despliegue lo hace `terraform apply` (cloud-init → `bootstrap.sh`). El auto-deploy
 > cubre las **actualizaciones** posteriores con `redeploy.sh` (no re-toca secretos ni el `.env`).
