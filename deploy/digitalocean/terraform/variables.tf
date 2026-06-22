@@ -88,8 +88,14 @@ variable "admin_ssh_pubkey" {
 
 variable "admin_ssh_key_name" {
   type        = string
-  description = "Nombre con el que se registra la clave SSH en DigitalOcean."
+  description = "Nombre con el que se registra la clave SSH en DigitalOcean (solo si se crea)."
   default     = "cosasdecasa-admin"
+}
+
+variable "admin_ssh_fingerprint" {
+  type        = string
+  description = "Fingerprint MD5 de la clave SSH del admin si YA está registrada en la cuenta DO (la obtienes con `ssh-keygen -lf tu_clave.pub -E md5`). Si lo pones, Terraform NO intenta crear la clave (evita el error 'SSH Key is already in use') y la referencia por fingerprint. Vacío = crea la clave a partir de admin_ssh_pubkey."
+  default     = ""
 }
 
 variable "ssh_allowed_cidr" {

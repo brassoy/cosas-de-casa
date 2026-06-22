@@ -2,7 +2,12 @@
 # Clave SSH del administrador
 ###############################################################################
 
+# Se crea SOLO si no pasas admin_ssh_fingerprint. Si tu clave ya está registrada en
+# la cuenta DO (p. ej. la compartes con otro proyecto), DO rechaza volver a subirla
+# ("SSH Key is already in use"): en ese caso pon su fingerprint en admin_ssh_fingerprint
+# y el droplet la referencia sin recrearla.
 resource "digitalocean_ssh_key" "admin" {
+  count      = var.admin_ssh_fingerprint == "" ? 1 : 0
   name       = var.admin_ssh_key_name
   public_key = var.admin_ssh_pubkey
 }
@@ -43,7 +48,7 @@ resource "digitalocean_droplet" "cosasdecasa" {
   size       = var.droplet_size
   region     = var.region
   vpc_uuid   = digitalocean_vpc.cosasdecasa.id
-  ssh_keys   = [digitalocean_ssh_key.admin.id]
+  ssh_keys   = [var.admin_ssh_fingerprint != "" ? var.admin_ssh_fingerprint : digitalocean_ssh_key.admin[0].id]
   volume_ids = [digitalocean_volume.data.id]
   monitoring = true
 
