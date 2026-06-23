@@ -32,7 +32,18 @@ export default defineConfig({
     // @cosasdecasa/contracts es un paquete workspace CommonJS linkeado: forzamos su
     // pre-bundle para que Vite exponga sus named exports al navegador (ESM). Sin esto,
     // los re-exports CJS vía __exportStar (p. ej. JOIN_PIN_LENGTH) no se detectan.
+    // OJO: optimizeDeps SOLO aplica al dev server; para `vite build` ver build abajo.
     include: ['@cosasdecasa/contracts'],
+  },
+  build: {
+    commonjsOptions: {
+      // El mismo paquete está LINKEADO por pnpm, así que su ruta real
+      // (packages/contracts/dist) queda FUERA de node_modules y el plugin
+      // commonjs de rollup —que por defecto solo transforma node_modules— lo
+      // saltaba: en `vite build` sus re-exports CJS (__exportStar, p. ej.
+      // JOIN_PIN_LENGTH) NO se detectaban y el build fallaba. Lo incluimos.
+      include: [/node_modules/, /packages[\\/]contracts[\\/]dist/],
+    },
   },
   plugins: [
     tailwindcss(),
