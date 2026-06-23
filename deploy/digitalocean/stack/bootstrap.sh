@@ -174,6 +174,9 @@ services:
     plugins:
       - name: cors
 EOF
+# Kong corre como usuario `kong` (no root) y lee este fichero montado :ro; con el
+# umask 077 quedaría 600 root y daría "Permission denied" al parsear la config.
+chmod 644 "$DATA_DIR/kong/kong.yml"
 
 # Init SQL del primer arranque de Postgres. La imagen supabase/postgres ya crea
 # los roles base (anon, authenticated, service_role, authenticator,
