@@ -250,9 +250,13 @@ SMTP_ADMIN_EMAIL=no-reply@${APP_DOMAIN}
 NODE_ENV=production
 API_PORT=3000
 API_CORS_ORIGINS=https://${APP_DOMAIN}
-# Rol NORMAL que RESPETA RLS (NO service_role). authenticator es el rol que
-# PostgREST usa con switching; aquí lo usamos para la conexión de la API.
-DATABASE_URL=postgres://authenticator:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+# La API conecta con ESTE rol directamente (Pool de pg en db.module.ts, sin
+# SET ROLE). Por eso NO vale `authenticator`: es el rol de switching de PostgREST,
+# sin privilegios propios, y daría "permission denied for schema public" tanto al
+# migrar como en runtime. Usamos `postgres` (rol dueño de la app en Supabase),
+# igual que en local. Nota: a nivel de conexión NO respeta RLS; la autorización
+# fina la hacen los scope guards de la API.
+DATABASE_URL=postgres://postgres:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
 SUPABASE_URL=https://${APP_DOMAIN}
 SUPABASE_PUBLISHABLE_KEY=${ANON_KEY}
 SUPABASE_SECRET_KEY=${SERVICE_ROLE_KEY}
@@ -302,7 +306,7 @@ dc up -d --wait db
 #     comparte la red docker con `db`. drizzle-kit lee DATABASE_URL del .env raíz.
 log "Aplicando migraciones Drizzle (pnpm --filter @cosasdecasa/api db:migrate)..."
 dc run --rm --no-deps \
-  -e DATABASE_URL="postgres://authenticator:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}" \
+  -e DATABASE_URL="postgres://postgres:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}" \
   api sh -c "cd /repo && pnpm --filter @cosasdecasa/api db:migrate"
 
 # 7b. Migraciones SQL de Supabase del repo (buckets de Storage + políticas RLS).
