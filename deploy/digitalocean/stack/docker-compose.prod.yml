@@ -78,10 +78,16 @@ services:
       JWT_EXP: ${JWT_EXP}
     volumes:
       - /mnt/cosasdecasa-data/db:/var/lib/postgresql/data
-      # Scripts de init que el bootstrap renderiza en el volumen (roles de
-      # Supabase + alta de la publicación de Realtime). Solo corren si la base
-      # está vacía (primer arranque).
-      - /mnt/cosasdecasa-data/db-init:/docker-entrypoint-initdb.d:ro
+      # OJO: NO montar sobre /docker-entrypoint-initdb.d ENTERO. La imagen
+      # supabase/postgres trae ahí su migrate.sh + init-scripts/ + migrations/
+      # que crean los roles base (postgres, authenticator, anon, authenticated,
+      # service_role, supabase_auth_admin, ...). Taparlo deja la base SIN esos
+      # roles → la API/GoTrue no pueden conectar. Inyectamos NUESTROS scripts
+      # como archivos sueltos DENTRO de init-scripts/ (el prefijo 99- los hace
+      # correr al final, ya creados los roles), igual que el self-hosting oficial.
+      # Solo corren si la base está vacía (primer arranque).
+      - /mnt/cosasdecasa-data/db-init/00-roles-passwords.sql:/docker-entrypoint-initdb.d/init-scripts/99-roles-passwords.sql:ro
+      - /mnt/cosasdecasa-data/db-init/01-realtime-publication.sql:/docker-entrypoint-initdb.d/init-scripts/99-realtime-publication.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -h localhost"]
       interval: 10s

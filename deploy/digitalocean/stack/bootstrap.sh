@@ -206,6 +206,12 @@ END
 $$;
 EOF
 
+# Los lee el usuario `postgres` DENTRO del contenedor de la imagen. Con el umask
+# 077 de la generación de secretos quedarían 600 root (y `cat >` sobre un fichero
+# que ya existe NO recalcula permisos), de modo que el init daría
+# "Permission denied" y los roles se quedarían sin contraseña. 644 explícito.
+chmod 644 "$DATA_DIR/db-init/"*.sql
+
 # --- 5. Renderizar /opt/cosasdecasa/.env (solo si no existe) ------------------
 # Un único .env sirve a:
 #   - docker compose (interpola POSTGRES_PASSWORD, JWT_SECRET, ANON_KEY, ...).
