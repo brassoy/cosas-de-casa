@@ -195,6 +195,10 @@ services:
       DB_AFTER_CONNECT_QUERY: "SET search_path TO _realtime"
       DB_ENC_KEY: supabaserealtime
       API_JWT_SECRET: ${JWT_SECRET}
+      # supabase/realtime v2.10x EXIGE METRICS_JWT_SECRET (firma el JWT del
+      # endpoint /metrics); sin él el contenedor no arranca (System.EnvError).
+      # Reutilizamos JWT_SECRET: es self-hosted single-tenant.
+      METRICS_JWT_SECRET: ${JWT_SECRET}
       SECRET_KEY_BASE: ${SECRET_KEY_BASE}
       ERL_AFLAGS: -proto_dist inet_tcp
       DNS_NODES: "''"
