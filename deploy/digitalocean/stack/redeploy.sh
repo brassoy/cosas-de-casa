@@ -40,7 +40,9 @@ for f in "$REPO_DIR"/supabase/migrations/*.sql; do
 done
 
 log "Reconstruyendo la web estática (hornea las VITE_* del .env)..."
-dc run --rm --no-deps --env-file "$ENV_FILE" -v "$DATA_DIR/web:/out" \
+# --env-file NO es flag de `compose run` (ya va a nivel global en dc()); las
+# VITE_* del build salen del env_file del servicio api (/opt/cosasdecasa/.env).
+dc run --rm --no-deps -v "$DATA_DIR/web:/out" \
   api sh -c "cd /repo && pnpm build --filter @cosasdecasa/web... && rm -rf /out/* && cp -r apps/web/dist/. /out/"
 
 log "Reiniciando la pila con las imágenes nuevas..."
