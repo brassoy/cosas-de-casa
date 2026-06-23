@@ -32,13 +32,6 @@ dc up -d --wait db
 log "Aplicando migraciones Drizzle..."
 dc run --rm --no-deps api sh -c "cd /repo && pnpm --filter @cosasdecasa/api db:migrate"
 
-log "Aplicando supabase/migrations/*.sql (idempotentes)..."
-for f in "$REPO_DIR"/supabase/migrations/*.sql; do
-  [ -e "$f" ] || continue
-  log "  → $(basename "$f")"
-  dc exec -T db psql -U supabase_admin -d postgres -v ON_ERROR_STOP=1 <"$f"
-done
-
 log "Reconstruyendo la web estática (hornea las VITE_* del .env)..."
 # --env-file NO es flag de `compose run` (ya va a nivel global en dc()); las
 # VITE_* del build salen del env_file del servicio api (/opt/cosasdecasa/.env).
@@ -47,5 +40,21 @@ dc run --rm --no-deps -v "$DATA_DIR/web:/out" \
 
 log "Reiniciando la pila con las imágenes nuevas..."
 dc up -d
+
+# Migraciones SQL de Supabase (buckets de Storage + RLS) DESPUÉS de levantar la
+# pila: insertan en storage.buckets, que crea storage-api al arrancar (igual que
+# el paso 10 del bootstrap). Son idempotentes (on conflict / drop policy if
+# exists), así que re-aplicarlas en cada redeploy es seguro.
+log "Esperando a que storage tenga su schema (storage.buckets)..."
+for _ in $(seq 1 40); do
+  [ "$(dc exec -T db psql -U supabase_admin -d postgres -tAc "select to_regclass('storage.buckets') is not null" 2>/dev/null)" = "t" ] && break
+  sleep 3
+done
+log "Aplicando supabase/migrations/*.sql (idempotentes)..."
+for f in "$REPO_DIR"/supabase/migrations/*.sql; do
+  [ -e "$f" ] || continue
+  log "  → $(basename "$f")"
+  dc exec -T db psql -U supabase_admin -d postgres -v ON_ERROR_STOP=1 <"$f"
+done
 
 log "Redeploy completado."
