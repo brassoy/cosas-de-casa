@@ -144,8 +144,11 @@ services:
       GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
       GOTRUE_MAILER_AUTOCONFIRM: "true"
       # SMTP real: rellénalo en /opt/cosasdecasa/.env para enviar correos de verdad.
+      # OJO: GoTrue parsea SMTP_PORT a int al arrancar; un '' lo mata (fatal). Con
+      # MAILER_AUTOCONFIRM=true y SMTP_HOST vacío no envía nada, pero el puerto debe
+      # ser un entero válido igualmente → default 587 cuando no se configura SMTP.
       GOTRUE_SMTP_HOST: ${SMTP_HOST:-}
-      GOTRUE_SMTP_PORT: ${SMTP_PORT:-}
+      GOTRUE_SMTP_PORT: ${SMTP_PORT:-587}
       GOTRUE_SMTP_USER: ${SMTP_USER:-}
       GOTRUE_SMTP_PASS: ${SMTP_PASS:-}
       GOTRUE_SMTP_ADMIN_EMAIL: ${SMTP_ADMIN_EMAIL:-no-reply@${APP_DOMAIN}}

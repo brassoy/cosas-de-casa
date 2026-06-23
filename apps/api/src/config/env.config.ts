@@ -46,7 +46,10 @@ const EnvSchema = z.object({
 
   // ── MiniMax (extracción de artículos por IA) ─────────────────────────────
   /** URL base de la API MiniMax (compatible con Anthropic SDK). */
-  MINIMAX_BASE_URL: z.string().url().optional(),
+  // El .env de producción la deja VACÍA cuando no hay IA configurada; '' no es
+  // una URL válida ni se considera ausente, así que la normalizamos a undefined
+  // antes de validar (si no, la API no arranca con la IA desactivada).
+  MINIMAX_BASE_URL: z.preprocess((v) => (v === '' ? undefined : v), z.string().url().optional()),
   /** API Key de MiniMax. */
   MINIMAX_API_KEY: z.string().optional(),
   /** Identificador del modelo MiniMax a usar. */
