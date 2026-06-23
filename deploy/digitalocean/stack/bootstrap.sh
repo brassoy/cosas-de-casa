@@ -198,6 +198,12 @@ END
 \$\$;
 EOF
 cat >"$DATA_DIR/db-init/01-realtime-publication.sql" <<'EOF'
+-- El servicio supabase/realtime conecta con search_path=_realtime y corre ahí
+-- sus migraciones Ecto; si el schema no existe falla con "no schema has been
+-- selected to create in". Lo creamos antes (idempotente), propiedad del rol con
+-- el que realtime conecta (supabase_admin).
+CREATE SCHEMA IF NOT EXISTS _realtime AUTHORIZATION supabase_admin;
+
 -- La publicación supabase_realtime debe existir antes de que las migraciones
 -- del repo (drizzle/0001,0003,0005,0006) añadan tablas a ella.
 DO $$
