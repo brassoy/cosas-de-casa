@@ -309,14 +309,9 @@ dc run --rm --no-deps \
   -e DATABASE_URL="postgres://postgres:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}" \
   api sh -c "cd /repo && pnpm --filter @cosasdecasa/api db:migrate"
 
-# 7b. Migraciones SQL de Supabase del repo (buckets de Storage + políticas RLS).
-#     Las aplicamos con psql del contenedor db (como superusuario).
-log "Aplicando supabase/migrations/*.sql (buckets task-photos/avatars + RLS)..."
-for f in "$REPO_DIR"/supabase/migrations/*.sql; do
-  [ -e "$f" ] || continue
-  log "  → $(basename "$f")"
-  dc exec -T db psql -U supabase_admin -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 <"$f"
-done
+# 7b. (Las migraciones SQL de Supabase —buckets de Storage + RLS— se aplican en
+#      el PASO 10, DESPUÉS de levantar la pila: insertan en storage.buckets, una
+#      tabla que NO existe hasta que el servicio storage-api migra al arrancar.)
 
 # --- 8. Build de la web estática (hornea las VITE_* del .env) -----------------
 # Construimos dentro de la imagen de la API (tiene pnpm y todo el workspace) y
@@ -329,6 +324,22 @@ dc run --rm --no-deps --env-file "$ENV_FILE" \
 # --- 9. Levantar la pila completa --------------------------------------------
 log "Levantando la pila completa..."
 dc up -d
+
+# --- 10. Migraciones SQL de Supabase (buckets de Storage + RLS) ---------------
+# storage.buckets la crea storage-api con sus propias migraciones al arrancar;
+# por eso esperamos a que el schema exista ANTES de insertar los buckets
+# (task-photos/avatars) y sus políticas RLS.
+log "Esperando a que storage-api cree su schema (storage.buckets)..."
+for _ in $(seq 1 40); do
+  [ "$(dc exec -T db psql -U supabase_admin -d "$POSTGRES_DB" -tAc "select to_regclass('storage.buckets') is not null" 2>/dev/null)" = "t" ] && break
+  sleep 3
+done
+log "Aplicando supabase/migrations/*.sql (buckets task-photos/avatars + RLS)..."
+for f in "$REPO_DIR"/supabase/migrations/*.sql; do
+  [ -e "$f" ] || continue
+  log "  → $(basename "$f")"
+  dc exec -T db psql -U supabase_admin -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 <"$f"
+done
 
 log "LISTO. Comprueba: https://${APP_DOMAIN}  (Caddy emite el TLS con el DNS ya apuntando)."
 log "Pendiente post-deploy (ver README): VITE_GOOGLE_MAPS_API_KEY restringida por referrer,"
