@@ -54,36 +54,17 @@ export default function GroupHomeView({
   pinError,
   pinRevoking,
   pinRevokeError,
-  leaveLoading,
-  leaveError,
   onBack,
   onGeneratePin,
   onRevokePin,
-  onLeave,
+  onOpenSettings,
   currentUserId,
   onChangeMemberRole,
   changingRoleUserId,
   onExpelMember,
   expellingUserId,
-  onUpdateGroup,
-  groupDescription,
-  updateLoading,
-  updateError,
-  onDeleteGroup,
-  deleteLoading,
-  deleteError,
 }: GroupHomeViewProps) {
-  const [confirmLeave, setConfirmLeave] = useState(false);
-
   const canManage = isOwner && Boolean(onChangeMemberRole || onExpelMember);
-
-  function handleLeave() {
-    if (!confirmLeave) {
-      setConfirmLeave(true);
-      return;
-    }
-    onLeave();
-  }
 
   const membersCount = members?.length ?? 0;
   const sub = members
@@ -106,6 +87,13 @@ export default function GroupHomeView({
           </button>
           <h1 className="sf-bangers text-4xl leading-none mt-1">{groupName}</h1>
           {sub && <p className="sf-fredoka text-sm mt-1">{sub}</p>}
+          <button
+            type="button"
+            onClick={onOpenSettings}
+            className="sf-btn sf-btn-w !py-1.5 !px-3 text-xs mt-3"
+          >
+            ⚙️ Ajustes
+          </button>
           <Lightning className="absolute -top-3 right-3 w-7 sf-wob" />
         </header>
 
@@ -186,68 +174,6 @@ export default function GroupHomeView({
           </section>
         )}
 
-        {/* ── Editar peña (solo OWNER) ── */}
-        {isOwner && onUpdateGroup && (
-          <EditGroupSection
-            groupName={groupName}
-            groupDescription={groupDescription}
-            loading={updateLoading}
-            error={updateError}
-            onSave={onUpdateGroup}
-          />
-        )}
-
-        {/* ── Borrar peña (solo OWNER) ── */}
-        {isOwner && onDeleteGroup && (
-          <DeleteGroupSection
-            loading={deleteLoading}
-            error={deleteError}
-            onDelete={onDeleteGroup}
-          />
-        )}
-
-        {/* ── Salir de la peña ── */}
-        <section aria-labelledby="leave-heading">
-          <p id="leave-heading" className="sf-bangers text-xl mb-2">
-            Salir de la peña
-          </p>
-          {leaveError && (
-            <p
-              role="alert"
-              className="sf-card p-3 mb-3 text-sm font-bold"
-              style={{ background: '#fff', borderColor: '#E53935', color: '#E53935' }}
-            >
-              {leaveError}
-            </p>
-          )}
-          {confirmLeave ? (
-            <div className="sf-card p-4 space-y-3">
-              <p className="sf-fredoka text-sm">¿Seguro que quieres salir de esta peña?</p>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  className="sf-btn sf-btn-r disabled:opacity-60"
-                  onClick={handleLeave}
-                  disabled={leaveLoading}
-                >
-                  {leaveLoading ? 'Saliendo…' : 'Confirmar'}
-                </button>
-                <button
-                  type="button"
-                  className="sf-btn sf-btn-w disabled:opacity-60"
-                  onClick={() => setConfirmLeave(false)}
-                  disabled={leaveLoading}
-                >
-                  Cancelar
-                </button>
-              </div>
-            </div>
-          ) : (
-            <button type="button" className="sf-btn sf-btn-r" onClick={handleLeave}>
-              Salir de la peña
-            </button>
-          )}
-        </section>
       </div>
     </div>
   );
@@ -308,143 +234,6 @@ function MemberRow({
         </div>
       )}
     </div>
-  );
-}
-
-interface EditGroupSectionProps {
-  groupName: string;
-  groupDescription?: string;
-  loading?: boolean;
-  error?: string | null;
-  onSave: (input: { name?: string; description?: string }) => void;
-}
-
-function EditGroupSection({
-  groupName,
-  groupDescription,
-  loading,
-  error,
-  onSave,
-}: EditGroupSectionProps) {
-  const [name, setName] = useState(groupName);
-  const [description, setDescription] = useState(groupDescription ?? '');
-
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const trimmedName = name.trim();
-    onSave({
-      name: trimmedName ? trimmedName : undefined,
-      description: description.trim(),
-    });
-  }
-
-  return (
-    <section className="mb-4" aria-labelledby="edit-heading">
-      <p id="edit-heading" className="sf-bangers text-xl mb-2">
-        Editar peña
-      </p>
-      {error && (
-        <p
-          role="alert"
-          className="sf-card p-3 mb-3 text-sm font-bold"
-          style={{ background: '#fff', borderColor: '#E53935', color: '#E53935' }}
-        >
-          {error}
-        </p>
-      )}
-      <form className="sf-card p-3 space-y-3" onSubmit={handleSubmit}>
-        <label className="block">
-          <span className="sf-fredoka text-sm block mb-1">Nombre</span>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            maxLength={100}
-            className="sf-input"
-            aria-label="Nombre de la peña"
-          />
-        </label>
-        <label className="block">
-          <span className="sf-fredoka text-sm block mb-1">Descripción</span>
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            maxLength={500}
-            rows={3}
-            className="sf-input resize-y"
-            aria-label="Descripción de la peña"
-          />
-        </label>
-        <button type="submit" className="sf-btn sf-btn-r disabled:opacity-60" disabled={loading}>
-          {loading ? 'Guardando…' : 'Guardar cambios'}
-        </button>
-      </form>
-    </section>
-  );
-}
-
-interface DeleteGroupSectionProps {
-  loading?: boolean;
-  error?: string | null;
-  onDelete: () => void;
-}
-
-function DeleteGroupSection({ loading, error, onDelete }: DeleteGroupSectionProps) {
-  const [confirm, setConfirm] = useState(false);
-
-  function handleDelete() {
-    if (!confirm) {
-      setConfirm(true);
-      return;
-    }
-    onDelete();
-  }
-
-  return (
-    <section className="mb-4" aria-labelledby="delete-heading">
-      <p id="delete-heading" className="sf-bangers text-xl mb-2" style={{ color: '#E53935' }}>
-        Borrar peña
-      </p>
-      <p className="sf-fredoka text-sm mb-2">
-        Se borra la peña entera. Esta acción no se puede deshacer.
-      </p>
-      {error && (
-        <p
-          role="alert"
-          className="sf-card p-3 mb-3 text-sm font-bold"
-          style={{ background: '#fff', borderColor: '#E53935', color: '#E53935' }}
-        >
-          {error}
-        </p>
-      )}
-      {confirm ? (
-        <div className="sf-card p-4 space-y-3">
-          <p className="sf-fredoka text-sm">¿Seguro que quieres borrar esta peña para siempre?</p>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              className="sf-btn sf-btn-r disabled:opacity-60"
-              onClick={handleDelete}
-              disabled={loading}
-            >
-              {loading ? 'Borrando…' : 'Sí, borrar peña'}
-            </button>
-            <button
-              type="button"
-              className="sf-btn sf-btn-w disabled:opacity-60"
-              onClick={() => setConfirm(false)}
-              disabled={loading}
-            >
-              Cancelar
-            </button>
-          </div>
-        </div>
-      ) : (
-        <button type="button" className="sf-btn sf-btn-r" onClick={handleDelete}>
-          Borrar peña
-        </button>
-      )}
-    </section>
   );
 }
 

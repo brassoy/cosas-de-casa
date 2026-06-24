@@ -89,10 +89,6 @@ export interface GroupHomeViewProps {
   pinLoading?: boolean;
   /** Error al generar el PIN; `null`/`undefined` si no hay. */
   pinError?: string | null;
-  /** La salida de la peña está en curso. */
-  leaveLoading?: boolean;
-  /** Error al salir de la peña; `null`/`undefined` si no hay. */
-  leaveError?: string | null;
   /** Volver al listado de peñas. */
   onBack: () => void;
   /** Generar un nuevo PIN de invitación (solo OWNER). */
@@ -107,11 +103,12 @@ export interface GroupHomeViewProps {
   pinRevoking?: boolean;
   /** Error al revocar el PIN; `null`/`undefined` si no hay. */
   pinRevokeError?: string | null;
+
   /**
-   * Salir de la peña. La confirmación en 2 toques es UI y vive en la vista; el
-   * container solo recibe la confirmación final y ejecuta la mutación.
+   * Abre la pantalla de "Ajustes de la peña" (editar, borrar, salir). Visible
+   * para todos los miembros: cualquiera puede al menos salir de la peña.
    */
-  onLeave: () => void;
+  onOpenSettings: () => void;
 
   // ── Gestión de la peña (solo OWNER) ─────────────────────────────────────────
   // Estos callbacks son OPCIONALES: el container solo los cablea cuando el
@@ -136,11 +133,21 @@ export interface GroupHomeViewProps {
   onExpelMember?: (userId: string) => void;
   /** El `userId` que se está expulsando ahora mismo; `null` si ninguno. */
   expellingUserId?: string | null;
+}
+
+// ── group_settings (ajustes de peña: editar, borrar, salir) ───────────────────
+
+export interface GroupSettingsViewProps {
+  /** Nombre de la peña activa (lo resuelve el container desde el store). */
+  groupName: string;
+  /** ¿El usuario autenticado es OWNER de la peña? (controla editar/borrar). */
+  isOwner: boolean;
 
   /**
-   * Guarda los nuevos nombre/descripción de la peña. La vista mantiene el
-   * formulario controlado y envía solo los campos presentes; el container
-   * ejecuta la mutación e invalida queries.
+   * Guarda los nuevos nombre/descripción de la peña (solo OWNER). La vista
+   * mantiene el formulario controlado y envía solo los campos presentes; el
+   * container ejecuta la mutación e invalida queries. OPCIONAL: si el container
+   * no lo cablea (no es OWNER), la vista no muestra la sección de edición.
    */
   onUpdateGroup?: (input: { name?: string; description?: string }) => void;
   /** Valor inicial de la descripción para precargar el formulario de edición. */
@@ -151,13 +158,27 @@ export interface GroupHomeViewProps {
   updateError?: string | null;
 
   /**
-   * Borra la peña entera. La confirmación en 2 toques es UI y vive en la vista;
-   * el container recibe la confirmación final, ejecuta la mutación y navega al
-   * listado tras el éxito.
+   * Borra la peña entera (solo OWNER). La confirmación en 2 toques es UI y vive
+   * en la vista; el container recibe la confirmación final, ejecuta la mutación
+   * y navega al listado tras el éxito. OPCIONAL: si el container no lo cablea
+   * (no es OWNER), la vista no muestra la sección de borrado.
    */
   onDeleteGroup?: () => void;
   /** El borrado de la peña está en curso. */
   deleteLoading?: boolean;
   /** Error al borrar la peña; `null`/`undefined` si no hay. */
   deleteError?: string | null;
+
+  /**
+   * Salir de la peña. La confirmación en 2 toques es UI y vive en la vista; el
+   * container solo recibe la confirmación final y ejecuta la mutación.
+   */
+  onLeave: () => void;
+  /** La salida de la peña está en curso. */
+  leaveLoading?: boolean;
+  /** Error al salir de la peña; `null`/`undefined` si no hay. */
+  leaveError?: string | null;
+
+  /** Volver al home de la peña. */
+  onBack: () => void;
 }

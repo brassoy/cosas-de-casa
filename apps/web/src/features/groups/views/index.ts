@@ -14,6 +14,7 @@ export const groupsBaseViews: Partial<Record<ScreenId, AnyView>> = {
   group_create: lazy(() => import('./base/CreateGroupView')),
   group_join: lazy(() => import('./base/JoinGroupView')),
   group_home: lazy(() => import('./base/GroupHomeView')),
+  group_settings: lazy(() => import('./base/GroupSettingsView')),
 };
 
 export const groupsCozysitcomViews: Partial<Record<ScreenId, AnyView>> = {
@@ -21,6 +22,7 @@ export const groupsCozysitcomViews: Partial<Record<ScreenId, AnyView>> = {
   group_create: lazy(() => import('./cozysitcom/CreateGroupView')),
   group_join: lazy(() => import('./cozysitcom/JoinGroupView')),
   group_home: lazy(() => import('./cozysitcom/GroupHomeView')),
+  group_settings: lazy(() => import('./cozysitcom/GroupSettingsView')),
 };
 
 export const groupsSpringfieldViews: Partial<Record<ScreenId, AnyView>> = {
@@ -28,6 +30,7 @@ export const groupsSpringfieldViews: Partial<Record<ScreenId, AnyView>> = {
   group_create: lazy(() => import('./springfield/CreateGroupView')),
   group_join: lazy(() => import('./springfield/JoinGroupView')),
   group_home: lazy(() => import('./springfield/GroupHomeView')),
+  group_settings: lazy(() => import('./springfield/GroupSettingsView')),
 };
 
 export const groupsCozyViews: Partial<Record<ScreenId, AnyView>> = {
@@ -35,4 +38,5 @@ export const groupsCozyViews: Partial<Record<ScreenId, AnyView>> = {
   group_create: lazy(() => import('./cozy/CreateGroupView')),
   group_join: lazy(() => import('./cozy/JoinGroupView')),
   group_home: lazy(() => import('./cozy/GroupHomeView')),
+  group_settings: lazy(() => import('./cozy/GroupSettingsView')),
 };
