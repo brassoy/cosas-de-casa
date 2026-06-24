@@ -178,3 +178,18 @@ export interface FamilyManageProps {
   /** Error al borrar la familia. */
   deleteError?: string | null;
 }
+
+// ── family_manage ────────────────────────────────────────────────────────────
+
+export interface FamilyManageViewProps {
+  /**
+   * Datos y callbacks de las tres acciones de administración (gestión de
+   * miembros, edición de nombre/descripción y borrado de la familia). Toda la
+   * lógica (confirmaciones, llamadas a la API, navegación) vive en el container.
+   */
+  manage: FamilyManageProps;
+  /** Miembros de la familia (DTO real) para la sección de gestión de roles. */
+  members: FamilyMemberDto[];
+  /** Volver a la home de la familia (la navegación vive en el container). */
+  onBack: () => void;
+}

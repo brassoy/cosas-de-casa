@@ -14,30 +14,20 @@
 
 import { useMemo, useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
-import { toast } from 'sonner';
-import type { GeneratePinResponse, MembershipRole } from '@cosasdecasa/contracts';
+import type { GeneratePinResponse } from '@cosasdecasa/contracts';
 import { ThemeView } from '@/shared/theme/ThemeView';
 import { ApiRequestError } from '@/shared/lib/api';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { useNotificationsStore } from '@/features/notifications/store/notifications.store';
 import { useSubscribeToPush } from '@/features/notifications/hooks/useNotifications';
 import {
-  useChangeMemberRole,
-  useDeleteFamily,
-  useFamily,
   useFamilyMembers,
   useGenerateJoinPin,
   useLeaveFamily,
-  useRemoveMember,
   useRevokeFamilyPin,
-  useUpdateFamily,
 } from '../hooks/useFamily';
 import { useFamilyStore } from '../store/family.store';
-import type {
-  FamilyHomeViewProps,
-  FamilyManageProps,
-  FamilyQuickAccess,
-} from '../views/types';
+import type { FamilyHomeViewProps, FamilyQuickAccess } from '../views/types';
 
 // ── Accesos rápidos: id estable (también usado como destino en onOpen) ────────
 
@@ -68,11 +58,6 @@ function buildShareText(pin: string): string {
   return `¡Únete a mi familia en Cosas de Casa! Usa el PIN: ${pin}`;
 }
 
-/** Mensaje de negocio de una `ApiRequestError`, con fallback genérico. */
-function errorMessage(err: unknown, fallback: string): string {
-  return err instanceof ApiRequestError ? err.body.message : fallback;
-}
-
 export function FamilyHomePage() {
   const navigate = useNavigate();
   const activeFamily = useFamilyStore((s) => s.activeFamily);
@@ -84,25 +69,16 @@ export function FamilyHomePage() {
   const revokePin = useRevokeFamilyPin(familyId);
   const leaveFamily = useLeaveFamily(familyId);
 
-  // ── Gestión de la familia (solo OWNER) ──────────────────────────────────────
+  // Detección de OWNER: se usa para la sección de invitación y el botón de
+  // revocar PIN. La GESTIÓN de la familia (editar/borrar/miembros) vive ahora en
+  // su propia pantalla (`FamilyManagePage` + `useFamilyManage`).
   const isOwner =
     members?.some((m) => m.userId === user?.id && m.role === 'OWNER') ?? false;
-  // El detalle (nombre/descripción) solo hace falta para el formulario del OWNER.
-  const { data: familyDetail } = useFamily(isOwner ? activeFamily?.id : undefined);
-  const updateFamily = useUpdateFamily(familyId);
-  const deleteFamily = useDeleteFamily(familyId);
-  const removeMember = useRemoveMember(familyId);
-  const changeMemberRole = useChangeMemberRole(familyId);
 
   const [generatedPin, setGeneratedPin] = useState<GeneratePinResponse | null>(null);
   const [pinError, setPinError] = useState<string | null>(null);
   const [pinRevokeError, setPinRevokeError] = useState<string | null>(null);
   const [leaveError, setLeaveError] = useState<string | null>(null);
-  const [detailsError, setDetailsError] = useState<string | null>(null);
-  const [memberError, setMemberError] = useState<string | null>(null);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [roleChangingId, setRoleChangingId] = useState<string | null>(null);
-  const [removingId, setRemovingId] = useState<string | null>(null);
 
   // ── Notificaciones (props puras derivadas del store + mutación) ─────────────
   const { permissionStatus, isSubscribed, isLoading: notifStoreLoading } =
@@ -201,87 +177,6 @@ export function FamilyHomePage() {
     });
   }
 
-  // ── Gestión de miembros (solo OWNER) ───────────────────────────────────────
-
-  function handleChangeRole(userId: string, role: MembershipRole) {
-    const target = members?.find((m) => m.userId === userId);
-    if (target && target.role === role) return; // sin cambios
-    setMemberError(null);
-    setRoleChangingId(userId);
-    changeMemberRole.mutate(
-      { userId, role },
-      {
-        onSuccess: () => toast.success('Rol actualizado.'),
-        onError: (err) => {
-          const msg = errorMessage(err, 'No se ha podido cambiar el rol.');
-          setMemberError(msg);
-          toast.error(msg);
-        },
-        onSettled: () => setRoleChangingId(null),
-      },
-    );
-  }
-
-  function handleRemoveMember(userId: string) {
-    const target = members?.find((m) => m.userId === userId);
-    const who = target ? `a ${target.displayName}` : 'a este miembro';
-    if (!window.confirm(`¿Seguro que quieres expulsar ${who} de la familia?`)) {
-      return;
-    }
-    setMemberError(null);
-    setRemovingId(userId);
-    removeMember.mutate(userId, {
-      onSuccess: () => toast.success('Miembro expulsado.'),
-      onError: (err) => {
-        const msg = errorMessage(err, 'No se ha podido expulsar al miembro.');
-        setMemberError(msg);
-        toast.error(msg);
-      },
-      onSettled: () => setRemovingId(null),
-    });
-  }
-
-  // ── Editar nombre/descripción (solo OWNER) ─────────────────────────────────
-
-  function handleSaveDetails(input: { name?: string; description?: string }) {
-    setDetailsError(null);
-    updateFamily.mutate(input, {
-      onSuccess: () => toast.success('Familia actualizada.'),
-      onError: (err) => {
-        const msg = errorMessage(err, 'No se ha podido guardar la familia.');
-        setDetailsError(msg);
-        toast.error(msg);
-      },
-    });
-  }
-
-  // ── Borrar la familia (solo OWNER) ─────────────────────────────────────────
-
-  function handleDeleteFamily() {
-    // Confirmación FUERTE: el borrado es irreversible para toda la familia.
-    if (
-      !window.confirm(
-        '¿Seguro que quieres BORRAR la familia? Se eliminarán sus listas, tareas y datos para todos los miembros. Esta acción NO se puede deshacer.',
-      )
-    ) {
-      return;
-    }
-    setDeleteError(null);
-    deleteFamily.mutate(undefined, {
-      // El hook ya limpia la familia activa del store (clearFamily). Navegamos a
-      // onboarding ("/") como tras salir de la familia.
-      onSuccess: async () => {
-        toast.success('Familia borrada.');
-        await navigate({ to: '/' });
-      },
-      onError: (err) => {
-        const msg = errorMessage(err, 'No se ha podido borrar la familia.');
-        setDeleteError(msg);
-        toast.error(msg);
-      },
-    });
-  }
-
   function handleCopyPin() {
     if (!generatedPin) return;
     void navigator.clipboard.writeText(generatedPin.code);
@@ -304,41 +199,6 @@ export function FamilyHomePage() {
     }
     subscribe.mutate();
   }
-
-  // Sección "Gestionar familia": solo se cablea para el OWNER. La vista la
-  // oculta si `manage` llega undefined (no-OWNER).
-  const manage: FamilyManageProps | undefined = useMemo(() => {
-    if (!isOwner) return undefined;
-    return {
-      onChangeRole: handleChangeRole,
-      onRemoveMember: handleRemoveMember,
-      currentUserId: user?.id ?? '',
-      roleChangingId,
-      removingId,
-      memberError,
-      initialName: familyDetail?.name ?? activeFamily?.name ?? '',
-      initialDescription: familyDetail?.description ?? '',
-      onSaveDetails: handleSaveDetails,
-      detailsSaving: updateFamily.isPending,
-      detailsError,
-      onDeleteFamily: handleDeleteFamily,
-      deleteLoading: deleteFamily.isPending,
-      deleteError,
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    isOwner,
-    user?.id,
-    roleChangingId,
-    removingId,
-    memberError,
-    familyDetail,
-    activeFamily,
-    updateFamily.isPending,
-    detailsError,
-    deleteFamily.isPending,
-    deleteError,
-  ]);
 
   const viewProps: FamilyHomeViewProps = useMemo(
     () => ({
@@ -372,8 +232,6 @@ export function FamilyHomePage() {
       onLeaveFamily: handleLeaveFamily,
       leaveLoading: leaveFamily.isPending,
       leaveError,
-      // Gestionar familia: solo OWNER (undefined en caso contrario).
-      manage,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
@@ -394,7 +252,6 @@ export function FamilyHomePage() {
       notifStoreLoading,
       subscribe.error,
       subscribe.isPending,
-      manage,
     ],
   );
 

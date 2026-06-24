@@ -14,6 +14,7 @@ export const familyBaseViews: Partial<Record<ScreenId, AnyView>> = {
   family_create: lazy(() => import('./base/CreateFamilyView')),
   family_join: lazy(() => import('./base/JoinFamilyView')),
   family_home: lazy(() => import('./base/FamilyHomeView')),
+  family_manage: lazy(() => import('./base/FamilyManageView')),
 };
 
 export const familyCozyViews: Partial<Record<ScreenId, AnyView>> = {
@@ -21,6 +22,7 @@ export const familyCozyViews: Partial<Record<ScreenId, AnyView>> = {
   family_create: lazy(() => import('./cozy/CreateFamilyView')),
   family_join: lazy(() => import('./cozy/JoinFamilyView')),
   family_home: lazy(() => import('./cozy/FamilyHomeView')),
+  family_manage: lazy(() => import('./cozy/FamilyManageView')),
 };
 
 export const familyCozysitcomViews: Partial<Record<ScreenId, AnyView>> = {
@@ -28,6 +30,7 @@ export const familyCozysitcomViews: Partial<Record<ScreenId, AnyView>> = {
   family_create: lazy(() => import('./cozysitcom/CreateFamilyView')),
   family_join: lazy(() => import('./cozysitcom/JoinFamilyView')),
   family_home: lazy(() => import('./cozysitcom/FamilyHomeView')),
+  family_manage: lazy(() => import('./cozysitcom/FamilyManageView')),
 };
 
 export const familySpringfieldViews: Partial<Record<ScreenId, AnyView>> = {
@@ -35,4 +38,5 @@ export const familySpringfieldViews: Partial<Record<ScreenId, AnyView>> = {
   family_create: lazy(() => import('./springfield/CreateFamilyView')),
   family_join: lazy(() => import('./springfield/JoinFamilyView')),
   family_home: lazy(() => import('./springfield/FamilyHomeView')),
+  family_manage: lazy(() => import('./springfield/FamilyManageView')),
 };
