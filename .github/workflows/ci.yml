@@ -34,7 +34,7 @@ jobs:
       - name: Configurar Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'    # engines.node >= 20.10 — usamos la LTS más reciente del rango
+          node-version: '22'    # pnpm 11.1.2 exige Node >=22.13; Node 22 LTS (20 ya no arranca pnpm)
           cache: pnpm
 
       - name: Instalar dependencias
@@ -120,7 +120,7 @@ jobs:
       - name: Configurar Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: pnpm
 
       - name: Instalar dependencias
