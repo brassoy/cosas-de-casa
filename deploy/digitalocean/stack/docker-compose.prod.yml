@@ -133,7 +133,9 @@ services:
       GOTRUE_DB_DRIVER: postgres
       GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       GOTRUE_SITE_URL: https://${APP_DOMAIN}
-      GOTRUE_URI_ALLOW_LIST: https://${APP_DOMAIN}
+      # Incluye sub-rutas (/**) para que valgan los redirect post-login del front:
+      # /auth/callback (OAuth Google) y /reset-password (recuperación de contraseña).
+      GOTRUE_URI_ALLOW_LIST: https://${APP_DOMAIN},https://${APP_DOMAIN}/**
       GOTRUE_DISABLE_SIGNUP: "false"
       GOTRUE_JWT_ADMIN_ROLES: service_role
       GOTRUE_JWT_AUD: authenticated
@@ -152,6 +154,13 @@ services:
       GOTRUE_SMTP_USER: ${SMTP_USER:-}
       GOTRUE_SMTP_PASS: ${SMTP_PASS:-}
       GOTRUE_SMTP_ADMIN_EMAIL: ${SMTP_ADMIN_EMAIL:-no-reply@${APP_DOMAIN}}
+      # OAuth Google. Credenciales en /opt/cosasdecasa/.env (GOOGLE_CLIENT_ID / GOOGLE_SECRET).
+      # ENABLED por defecto en false: GoTrue es fatal al arrancar si el provider está
+      # habilitado sin client_id/secret, así que se activa explícitamente vía GOOGLE_ENABLED.
+      GOTRUE_EXTERNAL_GOOGLE_ENABLED: ${GOOGLE_ENABLED:-false}
+      GOTRUE_EXTERNAL_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOTRUE_EXTERNAL_GOOGLE_SECRET: ${GOOGLE_SECRET:-}
+      GOTRUE_EXTERNAL_GOOGLE_REDIRECT_URI: https://${APP_DOMAIN}/auth/v1/callback
     depends_on:
       db:
         condition: service_healthy
