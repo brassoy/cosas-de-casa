@@ -10,7 +10,7 @@
  *  ✓ PATCH /api/v1/fridge-items/:itemId        → actualiza el ítem
  *  ✓ POST /api/v1/fridge-items/:itemId/eat     → decrementa cantidad; deleted=false
  *  ✓ POST /api/v1/fridge-items/:itemId/eat     → sin cantidad → deleted=true
- *  ✓ POST /api/v1/fridge-items/:itemId/throw   → 204 y elimina el ítem
+ *  ✓ POST /api/v1/fridge-items/:itemId/throw   → 200 y mueve el ítem a DISCARDED
  *  ✓ POST /api/v1/fridge-items/:itemId/freeze  → location=FREEZER
  *  ✓ DELETE /api/v1/fridge-items/:itemId       → 204
  *  ✓ 401 sin token
@@ -258,17 +258,20 @@ describe('Fridge context – integración', () => {
       if (owner) await deleteTestUser(owner.userId);
     });
 
-    it('elimina el ítem (desperdicio) y responde 204', async () => {
+    it('mueve el ítem a DISCARDED (desperdicio) y responde 200', async () => {
       const item = await addItem(owner.accessToken, familyId, { name: 'Pan caducado' });
       const res = await request(server)
         .post(`/api/v1/fridge-items/${item.id}/throw`)
         .set('Authorization', `Bearer ${owner.accessToken}`);
-      expect(res.status).toBe(204);
+      expect(res.status).toBe(200);
+      expect((res.body as { location: string }).location).toBe('DISCARDED');
 
+      // El ítem sigue existiendo: es un registro de comida tirada.
       const getRes = await request(server)
         .get(`/api/v1/fridge-items/${item.id}`)
         .set('Authorization', `Bearer ${owner.accessToken}`);
-      expect(getRes.status).toBe(404);
+      expect(getRes.status).toBe(200);
+      expect((getRes.body as { location: string }).location).toBe('DISCARDED');
     });
   });
 

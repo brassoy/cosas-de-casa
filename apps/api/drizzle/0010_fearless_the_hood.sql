@@ -1,0 +1,1 @@
+ALTER TYPE "public"."fridge_location" ADD VALUE 'DISCARDED';

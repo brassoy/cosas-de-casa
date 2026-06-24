@@ -300,7 +300,7 @@ export const taskComments = pgTable(
 
 // ── fridge_location ───────────────────────────────────────────────────────────
 
-export const fridgeLocationEnum = pgEnum('fridge_location', ['FRIDGE', 'FREEZER', 'PANTRY']);
+export const fridgeLocationEnum = pgEnum('fridge_location', ['FRIDGE', 'FREEZER', 'PANTRY', 'DISCARDED']);
 
 // ── fridge_items ──────────────────────────────────────────────────────────────
 
@@ -324,6 +324,25 @@ export const fridgeItems = pgTable(
     index('fridge_items_family_idx').on(table.familyId),
     index('fridge_items_expiry_idx').on(table.expiryDate),
   ],
+);
+
+// ── recipes ────────────────────────────────────────────────────────────────
+// Recetas/platos guardados por la familia, con su lista de ingredientes (nombres).
+// El chequeo de disponibilidad cruza estos nombres contra fridge_items.
+
+export const recipes = pgTable(
+  'recipes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    familyId: uuid('family_id')
+      .notNull()
+      .references(() => families.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    ingredients: text('ingredients').array().notNull(),
+    createdBy: uuid('created_by').references(() => appUsers.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [index('recipes_family_idx').on(table.familyId)],
 );
 
 // ── push_subscriptions ────────────────────────────────────────────────────────
@@ -785,6 +804,7 @@ export type TaskAssigneeRow = typeof taskAssignees.$inferSelect;
 export type TaskPhotoRow = typeof taskPhotos.$inferSelect;
 export type TaskCommentRow = typeof taskComments.$inferSelect;
 export type FridgeItemRow = typeof fridgeItems.$inferSelect;
+export type RecipeRow = typeof recipes.$inferSelect;
 export type PushSubscriptionRow = typeof pushSubscriptions.$inferSelect;
 export type CalendarEventRow = typeof calendarEvents.$inferSelect;
 export type EventAttendeeRow = typeof eventAttendees.$inferSelect;

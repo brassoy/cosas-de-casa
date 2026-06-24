@@ -283,6 +283,14 @@ import { MENU_SUGGESTION_PORT } from '../../src/contexts/menu/domain/ports/menu-
 import { MenuAiUnavailableError } from '../../src/contexts/menu/domain/menu.errors';
 import { SuggestMenuUseCase } from '../../src/contexts/menu/application/suggest-menu.use-case';
 import { GenerateListFromMenuUseCase } from '../../src/contexts/menu/application/generate-list-from-menu.use-case';
+import { RECIPE_REPOSITORY } from '../../src/contexts/menu/domain/ports/recipe.repository';
+import { DrizzleRecipeRepository } from '../../src/contexts/menu/infrastructure/drizzle-recipe.repository';
+import { MENU_CLOCK } from '../../src/contexts/menu/application/ports/clock';
+import { MENU_ID_GENERATOR } from '../../src/contexts/menu/application/ports/id-generator';
+import { CreateRecipeUseCase } from '../../src/contexts/menu/application/create-recipe.use-case';
+import { ListRecipesUseCase } from '../../src/contexts/menu/application/list-recipes.use-case';
+import { DeleteRecipeUseCase } from '../../src/contexts/menu/application/delete-recipe.use-case';
+import { CheckRecipeAvailabilityUseCase } from '../../src/contexts/menu/application/check-recipe-availability.use-case';
 
 // ── tasks ──────────────────────────────────────────────────────────────────
 import { TasksController } from '../../src/contexts/tasks/interface/tasks.controller';
@@ -912,9 +920,31 @@ export async function createTestApp(): Promise<TestApp> {
         },
       },
 
+      // ── menu: recetas (repositorio + clock/id reutilizados) ────────────
+      {
+        provide: RECIPE_REPOSITORY,
+        inject: [DRIZZLE],
+        useFactory: (db: ReturnType<typeof drizzle>) =>
+          new DrizzleRecipeRepository(db as Parameters<typeof DrizzleRecipeRepository.prototype.constructor>[0]),
+      },
+      {
+        provide: MENU_CLOCK,
+        useExisting: SystemClock,
+      },
+      {
+        provide: MENU_ID_GENERATOR,
+        useExisting: UuidIdGenerator,
+      },
+
       // ── menu: casos de uso ────────────────────────────────────────────
+      // CheckRecipeAvailabilityUseCase recibe el stub determinista de
+      // EMBEDDING_PORT registrado más arriba (sección ai).
       SuggestMenuUseCase,
       GenerateListFromMenuUseCase,
+      CreateRecipeUseCase,
+      ListRecipesUseCase,
+      DeleteRecipeUseCase,
+      CheckRecipeAvailabilityUseCase,
     ],
   }).compile();
 
