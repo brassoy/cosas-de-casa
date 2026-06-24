@@ -8,4 +8,8 @@ export type {
   SuggestMenuInput,
   MenuToListInput,
   MenuToListResultDto,
+  RecipeDto,
+  CreateRecipeInput,
+  IngredientAvailability,
+  RecipeAvailabilityDto,
 } from '@cosasdecasa/contracts';

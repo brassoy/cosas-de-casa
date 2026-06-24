@@ -7,13 +7,27 @@ import type { Env } from '../../config/env.config';
 
 // ── Domain ports ─────────────────────────────────────────────────────────────
 import { MENU_SUGGESTION_PORT } from './domain/ports/menu-suggestion.port';
+import { RECIPE_REPOSITORY } from './domain/ports/recipe.repository';
+
+// ── Application ports ────────────────────────────────────────────────────────
+import { MENU_CLOCK } from './application/ports/clock';
+import { MENU_ID_GENERATOR } from './application/ports/id-generator';
 
 // ── Use cases ────────────────────────────────────────────────────────────────
 import { SuggestMenuUseCase } from './application/suggest-menu.use-case';
 import { GenerateListFromMenuUseCase } from './application/generate-list-from-menu.use-case';
+import { CreateRecipeUseCase } from './application/create-recipe.use-case';
+import { ListRecipesUseCase } from './application/list-recipes.use-case';
+import { DeleteRecipeUseCase } from './application/delete-recipe.use-case';
+import { CheckRecipeAvailabilityUseCase } from './application/check-recipe-availability.use-case';
 
 // ── Infrastructure ────────────────────────────────────────────────────────────
 import { MinimaxMenuSuggestionAdapter } from './infrastructure/minimax-menu-suggestion.adapter';
+import { DrizzleRecipeRepository } from './infrastructure/drizzle-recipe.repository';
+
+// ── AI (embeddings, reutilizado para el cruce semántico de ingredientes) ──────
+import { EMBEDDING_PORT } from '../ai/domain/ports/embedding.port';
+import { FastEmbedEmbeddingAdapter } from '../ai/infrastructure/fastembed-embedding.adapter';
 
 // ── Interface ─────────────────────────────────────────────────────────────────
 import { MenuController } from './interface/menu.controller';
@@ -80,6 +94,19 @@ import { RateLimitGuard } from '../../common/rate-limit.guard';
       useFactory: (db: Database) => new DrizzleFridgeItemRepository(db),
     },
 
+    // ── Recetas (repositorio + embeddings) ────────────────────────────────
+    {
+      provide: RECIPE_REPOSITORY,
+      inject: [DRIZZLE],
+      useFactory: (db: Database) => new DrizzleRecipeRepository(db),
+    },
+    // Mismo singleton perezoso de embeddings que usa el contexto ai
+    // (ai.module.ts). Degrada a null si el modelo no está disponible.
+    {
+      provide: EMBEDDING_PORT,
+      useFactory: () => FastEmbedEmbeddingAdapter.getInstance(),
+    },
+
     // ── Shopping (reutilizados para GenerateListFromMenu) ─────────────────
     {
       provide: SHOPPING_LIST_REPOSITORY,
@@ -93,8 +120,10 @@ import { RateLimitGuard } from '../../common/rate-limit.guard';
     },
     SystemClock,
     { provide: SHOPPING_CLOCK, useExisting: SystemClock },
+    { provide: MENU_CLOCK, useExisting: SystemClock },
     UuidIdGenerator,
     { provide: SHOPPING_ID_GENERATOR, useExisting: UuidIdGenerator },
+    { provide: MENU_ID_GENERATOR, useExisting: UuidIdGenerator },
 
     // ── Guards ────────────────────────────────────────────────────────────
     RateLimitGuard,
@@ -104,6 +133,10 @@ import { RateLimitGuard } from '../../common/rate-limit.guard';
     AddItemUseCase,
     EnsureAndListListsUseCase,
     GenerateListFromMenuUseCase,
+    CreateRecipeUseCase,
+    ListRecipesUseCase,
+    DeleteRecipeUseCase,
+    CheckRecipeAvailabilityUseCase,
   ],
 })
 export class MenuModule {}

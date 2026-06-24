@@ -19,6 +19,7 @@
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/shared/lib/cn';
 import type { MenuViewProps } from '../types';
+import { RecipesSection } from '../RecipesSection';
 
 export default function MenuView(props: MenuViewProps) {
   const {
@@ -166,6 +167,9 @@ export default function MenuView(props: MenuViewProps) {
           )}
         </div>
       ))}
+
+      {/* ── Mis recetas ────────────────────────────────────────────────── */}
+      <RecipesSection {...props} />
 
       {/* ── Barra inferior sticky: añadir a la lista ───────────────────── */}
       {suggestion && uniqueMissing.length > 0 && (

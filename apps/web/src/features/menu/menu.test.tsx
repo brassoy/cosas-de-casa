@@ -51,6 +51,15 @@ vi.mock('@/features/menu/hooks/useMenu', () => {
   return {
     useSuggestMenu: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
     useMenuToList: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+    useRecipes: vi.fn(() => ({ data: [], isLoading: false })),
+    useCreateRecipe: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+    useDeleteRecipe: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+    useRecipeAvailability: vi.fn(() => ({ data: undefined, isLoading: false })),
+    recipeKeys: {
+      all: ['recipes'],
+      byFamily: (familyId: string) => ['recipes', 'family', familyId],
+      availability: (recipeId: string) => ['recipes', 'availability', recipeId],
+    },
     ApiRequestError,
   };
 });
@@ -336,5 +345,75 @@ describe('MenuPage', () => {
     expect(
       screen.queryByRole('button', { name: /añadir a la lista/i }),
     ).not.toBeInTheDocument();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 2. Mis recetas
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('Mis recetas', () => {
+  it('renderiza la sección de recetas con el formulario de creación', () => {
+    wrap(<MenuPage />);
+    expect(screen.getByRole('heading', { name: /mis recetas/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/nombre de la receta/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /guardar receta/i })).toBeInTheDocument();
+  });
+
+  it('el botón de guardar está deshabilitado sin nombre ni ingredientes', () => {
+    wrap(<MenuPage />);
+    expect(screen.getByRole('button', { name: /guardar receta/i })).toBeDisabled();
+  });
+
+  it('llama a useCreateRecipe.mutate con nombre e ingredientes', async () => {
+    const user = userEvent.setup();
+    const mockCreate = vi.fn();
+    (useMenuModule.useCreateRecipe as ReturnType<typeof vi.fn>).mockReturnValue({
+      mutate: mockCreate,
+      isPending: false,
+    });
+
+    wrap(<MenuPage />);
+
+    await user.type(screen.getByLabelText(/nombre de la receta/i), 'Ensaladilla');
+    await user.type(screen.getByLabelText('Ingrediente 1'), 'patata cocida');
+    await user.click(screen.getByRole('button', { name: /guardar receta/i }));
+
+    expect(mockCreate).toHaveBeenCalledWith(
+      { name: 'Ensaladilla', ingredients: ['patata cocida'] },
+      expect.any(Object),
+    );
+  });
+
+  it('lista las recetas guardadas con su número de ingredientes', () => {
+    (useMenuModule.useRecipes as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: [{ id: 'r-1', name: 'Ensaladilla', ingredients: ['patata cocida', 'atún'] }],
+      isLoading: false,
+    });
+
+    wrap(<MenuPage />);
+
+    expect(screen.getByRole('button', { name: /desplegar ensaladilla/i })).toBeInTheDocument();
+    expect(screen.getByText(/2 ingredientes/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /eliminar ensaladilla/i })).toBeInTheDocument();
+  });
+
+  it('llama a useDeleteRecipe.mutate al pulsar eliminar', async () => {
+    const user = userEvent.setup();
+    const mockDelete = vi.fn();
+    (useMenuModule.useRecipes as ReturnType<typeof vi.fn>).mockReturnValue({
+      data: [{ id: 'r-1', name: 'Ensaladilla', ingredients: ['atún'] }],
+      isLoading: false,
+    });
+    (useMenuModule.useDeleteRecipe as ReturnType<typeof vi.fn>).mockReturnValue({
+      mutate: mockDelete,
+      isPending: false,
+    });
+
+    wrap(<MenuPage />);
+
+    await user.click(screen.getByRole('button', { name: /eliminar ensaladilla/i }));
+
+    expect(mockDelete).toHaveBeenCalledWith('r-1', expect.any(Object));
   });
 });

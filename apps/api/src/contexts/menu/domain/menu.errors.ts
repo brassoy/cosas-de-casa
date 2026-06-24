@@ -23,3 +23,27 @@ export class MenuListNotFoundError extends MenuDomainError {
     super('La lista de la compra no existe.');
   }
 }
+
+/** La receta no existe. */
+export class RecipeNotFoundError extends MenuDomainError {
+  readonly code = 'RECIPE_NOT_FOUND';
+  constructor() {
+    super('La receta no existe.');
+  }
+}
+
+/** El nombre de la receta no puede estar vacío. */
+export class RecipeNameEmptyError extends MenuDomainError {
+  readonly code = 'RECIPE_NAME_EMPTY';
+  constructor() {
+    super('El nombre de la receta no puede estar vacío.');
+  }
+}
+
+/** Una receta necesita al menos un ingrediente. */
+export class RecipeNoIngredientsError extends MenuDomainError {
+  readonly code = 'RECIPE_NO_INGREDIENTS';
+  constructor() {
+    super('La receta necesita al menos un ingrediente.');
+  }
+}

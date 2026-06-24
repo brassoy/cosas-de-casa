@@ -26,7 +26,10 @@ export class SuggestMenuUseCase {
 
   async execute(command: SuggestMenuCommand): Promise<SuggestMenuResult> {
     const fridgeItems = await this.fridgeRepo.findByFamily(command.familyId);
-    const itemNames = fridgeItems.map((i) => i.name);
+    // Los productos tirados (DISCARDED) no se mandan a la IA: ya no están en casa.
+    const itemNames = fridgeItems
+      .filter((i) => i.location !== 'DISCARDED')
+      .map((i) => i.name);
 
     const dishCount = command.dishCount ?? DEFAULT_DISH_COUNT;
 

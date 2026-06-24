@@ -19,7 +19,25 @@
  * Presentacional puro: solo props in / callbacks out.
  */
 
-import type { MenuSuggestionDto } from '../contracts';
+import type {
+  MenuSuggestionDto,
+  RecipeDto,
+  RecipeAvailabilityDto,
+} from '../contracts';
+
+/**
+ * Vista de una receta con (opcionalmente) su disponibilidad ya calculada.
+ * La disponibilidad se carga de forma perezosa al desplegar la receta.
+ */
+export interface RecipeWithAvailability {
+  recipe: RecipeDto;
+  /** Disponibilidad por ingrediente, o null si aún no se ha cargado. */
+  availability: RecipeAvailabilityDto | null;
+  /** La disponibilidad se está cargando. */
+  isLoading: boolean;
+  /** La receta está desplegada (mostrando ingredientes/disponibilidad). */
+  expanded: boolean;
+}
 
 export interface MenuViewProps {
   /** Última sugerencia recibida de la IA (o null si aún no se pidió). */
@@ -42,4 +60,33 @@ export interface MenuViewProps {
   onSuggest: () => void;
   /** Añade los ingredientes seleccionados a la lista de la compra. */
   onAddToList: () => void;
+
+  // ── Recetas ("Mis recetas") ───────────────────────────────────────────────
+
+  /** Recetas guardadas de la familia, con su disponibilidad (lazy). */
+  recipes?: RecipeWithAvailability[];
+  /** Las recetas se están cargando. */
+  recipesLoading?: boolean;
+  /** Se está creando una receta. */
+  isCreatingRecipe?: boolean;
+  /** Nombre del nuevo formulario de receta. */
+  newRecipeName: string;
+  /** Líneas de ingredientes del formulario de receta. */
+  newRecipeIngredients: string[];
+  /** Cambia el nombre de la receta en el formulario. */
+  onChangeRecipeName: (name: string) => void;
+  /** Cambia el texto de una línea de ingrediente. */
+  onChangeIngredient: (index: number, value: string) => void;
+  /** Añade una línea de ingrediente vacía. */
+  onAddIngredientLine: () => void;
+  /** Quita la línea de ingrediente indicada. */
+  onRemoveIngredientLine: (index: number) => void;
+  /** Guarda la receta del formulario. */
+  onCreateRecipe: () => void;
+  /** Despliega/repliega una receta (carga su disponibilidad la primera vez). */
+  onToggleRecipe: (recipeId: string) => void;
+  /** Elimina una receta. */
+  onDeleteRecipe: (recipeId: string) => void;
+  /** Manda los ingredientes que faltan de una receta a la lista de la compra. */
+  onAddMissingToList: (recipeId: string) => void;
 }
