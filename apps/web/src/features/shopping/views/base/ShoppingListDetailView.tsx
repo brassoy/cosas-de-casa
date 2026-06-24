@@ -217,7 +217,6 @@ interface ItemRowProps {
 }
 
 function ItemRow({ item, onToggle, onDelete, onOpen }: ItemRowProps) {
-  const hasMeta = item.quantity != null || item.unit;
   return (
     <li className="flex items-center gap-2 rounded-md border border-border bg-background p-2.5">
       <Checkbox
@@ -231,12 +230,13 @@ function ItemRow({ item, onToggle, onDelete, onOpen }: ItemRowProps) {
       <div className="min-w-0 flex-1">
         <p className={cn('truncate font-medium', item.checked && 'text-muted-foreground line-through')}>
           {item.name}
+          {item.quantity != null && (
+            <span className="font-bold">
+              {' '}x {item.quantity}
+              {item.unit ? ` ${item.unit}` : ''}
+            </span>
+          )}
         </p>
-        {hasMeta && (
-          <p className="text-xs text-muted-foreground">
-            {item.quantity != null ? item.quantity : ''} {item.unit ?? ''}
-          </p>
-        )}
       </div>
       <button
         type="button"
@@ -573,6 +573,7 @@ function ItemSheet({ open, onClose, onAddComment, onEditItem }: ItemSheetProps) 
 
   // Al cambiar de ítem (o cerrar) salimos del modo edición.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- salir de edición al cambiar de ítem
     setEditing(false);
   }, [item?.id]);
 
@@ -592,7 +593,7 @@ function ItemSheet({ open, onClose, onAddComment, onEditItem }: ItemSheetProps) 
         if (!o) onClose();
       }}
     >
-      <SheetContent side="bottom" className="flex h-[80vh] flex-col" aria-label={item?.name}>
+      <SheetContent side="bottom" className="flex h-[80vh] max-w-[480px] flex-col" aria-label={item?.name}>
         <SheetHeader>
           <div className="flex items-center justify-between gap-2">
             <SheetTitle>{item?.name}</SheetTitle>

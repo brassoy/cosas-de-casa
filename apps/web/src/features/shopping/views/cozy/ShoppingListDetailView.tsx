@@ -208,7 +208,6 @@ interface ItemRowProps {
 }
 
 function ItemRow({ item, onToggle, onDelete, onOpen }: ItemRowProps) {
-  const hasMeta = item.quantity != null || item.unit;
   return (
     <div className="flex items-center gap-3 border-b border-dashed border-[#d9c79a]/60 py-2 last:border-0">
       <button
@@ -239,12 +238,13 @@ function ItemRow({ item, onToggle, onDelete, onOpen }: ItemRowProps) {
       <div className="min-w-0 flex-1">
         <p className={cn('truncate text-lg', item.checked && 'line-through opacity-50')}>
           {item.name}
+          {item.quantity != null && (
+            <span className="font-bold">
+              {' '}x {item.quantity}
+              {item.unit ? ` ${item.unit}` : ''}
+            </span>
+          )}
         </p>
-        {hasMeta && (
-          <p className="text-sm opacity-60">
-            {item.quantity != null ? item.quantity : ''} {item.unit ?? ''}
-          </p>
-        )}
       </div>
       <button
         type="button"
@@ -606,6 +606,7 @@ function ItemSheet({ open, onClose, onAddComment, onEditItem }: ItemSheetProps) 
   }, [item, comments.length]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- salir de edición al cambiar de ítem
     setEditing(false);
   }, [item?.id]);
 
@@ -627,7 +628,7 @@ function ItemSheet({ open, onClose, onAddComment, onEditItem }: ItemSheetProps) 
     >
       <SheetContent
         side="bottom"
-        className="ck ck-page flex h-[80vh] flex-col"
+        className="ck ck-page flex h-[80vh] max-w-[480px] flex-col"
         aria-label={item?.name}
       >
         <SheetHeader>

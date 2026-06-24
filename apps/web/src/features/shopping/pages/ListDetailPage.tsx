@@ -24,6 +24,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from '@tanstack/react-router';
+import type { ExtractItemsResponse } from '@cosasdecasa/contracts';
 import { api } from '@/shared/lib/api';
 import { ThemeView } from '@/shared/theme/ThemeView';
 import { useAuthStore } from '@/features/auth/store/auth.store';
@@ -38,7 +39,7 @@ import {
 } from '../hooks/useShopping';
 import { useFrequentItems } from '../hooks/useFrequentItems';
 import { useRealtimeItems } from '../hooks/useRealtimeItems';
-import { useVoiceRecognition } from '../hooks/useVoiceRecognition';
+import { useVoiceRecognition } from '@/shared/hooks/useVoiceRecognition';
 import { useShoppingStore } from '../store/shopping.store';
 import type { LocalComment, LocalItem } from '../offline/db';
 import type {
@@ -47,12 +48,6 @@ import type {
   ShoppingItemView,
   ShoppingListDetailViewProps,
 } from '../views/types';
-
-// TODO(contracts): añadir ExtractItemsResponseDto a @cosasdecasa/contracts cuando
-// el backend formalice el contrato del endpoint /ai/extract-items.
-interface ExtractItemsResponse {
-  items: string[];
-}
 
 // ── Mapeos Dexie → DTO de presentación ────────────────────────────────────────
 

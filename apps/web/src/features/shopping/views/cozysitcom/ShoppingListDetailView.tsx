@@ -208,7 +208,6 @@ interface ItemRowProps {
 }
 
 function ItemRow({ item, onToggle, onDelete, onOpen }: ItemRowProps) {
-  const hasMeta = item.quantity != null || item.unit;
   return (
     <div className="flex items-center gap-3 py-2.5">
       <button
@@ -226,12 +225,13 @@ function ItemRow({ item, onToggle, onDelete, onOpen }: ItemRowProps) {
       <div className="min-w-0 flex-1">
         <p className={cn('cz-serif truncate', item.checked && 'opacity-50 line-through')}>
           {item.name}
+          {item.quantity != null && (
+            <span className="font-bold">
+              {' '}x {item.quantity}
+              {item.unit ? ` ${item.unit}` : ''}
+            </span>
+          )}
         </p>
-        {hasMeta && (
-          <p className="text-xs opacity-60">
-            {item.quantity != null ? item.quantity : ''} {item.unit ?? ''}
-          </p>
-        )}
       </div>
       <button
         type="button"
@@ -596,6 +596,7 @@ function ItemSheet({ open, onClose, onAddComment, onEditItem }: ItemSheetProps) 
   }, [item, comments.length]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- salir de edición al cambiar de ítem
     setEditing(false);
   }, [item?.id]);
 
@@ -622,7 +623,7 @@ function ItemSheet({ open, onClose, onAddComment, onEditItem }: ItemSheetProps) 
         aria-modal="true"
         aria-label={item.name}
         onClick={(e) => e.stopPropagation()}
-        className="cz cz-pop flex h-[80vh] w-full flex-col rounded-t-2xl px-5 pb-5 pt-4"
+        className="cz cz-pop mx-auto flex h-[80vh] w-full max-w-[480px] flex-col rounded-t-2xl px-5 pb-5 pt-4"
         style={{
           background: 'var(--color-surface)',
           borderTop: '1px solid var(--color-border)',
