@@ -29,7 +29,17 @@
  */
 
 import { useState } from 'react';
-import { Plus, Trash2, Pencil, Utensils, Snowflake, AlertTriangle } from 'lucide-react';
+import {
+  Plus,
+  Minus,
+  Trash2,
+  Pencil,
+  Utensils,
+  Snowflake,
+  Droplet,
+  AlertTriangle,
+  ShoppingCart,
+} from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -37,13 +47,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/shared/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/shared/ui/select';
 import { ScreenState } from '@/shared/components/ScreenState';
 import { cn } from '@/shared/lib/cn';
 import { FRIDGE_LOCATION_LABELS } from '../../types';
@@ -135,6 +138,7 @@ export default function FridgeListView(props: FridgeListViewProps) {
     submitError,
     onChangeFilter,
     onOpenAdd,
+    onOpenImport,
     onOpenEdit,
     onCloseDialogs,
     onAdd,
@@ -143,6 +147,8 @@ export default function FridgeListView(props: FridgeListViewProps) {
     onEat,
     onThrow,
     onFreeze,
+    onThaw,
+    onAdjustQuantity,
   } = props;
 
   const visible =
@@ -154,39 +160,52 @@ export default function FridgeListView(props: FridgeListViewProps) {
       ? items.filter((i) => i.urgency === 'expired' || i.urgency === 'warning')
       : [];
 
-  const rowHandlers = { onOpenEdit, onDelete, onEat, onThrow, onFreeze };
+  const rowHandlers = { onOpenEdit, onDelete, onEat, onThrow, onFreeze, onThaw, onAdjustQuantity };
 
   // Subtítulo real (NO el "2 caducan pronto" hardcodeado del kit): se deriva de
   // los datos que llegan por props.
-  const urgentCount = items.filter(
+  const urgentCount = visible.filter(
     (i) => i.urgency === 'expired' || i.urgency === 'warning',
   ).length;
   const headerSub =
     urgentCount > 0
       ? `${urgentCount} ${urgentCount === 1 ? 'caduca' : 'caducan'} pronto ⚠️`
-      : `${items.length} ${items.length === 1 ? 'producto' : 'productos'} en casa`;
+      : `${visible.length} ${visible.length === 1 ? 'producto' : 'productos'} en casa`;
 
   return (
     <div className="sf sf-dot min-h-[80dvh] px-5 pt-8 pb-10">
       <div className="max-w-[520px] mx-auto space-y-4">
       {/* ── Cabecera amarilla de cómic (sf-card-y + Bangers) ───────────────── */}
       <header className="sf-card-y sf-pop relative p-4">
-        <div className="flex items-end justify-between gap-3 flex-wrap">
+        <div className="flex flex-col items-start gap-3">
           <div className="min-w-0">
             <h2 className="sf-bangers text-4xl leading-none">
-              <span aria-hidden="true">🧊 </span>Nevera
+              <span aria-hidden="true">{locationFilter === 'ALL' ? '❄️' : locationIcon(locationFilter)} </span>{locationFilter === 'ALL' ? 'Nevera' : FRIDGE_LOCATION_LABELS[locationFilter]}
             </h2>
             <p className="sf-fredoka text-sm mt-1">{headerSub}</p>
           </div>
-          <button
-            type="button"
-            onClick={onOpenAdd}
-            aria-label="Añadir producto"
-            className="sf-btn inline-flex items-center gap-1.5 text-sm"
-          >
-            <Plus className="h-4 w-4" aria-hidden="true" />
-            Añadir
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            {onOpenImport && (
+              <button
+                type="button"
+                onClick={onOpenImport}
+                aria-label="Añadir desde la compra"
+                className="sf-btn sf-btn-w inline-flex items-center gap-1.5 text-sm"
+              >
+                <ShoppingCart className="h-4 w-4" aria-hidden="true" />
+                Desde la compra
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onOpenAdd}
+              aria-label="Añadir producto"
+              className="sf-btn inline-flex items-center gap-1.5 text-sm"
+            >
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              Añadir
+            </button>
+          </div>
         </div>
       </header>
 
@@ -318,13 +337,26 @@ interface FridgeRowProps {
   onEat: (id: string) => void;
   onThrow: (id: string) => void;
   onFreeze: (id: string) => void;
+  onThaw?: (id: string) => void;
+  onAdjustQuantity?: (id: string, delta: number) => void;
 }
 
-function FridgeRow({ item, onOpenEdit, onDelete, onEat, onThrow, onFreeze }: FridgeRowProps) {
+function FridgeRow({
+  item,
+  onOpenEdit,
+  onDelete,
+  onEat,
+  onThrow,
+  onFreeze,
+  onThaw,
+  onAdjustQuantity,
+}: FridgeRowProps) {
   const hasQty = item.quantity != null || item.unit != null;
   const qtyText = `${item.quantity != null ? Number(item.quantity) : ''}${
     item.unit ? ` ${item.unit}` : ''
   }`.trim();
+  const qtyValue = item.quantity != null ? Number(item.quantity) : 0;
+  const canDecrement = qtyValue > 0;
 
   return (
     <li>
@@ -337,6 +369,37 @@ function FridgeRow({ item, onOpenEdit, onDelete, onEat, onThrow, onFreeze }: Fri
           <div className="min-w-0">
             <p className="sf-fredoka truncate">{item.name}</p>
             {hasQty && qtyText && <p className="text-xs opacity-60">{qtyText}</p>}
+            {onAdjustQuantity && (
+              <div className="mt-1 inline-flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => onAdjustQuantity(item.id, -1)}
+                  disabled={!canDecrement}
+                  aria-label={`Quitar una unidad de ${item.name}`}
+                  title="Quitar una unidad"
+                  className="sf-tag min-h-[28px] cursor-pointer disabled:opacity-40"
+                  style={{ color: COMIC.red }}
+                >
+                  <Minus className="h-3.5 w-3.5" aria-hidden="true" />
+                </button>
+                <span
+                  className="sf-fredoka min-w-[1.5rem] text-center text-sm tabular-nums"
+                  aria-label={`Cantidad de ${item.name}`}
+                >
+                  {item.quantity != null ? Number(item.quantity) : 0}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => onAdjustQuantity(item.id, 1)}
+                  aria-label={`Añadir una unidad de ${item.name}`}
+                  title="Añadir una unidad"
+                  className="sf-tag min-h-[28px] cursor-pointer"
+                  style={{ color: COMIC.green }}
+                >
+                  <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                </button>
+              </div>
+            )}
           </div>
           {item.urgencyLabel && (
             <span
@@ -374,6 +437,16 @@ function FridgeRow({ item, onOpenEdit, onDelete, onEat, onThrow, onFreeze }: Fri
             >
               <Snowflake className="mr-1 inline h-3 w-3" aria-hidden="true" />
               Congelar
+            </ActionButton>
+          )}
+          {item.location === 'FREEZER' && onThaw && (
+            <ActionButton
+              onClick={() => onThaw(item.id)}
+              aria-label={`Descongelar ${item.name}`}
+              title="Descongelar"
+            >
+              <Droplet className="mr-1 inline h-3 w-3" aria-hidden="true" />
+              Descongelar
             </ActionButton>
           )}
           <button
@@ -444,7 +517,7 @@ function FridgeItemDialog({
   // el padre al abrir, por eso no usamos efectos para sincronizar.
   const [name, setName] = useState(item?.name ?? '');
   const [quantity, setQuantity] = useState(
-    item?.quantity != null ? String(Number(item.quantity)) : '',
+    item?.quantity != null ? String(Number(item.quantity)) : mode === 'add' ? '1' : '',
   );
   const [unit, setUnit] = useState(item?.unit ?? '');
   const [location, setLocation] = useState<FridgeLocation>(item?.location ?? 'FRIDGE');
@@ -551,18 +624,19 @@ function FridgeItemDialog({
             >
               Ubicación
             </label>
-            <Select value={location} onValueChange={(v) => setLocation(v as FridgeLocation)}>
-              <SelectTrigger id={`fridge-location-${mode}`} aria-label="Ubicación" className="sf-input">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {LOCATION_ORDER.map((loc) => (
-                  <SelectItem key={loc} value={loc}>
-                    {locationIcon(loc)} {FRIDGE_LOCATION_LABELS[loc]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <select
+              id={`fridge-location-${mode}`}
+              aria-label="Ubicación"
+              className="sf-input"
+              value={location}
+              onChange={(e) => setLocation(e.target.value as FridgeLocation)}
+            >
+              {LOCATION_ORDER.map((loc) => (
+                <option key={loc} value={loc}>
+                  {locationIcon(loc)} {FRIDGE_LOCATION_LABELS[loc]}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="space-y-1.5">

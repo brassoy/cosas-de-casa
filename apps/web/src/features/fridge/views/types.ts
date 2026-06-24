@@ -75,6 +75,12 @@ export interface FridgeListViewProps {
   onChangeFilter: (value: FridgeLocationFilter) => void;
   /** Abre el diálogo de "Añadir". */
   onOpenAdd: () => void;
+  /**
+   * Abre el diálogo de "Añadir desde la compra" (importar los productos
+   * marcados como comprados de una lista de la compra). Opcional: las vistas
+   * solo pintan el botón si el container lo provee.
+   */
+  onOpenImport?: () => void;
   /** Abre el diálogo de edición para un ítem. */
   onOpenEdit: (item: FridgeListItem) => void;
   /** Cierra cualquier diálogo abierto (añadir o editar). */
@@ -87,8 +93,17 @@ export interface FridgeListViewProps {
   onDelete: (id: string) => void;
   /** Marca un producto como consumido (puede decrementar o eliminar). */
   onEat: (id: string) => void;
+  /**
+   * Ajusta la cantidad de un producto en `delta` unidades (stepper +/−).
+   * El container parsea la cantidad actual (string), aplica el delta, hace
+   * clamp a 0 (nunca negativa) y persiste el nuevo valor con un PATCH.
+   * Opcional: las vistas solo pintan el stepper si el container lo provee.
+   */
+  onAdjustQuantity?: (id: string, delta: number) => void;
   /** Tira un producto (lo elimina). */
   onThrow: (id: string) => void;
   /** Mueve un producto al congelador. */
   onFreeze: (id: string) => void;
+  /** Mueve un producto del congelador de vuelta a la nevera. */
+  onThaw?: (id: string) => void;
 }

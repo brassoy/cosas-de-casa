@@ -19,6 +19,7 @@ import { DeleteFridgeItemUseCase } from './application/delete-fridge-item.use-ca
 import { EatFridgeItemUseCase } from './application/eat-fridge-item.use-case';
 import { ThrowFridgeItemUseCase } from './application/throw-fridge-item.use-case';
 import { FreezeFridgeItemUseCase } from './application/freeze-fridge-item.use-case';
+import { ThawFridgeItemUseCase } from './application/thaw-fridge-item.use-case';
 import { GetExpiringSoonUseCase } from './application/get-expiring-soon.use-case';
 
 // ── Infrastructure ────────────────────────────────────────────────────────────
@@ -78,6 +79,7 @@ import { UuidIdGenerator } from '../family/infrastructure/uuid-id-generator';
     EatFridgeItemUseCase,
     ThrowFridgeItemUseCase,
     FreezeFridgeItemUseCase,
+    ThawFridgeItemUseCase,
     GetExpiringSoonUseCase,
   ],
 })

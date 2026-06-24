@@ -11,6 +11,7 @@
  *  ✓ eat: amount > quantity → FridgeItemInsufficientQuantityError
  *  ✓ eat: amount inválido → FridgeItemInvalidQuantityError
  *  ✓ freeze: cambia location a FREEZER
+ *  ✓ thaw: cambia location a FRIDGE
  *  ✓ update: cambia nombre y location
  */
 import { describe, expect, it } from 'vitest';
@@ -91,6 +92,14 @@ describe('FridgeItem.freeze', () => {
     const item = makeItem({ location: 'FRIDGE' });
     item.freeze(NOW);
     expect(item.location).toBe('FREEZER');
+  });
+});
+
+describe('FridgeItem.thaw', () => {
+  it('cambia la location a FRIDGE', () => {
+    const item = makeItem({ location: 'FREEZER' });
+    item.thaw(NOW);
+    expect(item.location).toBe('FRIDGE');
   });
 });
 

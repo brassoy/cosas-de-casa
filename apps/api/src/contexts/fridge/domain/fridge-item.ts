@@ -51,6 +51,7 @@ export interface UpdateFridgeItemPatch {
  * Acciones de dominio:
  * - eat(amount): decrementa la cantidad; si llega a 0 o la cantidad es null → devuelve true (eliminar).
  * - freeze(): mueve el ítem al congelador.
+ * - thaw(): mueve el ítem de vuelta a la nevera.
  * - update(patch): actualiza campos editables.
  */
 export class FridgeItem {
@@ -158,6 +159,12 @@ export class FridgeItem {
   /** Mueve el ítem al congelador. */
   freeze(now: Date): void {
     this._location = 'FREEZER';
+    this._updatedAt = now;
+  }
+
+  /** Mueve el ítem de vuelta a la nevera. */
+  thaw(now: Date): void {
+    this._location = 'FRIDGE';
     this._updatedAt = now;
   }
 

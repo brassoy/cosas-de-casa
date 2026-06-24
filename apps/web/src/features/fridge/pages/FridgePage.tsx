@@ -37,15 +37,21 @@ import {
   useEatFridgeItemByFamily,
   useThrowFridgeItemByFamily,
   useFreezeFridgeItemByFamily,
+  useThawFridgeItemByFamily,
 } from '../hooks/useFridge';
 import { useFridgeRealtime } from '../hooks/useFridgeRealtime';
 import { useFridgeStore } from '../store/fridge.store';
 import { getExpiryUrgency, urgencyLabel } from '../types';
 import type { FridgeItemDto } from '../types';
+import type { FridgeLocation } from '@cosasdecasa/contracts';
 import type {
   FridgeListItem,
   FridgeListViewProps,
 } from '../views/types';
+import {
+  ImportFromShoppingDialog,
+  type ImportableItem,
+} from '../components/ImportFromShoppingDialog';
 
 // ── Helpers de presentación de datos ──────────────────────────────────────────
 
@@ -69,6 +75,13 @@ function toMessage(err: unknown, fallback: string): string {
   return err instanceof ApiRequestError ? err.body.message : fallback;
 }
 
+/** Frase de destino para los mensajes de "añadir a …" según la ubicación. */
+const LOCATION_PHRASE: Record<FridgeLocation, string> = {
+  FRIDGE: 'a la nevera',
+  FREEZER: 'al congelador',
+  PANTRY: 'a la despensa',
+};
+
 // ── Container ─────────────────────────────────────────────────────────────────
 
 export function FridgePage() {
@@ -83,6 +96,10 @@ export function FridgePage() {
   const locationFilter = useFridgeStore((s) => s.filters.location);
   const setLocationFilter = useFridgeStore((s) => s.setLocationFilter);
 
+  // Ubicación destino al añadir (manual o desde la compra): la sección seleccionada
+  // (Congelador/Despensa) o la Nevera por defecto cuando se ve "Todo".
+  const importTarget: FridgeLocation = locationFilter === 'ALL' ? 'FRIDGE' : locationFilter;
+
   // Mutaciones (instanciadas una vez; el id viaja en cada `mutate`).
   const create = useCreateFridgeItem(familyId);
   const update = useUpdateFridgeItemByFamily(familyId);
@@ -90,11 +107,15 @@ export function FridgePage() {
   const eat = useEatFridgeItemByFamily(familyId);
   const discard = useThrowFridgeItemByFamily(familyId);
   const freeze = useFreezeFridgeItemByFamily(familyId);
+  const thaw = useThawFridgeItemByFamily(familyId);
 
   // Estado de los diálogos.
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<FridgeListItem | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // Diálogo "Añadir desde la compra".
+  const [isImportOpen, setIsImportOpen] = useState(false);
 
   // Ítems ordenados + urgencia precalculada para la vista.
   const items = useMemo<FridgeListItem[]>(
@@ -106,6 +127,29 @@ export function FridgePage() {
     setIsAddOpen(false);
     setEditingItem(null);
     setSubmitError(null);
+  }
+
+  /**
+   * Añade UN producto comprado a la nevera (POST reutilizando `useCreateFridgeItem`).
+   * La cantidad de la compra es `number`; la nevera la espera como STRING numérico.
+   * Si el producto no trae cantidad, entra con "1" (igual que el alta manual). El
+   * hook ya invalida la query de la nevera al terminar. Devuelve `true` si se añadió,
+   * para que el diálogo lo quite de la lista al instante.
+   */
+  async function handleImportOne(item: ImportableItem): Promise<boolean> {
+    try {
+      await create.mutateAsync({
+        name: item.name,
+        quantity: item.quantity != null ? String(item.quantity) : '1',
+        unit: item.unit ?? undefined,
+        location: importTarget,
+      });
+      toast.success(`${item.name} añadido ${LOCATION_PHRASE[importTarget]}.`);
+      return true;
+    } catch (err) {
+      toast.error(toMessage(err, `No se ha podido añadir ${item.name}.`));
+      return false;
+    }
   }
 
   /** Nombre legible del ítem para los mensajes de confirmación/error. */
@@ -127,6 +171,7 @@ export function FridgePage() {
       setSubmitError(null);
       setIsAddOpen(true);
     },
+    onOpenImport: () => setIsImportOpen(true),
     onOpenEdit: (item) => {
       setSubmitError(null);
       setEditingItem(item);
@@ -168,6 +213,32 @@ export function FridgePage() {
         onError: (err) =>
           toast.error(toMessage(err, 'No se ha podido marcar como consumido. Inténtalo de nuevo.')),
       }),
+    // Stepper +/−: ajusta la cantidad de 1 en 1. La cantidad de la nevera debe ser
+    // un número POSITIVO (contrato), así que bajar de 1 con "−" deja la cantidad en
+    // 0 → el producto se ELIMINA de la nevera (sin confirmación: es el gesto natural
+    // de "ya no me queda"). En cualquier otro caso se persiste la nueva cantidad.
+    onAdjustQuantity: (id, delta) => {
+      const current = items.find((i) => i.id === id);
+      if (!current) return;
+      const base = current.quantity != null ? Number(current.quantity) : 0;
+      const safeBase = Number.isFinite(base) ? base : 0;
+      const next = safeBase + delta;
+      if (next <= 0) {
+        remove.mutate(id, {
+          onSuccess: () => toast.success(`${current.name} eliminado de la nevera.`),
+          onError: (err) =>
+            toast.error(toMessage(err, 'No se ha podido eliminar el producto. Inténtalo de nuevo.')),
+        });
+        return;
+      }
+      update.mutate(
+        { id, input: { quantity: String(next) } },
+        {
+          onError: (err) =>
+            toast.error(toMessage(err, 'No se ha podido cambiar la cantidad. Inténtalo de nuevo.')),
+        },
+      );
+    },
     // Tirar: DESTRUCTIVA → confirmación + feedback de error.
     onThrow: (id) => {
       if (!window.confirm(`¿Seguro que quieres tirar ${nameOf(id)}? Esta acción no se puede deshacer.`)) {
@@ -183,6 +254,12 @@ export function FridgePage() {
       freeze.mutate(id, {
         onError: (err) =>
           toast.error(toMessage(err, 'No se ha podido congelar el producto. Inténtalo de nuevo.')),
+      }),
+    // Descongelar: no destructiva, pero el fallo también debe verse → toast.
+    onThaw: (id) =>
+      thaw.mutate(id, {
+        onError: (err) =>
+          toast.error(toMessage(err, 'No se ha podido descongelar el producto. Inténtalo de nuevo.')),
       }),
   };
 
@@ -201,5 +278,18 @@ export function FridgePage() {
     );
   }
 
-  return <ThemeView screen="fridge_list" props={props} />;
+  return (
+    <>
+      <ThemeView screen="fridge_list" props={props} />
+      {/* Diálogo "Añadir desde la compra": estilo neutro, reutilizable por los 4
+          themes. Su cuerpo (lecturas de la compra) solo se monta al abrirse. */}
+      <ImportFromShoppingDialog
+        open={isImportOpen}
+        familyId={familyId}
+        targetPhrase={LOCATION_PHRASE[importTarget]}
+        onClose={() => setIsImportOpen(false)}
+        onAddItem={handleImportOne}
+      />
+    </>
+  );
 }

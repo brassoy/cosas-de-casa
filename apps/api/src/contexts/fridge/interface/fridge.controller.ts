@@ -34,6 +34,7 @@ import { DeleteFridgeItemUseCase } from '../application/delete-fridge-item.use-c
 import { EatFridgeItemUseCase } from '../application/eat-fridge-item.use-case';
 import { ThrowFridgeItemUseCase } from '../application/throw-fridge-item.use-case';
 import { FreezeFridgeItemUseCase } from '../application/freeze-fridge-item.use-case';
+import { ThawFridgeItemUseCase } from '../application/thaw-fridge-item.use-case';
 
 import { FridgePresenter } from './fridge.presenter';
 import { FridgeErrorFilter } from './fridge-error.filter';
@@ -64,6 +65,7 @@ export class FridgeController {
     private readonly eatItem: EatFridgeItemUseCase,
     private readonly throwItem: ThrowFridgeItemUseCase,
     private readonly freezeItem: FreezeFridgeItemUseCase,
+    private readonly thawItem: ThawFridgeItemUseCase,
   ) {}
 
   // ── Rutas con familyId (FamilyScopeGuard) ────────────────────────────────
@@ -177,6 +179,18 @@ export class FridgeController {
     @Param('itemId', ParseUUIDPipe) itemId: string,
   ): Promise<FridgeItemDto> {
     const item = await this.freezeItem.execute({ itemId });
+    return FridgePresenter.toItemDto(item);
+  }
+
+  @Post('fridge-items/:itemId/thaw')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(FridgeItemScopeGuard)
+  @ApiOperation({ summary: 'Descongelar un ítem (location → FRIDGE).' })
+  @ApiOkResponse({ description: 'Ítem descongelado.' })
+  async thawItemHandler(
+    @Param('itemId', ParseUUIDPipe) itemId: string,
+  ): Promise<FridgeItemDto> {
+    const item = await this.thawItem.execute({ itemId });
     return FridgePresenter.toItemDto(item);
   }
 }

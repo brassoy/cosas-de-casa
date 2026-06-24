@@ -8,6 +8,7 @@
  *   POST   /fridge-items/:id/eat             → 200 { deleted: boolean, itemId: string }
  *   POST   /fridge-items/:id/throw           → 204
  *   POST   /fridge-items/:id/freeze          → 200 FridgeItemDto
+ *   POST   /fridge-items/:id/thaw            → 200 FridgeItemDto
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -262,6 +263,23 @@ export function useFreezeFridgeItemByFamily(familyId: string) {
   const qc = useQueryClient();
   return useMutation<FridgeItemDto, ApiRequestError, string>({
     mutationFn: (itemId) => api.post<FridgeItemDto>(`/fridge-items/${itemId}/freeze`, {}),
+    onSuccess: (updated, itemId) => {
+      qc.setQueryData<FridgeItemDto[]>(
+        fridgeKeys.byFamily(familyId),
+        (old) => old?.map((i) => (i.id === itemId ? updated : i)) ?? [],
+      );
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: fridgeKeys.byFamily(familyId) });
+    },
+  });
+}
+
+/** POST /fridge-items/:id/thaw → 200 FridgeItemDto (relocation inversa, id por mutación). */
+export function useThawFridgeItemByFamily(familyId: string) {
+  const qc = useQueryClient();
+  return useMutation<FridgeItemDto, ApiRequestError, string>({
+    mutationFn: (itemId) => api.post<FridgeItemDto>(`/fridge-items/${itemId}/thaw`, {}),
     onSuccess: (updated, itemId) => {
       qc.setQueryData<FridgeItemDto[]>(
         fridgeKeys.byFamily(familyId),

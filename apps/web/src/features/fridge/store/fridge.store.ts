@@ -12,7 +12,9 @@ interface FridgeState {
 }
 
 const DEFAULT_FILTERS: FridgeFilters = {
-  location: 'ALL',
+  // Por defecto se muestra la NEVERA (no "Todo"): el header refleja la ubicación
+  // seleccionada y el usuario va alternando entre Nevera / Congelador / Despensa.
+  location: 'FRIDGE',
 };
 
 export const useFridgeStore = create<FridgeState>((set) => ({
