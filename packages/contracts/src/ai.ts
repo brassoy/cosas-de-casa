@@ -15,6 +15,33 @@ export const ExtractItemsResponseSchema = z.object({
 });
 export type ExtractItemsResponse = z.infer<typeof ExtractItemsResponseSchema>;
 
+// ── Autocompletado de plan por IA ─────────────────────────────────────────────
+
+/**
+ * Payload para deducir los campos de un plan a partir de lenguaje natural.
+ * `phrase` es lo que el usuario dijo o escribió; `now` es el instante de
+ * referencia (ISO) para resolver expresiones relativas ("en dos horas").
+ */
+export const ParsePlanInputSchema = z.object({
+  phrase: z.string().min(1).max(1000),
+  now: z.string().datetime(),
+});
+export type ParsePlanInput = z.infer<typeof ParsePlanInputSchema>;
+
+/**
+ * Respuesta del autocompletado de plan. Cada campo es `null` cuando la IA no
+ * puede inferirlo. `scheduledAt` es ISO 8601; `placeQuery` es texto buscable en
+ * mapas (nombre del sitio + ciudad), no una dirección resuelta: el cliente la
+ * geocodifica a coordenadas reales con Google Maps.
+ */
+export const ParsePlanResponseSchema = z.object({
+  title: z.string().nullable(),
+  description: z.string().nullable(),
+  scheduledAt: z.string().datetime().nullable(),
+  placeQuery: z.string().nullable(),
+});
+export type ParsePlanResponse = z.infer<typeof ParsePlanResponseSchema>;
+
 // ── Deduplicación ────────────────────────────────────────────────────────────
 
 /**

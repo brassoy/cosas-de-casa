@@ -99,6 +99,12 @@ export function NavDrawer() {
 
   const cuenta: NavEntry[] = [
     { label: '⚙️ Ajustes', path: '/settings', go: () => void navigate({ to: '/settings' }) },
+    {
+      label: '👨‍👩‍👧 Familia',
+      path: `/family/${familyId}/manage`,
+      go: () =>
+        void navigate({ to: '/family/$familyId/manage', params: { familyId } }),
+    },
   ];
 
   const isActive = (entry: NavEntry): boolean =>

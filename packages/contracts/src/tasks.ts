@@ -100,3 +100,20 @@ export const ListTasksQuerySchema = z.object({
   assigneeId: UuidSchema.optional(),
 });
 export type ListTasksQuery = z.infer<typeof ListTasksQuerySchema>;
+
+// ── Comentario de tarea ────────────────────────────────────────────────────────
+
+export const TaskCommentDtoSchema = z.object({
+  id: UuidSchema,
+  taskId: UuidSchema,
+  authorId: UuidSchema.optional(),
+  body: z.string().min(1).max(1000),
+  createdAt: z.string().datetime(),
+});
+export type TaskCommentDto = z.infer<typeof TaskCommentDtoSchema>;
+
+/** Payload para añadir un comentario a una tarea. */
+export const AddTaskCommentInputSchema = z.object({
+  body: z.string().trim().min(1).max(1000),
+});
+export type AddTaskCommentInput = z.infer<typeof AddTaskCommentInputSchema>;

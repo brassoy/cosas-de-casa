@@ -12,6 +12,7 @@ import { LandingPage } from '@/features/landing/LandingPage';
 import { CreateFamilyPage } from '@/features/family/pages/CreateFamilyPage';
 import { JoinFamilyPage } from '@/features/family/pages/JoinFamilyPage';
 import { FamilyHomePage } from '@/features/family/pages/FamilyHomePage';
+import { FamilyManagePage } from '@/features/family/pages/FamilyManagePage';
 import { OnboardingPage } from '@/features/family/pages/OnboardingPage';
 import { ListsPage } from '@/features/shopping/pages/ListsPage';
 import { ListDetailPage } from '@/features/shopping/pages/ListDetailPage';
@@ -25,6 +26,7 @@ import { GroupsPage } from '@/features/groups/pages/GroupsPage';
 import { CreateGroupPage } from '@/features/groups/pages/CreateGroupPage';
 import { JoinGroupPage } from '@/features/groups/pages/JoinGroupPage';
 import { GroupHomePage } from '@/features/groups/pages/GroupHomePage';
+import { GroupSettingsPage } from '@/features/groups/pages/GroupSettingsPage';
 import { FriendsPage } from '@/features/friends/pages/FriendsPage';
 import { RedeemFriendPage } from '@/features/friends/pages/RedeemFriendPage';
 import { PlansPage } from '@/features/plans/pages/PlansPage';
@@ -321,6 +323,14 @@ const familyHomeRoute = createRoute({
   component: FamilyHomePage,
 });
 
+// Gestionar familia: pantalla propia (solo OWNER), antes embebida en la home.
+const familyManageRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/family/$familyId/manage',
+  beforeLoad: requireFamily,
+  component: FamilyManagePage,
+});
+
 // ── Shopping routes ───────────────────────────────────────────────────────────
 
 const shoppingListsRoute = createRoute({
@@ -419,6 +429,15 @@ const groupHomeRoute = createRoute({
   component: GroupHomePage,
 });
 
+// Ajustes de la peña: pantalla propia (editar/borrar solo OWNER, salir todos),
+// antes embebida en la home de la peña.
+const groupSettingsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/groups/$groupId/settings',
+  beforeLoad: requireAuth,
+  component: GroupSettingsPage,
+});
+
 // ── Friends routes ────────────────────────────────────────────────────────────
 
 const friendsRoute = createRoute({
@@ -512,6 +531,7 @@ const routeTree = rootRoute.addChildren([
   familyCreateRoute,
   familyJoinRoute,
   familyHomeRoute,
+  familyManageRoute,
   shoppingListsRoute,
   shoppingListDetailRoute,
   tasksRoute,
@@ -524,6 +544,7 @@ const routeTree = rootRoute.addChildren([
   groupCreateRoute,
   groupJoinRoute,
   groupHomeRoute,
+  groupSettingsRoute,
   friendsRoute,
   friendsRedeemRoute,
   plansRoute,

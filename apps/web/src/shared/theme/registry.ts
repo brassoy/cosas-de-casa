@@ -40,6 +40,7 @@ export type ScreenId =
   | 'family_create'
   | 'family_join'
   | 'family_home'
+  | 'family_manage'
   | 'shopping_lists'
   | 'shopping_list_detail'
   | 'tasks_list'
@@ -59,6 +60,7 @@ export type ScreenId =
   | 'group_create'
   | 'group_join'
   | 'group_home'
+  | 'group_settings'
   | 'friends'
   | 'friends_redeem'
   | 'settings';

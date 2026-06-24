@@ -90,12 +90,14 @@ import { ItemScopeGuard } from '../../src/contexts/shopping/interface/item-scope
 import { AiController } from '../../src/contexts/ai/interface/ai.controller';
 import { EMBEDDING_PORT } from '../../src/contexts/ai/domain/ports/embedding.port';
 import { ITEM_EXTRACTION_PORT } from '../../src/contexts/ai/domain/ports/item-extraction.port';
+import { PLAN_PARSING_PORT } from '../../src/contexts/ai/domain/ports/plan-parsing.port';
 import { CATALOG_ITEM_REPOSITORY } from '../../src/contexts/ai/domain/ports/catalog-item.repository';
 import { DrizzleCatalogItemRepository } from '../../src/contexts/ai/infrastructure/drizzle-catalog-item.repository';
 import { ExtractItemsUseCase } from '../../src/contexts/ai/application/extract-items.use-case';
 import { DedupCheckUseCase } from '../../src/contexts/ai/application/dedup-check.use-case';
 import { UpsertCatalogItemUseCase } from '../../src/contexts/ai/application/upsert-catalog-item.use-case';
 import { GetFrequentItemsUseCase } from '../../src/contexts/ai/application/get-frequent-items.use-case';
+import { ParsePlanUseCase } from '../../src/contexts/ai/application/parse-plan.use-case';
 
 import { EnsureAndListListsUseCase } from '../../src/contexts/shopping/application/ensure-and-list-lists.use-case';
 import { CreateCustomListUseCase } from '../../src/contexts/shopping/application/create-custom-list.use-case';
@@ -140,6 +142,7 @@ import { DeleteFridgeItemUseCase } from '../../src/contexts/fridge/application/d
 import { EatFridgeItemUseCase } from '../../src/contexts/fridge/application/eat-fridge-item.use-case';
 import { ThrowFridgeItemUseCase } from '../../src/contexts/fridge/application/throw-fridge-item.use-case';
 import { FreezeFridgeItemUseCase } from '../../src/contexts/fridge/application/freeze-fridge-item.use-case';
+import { ThawFridgeItemUseCase } from '../../src/contexts/fridge/application/thaw-fridge-item.use-case';
 import { GetExpiringSoonUseCase } from '../../src/contexts/fridge/application/get-expiring-soon.use-case';
 
 // ── notifications ──────────────────────────────────────────────────────────
@@ -286,10 +289,12 @@ import { TasksController } from '../../src/contexts/tasks/interface/tasks.contro
 import { TaskScopeGuard } from '../../src/contexts/tasks/interface/task-scope.guard';
 import { TASK_REPOSITORY } from '../../src/contexts/tasks/domain/ports/task.repository';
 import { TASK_PHOTO_REPOSITORY } from '../../src/contexts/tasks/domain/ports/task-photo.repository';
+import { TASK_COMMENT_REPOSITORY } from '../../src/contexts/tasks/domain/ports/task-comment.repository';
 import { TASKS_CLOCK } from '../../src/contexts/tasks/application/ports/clock';
 import { TASKS_ID_GENERATOR } from '../../src/contexts/tasks/application/ports/id-generator';
 import { DrizzleTaskRepository } from '../../src/contexts/tasks/infrastructure/drizzle-task.repository';
 import { DrizzleTaskPhotoRepository } from '../../src/contexts/tasks/infrastructure/drizzle-task-photo.repository';
+import { DrizzleTaskCommentRepository } from '../../src/contexts/tasks/infrastructure/drizzle-task-comment.repository';
 import { TaskAssigneesReadModel } from '../../src/contexts/tasks/infrastructure/task-assignees-read-model';
 import { CreateTaskUseCase } from '../../src/contexts/tasks/application/create-task.use-case';
 import { GetTaskUseCase } from '../../src/contexts/tasks/application/get-task.use-case';
@@ -300,6 +305,8 @@ import { SetAssigneesUseCase } from '../../src/contexts/tasks/application/set-as
 import { AddTaskPhotoUseCase } from '../../src/contexts/tasks/application/add-task-photo.use-case';
 import { RemoveTaskPhotoUseCase } from '../../src/contexts/tasks/application/remove-task-photo.use-case';
 import { GenerateListFromTaskUseCase } from '../../src/contexts/tasks/application/generate-list-from-task.use-case';
+import { AddTaskCommentUseCase } from '../../src/contexts/tasks/application/add-task-comment.use-case';
+import { ListTaskCommentsUseCase } from '../../src/contexts/tasks/application/list-task-comments.use-case';
 
 export interface TestApp {
   app: INestApplication;
@@ -568,11 +575,25 @@ export async function createTestApp(): Promise<TestApp> {
           new DrizzleCatalogItemRepository(db as Parameters<typeof DrizzleCatalogItemRepository.prototype.constructor>[0]),
       },
 
+      // ── ai: autocompletado de plan (stub determinista para tests) ─────
+      {
+        provide: PLAN_PARSING_PORT,
+        useValue: {
+          parsePlan: async () => ({
+            title: 'Plan',
+            description: null,
+            scheduledAt: null,
+            placeQuery: null,
+          }),
+        },
+      },
+
       // ── ai: casos de uso ──────────────────────────────────────────────
       ExtractItemsUseCase,
       DedupCheckUseCase,
       UpsertCatalogItemUseCase,
       GetFrequentItemsUseCase,
+      ParsePlanUseCase,
 
       // ── tasks: repositorios ────────────────────────────────────────────
       {
@@ -586,6 +607,12 @@ export async function createTestApp(): Promise<TestApp> {
         inject: [DRIZZLE],
         useFactory: (db: ReturnType<typeof drizzle>) =>
           new DrizzleTaskPhotoRepository(db as Parameters<typeof DrizzleTaskPhotoRepository.prototype.constructor>[0]),
+      },
+      {
+        provide: TASK_COMMENT_REPOSITORY,
+        inject: [DRIZZLE],
+        useFactory: (db: ReturnType<typeof drizzle>) =>
+          new DrizzleTaskCommentRepository(db as Parameters<typeof DrizzleTaskCommentRepository.prototype.constructor>[0]),
       },
 
       // ── tasks: read-model ──────────────────────────────────────────────
@@ -619,6 +646,8 @@ export async function createTestApp(): Promise<TestApp> {
       AddTaskPhotoUseCase,
       RemoveTaskPhotoUseCase,
       GenerateListFromTaskUseCase,
+      AddTaskCommentUseCase,
+      ListTaskCommentsUseCase,
 
       // ── fridge: repositorio ────────────────────────────────────────────
       {
@@ -650,6 +679,7 @@ export async function createTestApp(): Promise<TestApp> {
       EatFridgeItemUseCase,
       ThrowFridgeItemUseCase,
       FreezeFridgeItemUseCase,
+      ThawFridgeItemUseCase,
       GetExpiringSoonUseCase,
 
       // ── notifications: repositorio ─────────────────────────────────────

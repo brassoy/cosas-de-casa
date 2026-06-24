@@ -95,6 +95,7 @@ describe('AuthMeDtoSchema', () => {
       id: SAMPLE_UUID,
       email: 'ana@example.com',
       displayName: 'Ana',
+      avatarUrl: null,
       families: [],
     });
     expect(me.families).toEqual([]);
@@ -102,7 +103,7 @@ describe('AuthMeDtoSchema', () => {
 
   it('acepta displayName nulo', () => {
     expect(() =>
-      AuthMeDtoSchema.parse({ id: SAMPLE_UUID, email: 'ana@example.com', displayName: null, families: [] }),
+      AuthMeDtoSchema.parse({ id: SAMPLE_UUID, email: 'ana@example.com', displayName: null, avatarUrl: null, families: [] }),
     ).not.toThrow();
   });
 });
