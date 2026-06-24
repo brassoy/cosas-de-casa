@@ -106,7 +106,8 @@ export class FamilyStatsQuery {
       })
       .from(fridgeItems)
       .where(
-        sql`${fridgeItems.familyId} = ${familyId} AND ${fridgeItems.createdBy} IS NOT NULL`,
+        // Los productos tirados (DISCARDED) no cuentan para el badge de la nevera.
+        sql`${fridgeItems.familyId} = ${familyId} AND ${fridgeItems.createdBy} IS NOT NULL AND ${fridgeItems.location} <> 'DISCARDED'`,
       )
       .groupBy(fridgeItems.createdBy);
 

@@ -12,7 +12,7 @@
  *     el container) y pinta `data-urgency` con la urgencia precalculada.
  *  3. Sección "Consumir primero" — visible solo con filter=ALL.
  *  4. Diálogo de añadir — abrir, validación de nombre, payload de `onAdd`.
- *  5. Acciones de ítem — comer / tirar / congelar / eliminar / editar.
+ *  5. Acciones de ítem — tirar / congelar / eliminar / editar.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -43,7 +43,7 @@ function makeItem(
   overrides: Partial<{
     id: string;
     name: string;
-    location: 'FRIDGE' | 'FREEZER' | 'PANTRY';
+    location: 'FRIDGE' | 'FREEZER' | 'PANTRY' | 'DISCARDED';
     expiryDate: string | null;
     quantity: string | null;
     unit: string | null;
@@ -76,7 +76,6 @@ const onCloseDialogs = vi.fn();
 const onAdd = vi.fn();
 const onUpdate = vi.fn();
 const onDelete = vi.fn();
-const onEat = vi.fn();
 const onThrow = vi.fn();
 const onFreeze = vi.fn();
 
@@ -97,7 +96,6 @@ function baseProps(overrides: Partial<FridgeListViewProps> = {}): FridgeListView
     onAdd,
     onUpdate,
     onDelete,
-    onEat,
     onThrow,
     onFreeze,
     ...overrides,
@@ -137,6 +135,35 @@ describe('FridgeListView — render', () => {
     });
     expect(screen.getAllByText('Leche').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Yogur').length).toBeGreaterThan(0);
+  });
+
+  it('ofrece un chip de filtro "Tirado" (DISCARDED)', () => {
+    renderView();
+    expect(screen.getByRole('button', { name: /tirado/i })).toBeInTheDocument();
+  });
+
+  it('"Todo" no muestra los productos tirados (DISCARDED)', () => {
+    renderView({
+      locationFilter: 'ALL',
+      items: [
+        makeItem({ id: 'i1', name: 'Leche', expiryDate: null }),
+        makeItem({ id: 'i2', name: 'Pan tirado', location: 'DISCARDED', expiryDate: null }),
+      ],
+    });
+    expect(screen.getAllByText('Leche').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Pan tirado')).not.toBeInTheDocument();
+  });
+
+  it('el filtro "Tirado" muestra solo los productos tirados', () => {
+    renderView({
+      locationFilter: 'DISCARDED',
+      items: [
+        makeItem({ id: 'i1', name: 'Leche', location: 'FRIDGE', expiryDate: null }),
+        makeItem({ id: 'i2', name: 'Pan tirado', location: 'DISCARDED', expiryDate: null }),
+      ],
+    });
+    expect(screen.getByText('Pan tirado')).toBeInTheDocument();
+    expect(screen.queryByText('Leche')).not.toBeInTheDocument();
   });
 
   it('respeta el orden recibido: el que caduca antes aparece primero', () => {
@@ -276,13 +303,6 @@ describe('FridgeListView — acciones', () => {
     });
   }
 
-  it('pulsar "Comer" llama a onEat con el id', async () => {
-    const user = userEvent.setup();
-    withMilk();
-    await user.click(screen.getByRole('button', { name: /marcar leche como consumido/i }));
-    expect(onEat).toHaveBeenCalledWith('item-1');
-  });
-
   it('pulsar "Tirar" llama a onThrow con el id', async () => {
     const user = userEvent.setup();
     withMilk();
@@ -316,5 +336,12 @@ describe('FridgeListView — acciones', () => {
       items: [makeItem({ id: 'item-2', name: 'Helado', location: 'FREEZER', expiryDate: null })],
     });
     expect(screen.queryByRole('button', { name: /congelar helado/i })).not.toBeInTheDocument();
+  });
+
+  it('NO muestra el botón "Comer" en las filas', () => {
+    withMilk();
+    expect(
+      screen.queryByRole('button', { name: /marcar leche como consumido/i }),
+    ).not.toBeInTheDocument();
   });
 });

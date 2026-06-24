@@ -8,8 +8,10 @@ import { UuidSchema } from './common';
  * - FRIDGE: nevera (refrigerador).
  * - FREEZER: congelador.
  * - PANTRY: despensa.
+ * - DISCARDED: tirado (registro de comida desperdiciada). No es una ubicación
+ *   física de almacenamiento; marca el producto como tirado para llevar la cuenta.
  */
-export const FridgeLocationSchema = z.enum(['FRIDGE', 'FREEZER', 'PANTRY']);
+export const FridgeLocationSchema = z.enum(['FRIDGE', 'FREEZER', 'PANTRY', 'DISCARDED']);
 export type FridgeLocation = z.infer<typeof FridgeLocationSchema>;
 
 // ── DTO público ───────────────────────────────────────────────────────────────

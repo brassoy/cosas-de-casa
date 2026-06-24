@@ -18,6 +18,7 @@ export const FRIDGE_LOCATION_LABELS: Record<FridgeLocation, string> = {
   FRIDGE: 'Nevera',
   FREEZER: 'Congelador',
   PANTRY: 'Despensa',
+  DISCARDED: 'Tirado',
 };
 
 /**

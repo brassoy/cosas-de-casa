@@ -2,9 +2,10 @@
  * Tests del CONTAINER `FridgePage` + del hook `useFridgeRealtime`.
  *
  * Cubre la auditoría (ALTO) de las acciones rápidas:
- *  1. CONFIRMACIÓN de acciones destructivas (tirar / eliminar) vía window.confirm:
+ *  1. CONFIRMACIÓN de la acción destructiva (eliminar) vía window.confirm:
  *     - si el usuario cancela, la mutación NO se dispara;
  *     - si confirma, la mutación SÍ se dispara con el id.
+ *     Tirar ya NO es destructiva (mueve a "Tirado"): se dispara sin confirmación.
  *  2. MANEJO DE ERROR: cuando una acción rápida falla, se muestra un toast.error
  *     (antes fallaban en silencio: la mutación optimista revertía sin feedback).
  *  3. REALTIME: `useFridgeRealtime` abre un canal postgres_changes filtrado por
@@ -82,7 +83,6 @@ function failingMutate() {
 }
 
 const removeMutate = failingMutate();
-const eatMutate = failingMutate();
 const throwMutate = failingMutate();
 const freezeMutate = failingMutate();
 
@@ -94,7 +94,6 @@ vi.mock('./hooks/useFridge', async (importOriginal) => {
     useCreateFridgeItem: () => ({ mutate: vi.fn(), isPending: false }),
     useUpdateFridgeItemByFamily: () => ({ mutate: vi.fn(), isPending: false }),
     useDeleteFridgeItemByFamily: () => ({ mutate: removeMutate }),
-    useEatFridgeItemByFamily: () => ({ mutate: eatMutate }),
     useThrowFridgeItemByFamily: () => ({ mutate: throwMutate }),
     useFreezeFridgeItemByFamily: () => ({ mutate: freezeMutate }),
   };
@@ -156,39 +155,27 @@ describe('FridgePage — confirmación de acciones destructivas', () => {
     confirmSpy.mockRestore();
   });
 
-  it('CANCELAR el confirm de "Tirar" NO dispara la mutación', async () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
-    const user = userEvent.setup();
-    renderPage();
-
-    await user.click(await screen.findByRole('button', { name: /tirar leche/i }));
-
-    expect(throwMutate).not.toHaveBeenCalled();
-    confirmSpy.mockRestore();
-  });
-
-  it('CONFIRMAR "Tirar" dispara la mutación con el id', async () => {
+  it('"Tirar" dispara la mutación con el id SIN pedir confirmación (mueve a "Tirado")', async () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
     const user = userEvent.setup();
     renderPage();
 
     await user.click(await screen.findByRole('button', { name: /tirar leche/i }));
 
+    expect(confirmSpy).not.toHaveBeenCalled();
     expect(throwMutate).toHaveBeenCalledTimes(1);
     expect(throwMutate).toHaveBeenCalledWith('item-1', expect.any(Object));
     confirmSpy.mockRestore();
   });
 
-  it('"Comer" y "Congelar" NO piden confirmación (no son destructivas)', async () => {
+  it('"Congelar" NO pide confirmación (no es destructiva)', async () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
     const user = userEvent.setup();
     renderPage();
 
-    await user.click(await screen.findByRole('button', { name: /marcar leche como consumido/i }));
     await user.click(await screen.findByRole('button', { name: /congelar leche/i }));
 
     expect(confirmSpy).not.toHaveBeenCalled();
-    expect(eatMutate).toHaveBeenCalledTimes(1);
     expect(freezeMutate).toHaveBeenCalledTimes(1);
     confirmSpy.mockRestore();
   });
@@ -217,18 +204,6 @@ describe('FridgePage — feedback de error (toast) en acciones rápidas', () => 
     expect(toastError).toHaveBeenCalledTimes(1);
     expect(toastError).toHaveBeenCalledWith(expect.stringMatching(/no se ha podido tirar/i));
     confirmSpy.mockRestore();
-  });
-
-  it('"Comer" fallido muestra un toast de error', async () => {
-    const user = userEvent.setup();
-    renderPage();
-
-    await user.click(await screen.findByRole('button', { name: /marcar leche como consumido/i }));
-
-    expect(toastError).toHaveBeenCalledTimes(1);
-    expect(toastError).toHaveBeenCalledWith(
-      expect.stringMatching(/no se ha podido marcar como consumido/i),
-    );
   });
 
   it('"Congelar" fallido muestra un toast de error', async () => {

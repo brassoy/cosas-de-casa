@@ -59,7 +59,10 @@ export class DrizzleFridgeItemRepository implements FridgeItemRepository {
       .select()
       .from(fridgeItems)
       .where(
+        // Los productos tirados (DISCARDED) no caducan: se excluyen de las
+        // notificaciones de caducidad.
         sql`${fridgeItems.familyId} = ${familyId}
+          AND ${fridgeItems.location} <> 'DISCARDED'
           AND ${fridgeItems.expiryDate} IS NOT NULL
           AND ${fridgeItems.expiryDate} <= ${cutoffStr}`,
       )

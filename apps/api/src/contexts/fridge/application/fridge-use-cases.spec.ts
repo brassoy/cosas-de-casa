@@ -13,7 +13,7 @@
  *  ✓ DeleteFridgeItem: elimina el ítem
  *  ✓ EatFridgeItem: decrementa cantidad, devuelve deleted=false
  *  ✓ EatFridgeItem: sin cantidad → deleted=true y elimina el ítem
- *  ✓ ThrowFridgeItem: elimina el ítem
+ *  ✓ ThrowFridgeItem: mueve el ítem a DISCARDED (registro de comida tirada)
  *  ✓ FreezeFridgeItem: cambia location a FREEZER
  *  ✓ GetExpiringSoon: devuelve solo los ítems que caducan pronto
  */
@@ -80,7 +80,7 @@ function makeUseCases() {
     update: new UpdateFridgeItemUseCase(fakeRepo, fakeClock),
     remove: new DeleteFridgeItemUseCase(fakeRepo),
     eat: new EatFridgeItemUseCase(fakeRepo, fakeClock),
-    throw_: new ThrowFridgeItemUseCase(fakeRepo),
+    throw_: new ThrowFridgeItemUseCase(fakeRepo, fakeClock),
     freeze: new FreezeFridgeItemUseCase(fakeRepo, fakeClock),
     expiringSoon: new GetExpiringSoonUseCase(fakeRepo),
   };
@@ -187,11 +187,13 @@ describe('EatFridgeItemUseCase', () => {
 // ── ThrowFridgeItem ───────────────────────────────────────────────────────────
 
 describe('ThrowFridgeItemUseCase', () => {
-  it('elimina el ítem', async () => {
+  it('mueve el ítem a DISCARDED (no lo elimina)', async () => {
     const { add, throw_ } = makeUseCases();
     const item = await add.execute({ familyId: 'fam-1', name: 'Pan caducado', createdBy: 'user-1' });
-    await throw_.execute({ itemId: item.id });
-    expect(itemStore.find((i) => i.id === item.id)).toBeUndefined();
+    const discarded = await throw_.execute({ itemId: item.id });
+    expect(discarded.location).toBe('DISCARDED');
+    // Sigue existiendo en el inventario (es un registro de comida tirada).
+    expect(itemStore.find((i) => i.id === item.id)?.location).toBe('DISCARDED');
   });
 });
 

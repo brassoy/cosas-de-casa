@@ -160,14 +160,15 @@ export class FridgeController {
   }
 
   @Post('fridge-items/:itemId/throw')
-  @HttpCode(HttpStatus.NO_CONTENT)
+  @HttpCode(HttpStatus.OK)
   @UseGuards(FridgeItemScopeGuard)
-  @ApiOperation({ summary: 'Tirar un ítem (desperdicio). Lo elimina del inventario.' })
-  @ApiNoContentResponse({ description: 'Ítem eliminado (tirado).' })
+  @ApiOperation({ summary: 'Tirar un ítem (desperdicio): lo mueve a la ubicación DISCARDED.' })
+  @ApiOkResponse({ description: 'Ítem tirado (location → DISCARDED).' })
   async throwItemHandler(
     @Param('itemId', ParseUUIDPipe) itemId: string,
-  ): Promise<void> {
-    await this.throwItem.execute({ itemId });
+  ): Promise<FridgeItemDto> {
+    const item = await this.throwItem.execute({ itemId });
+    return FridgePresenter.toItemDto(item);
   }
 
   @Post('fridge-items/:itemId/freeze')

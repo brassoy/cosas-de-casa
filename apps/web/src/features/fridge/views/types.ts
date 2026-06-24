@@ -91,8 +91,6 @@ export interface FridgeListViewProps {
   onUpdate: (id: string, input: UpdateFridgeItemInput) => void;
   /** Elimina un producto (optimista en el container). */
   onDelete: (id: string) => void;
-  /** Marca un producto como consumido (puede decrementar o eliminar). */
-  onEat: (id: string) => void;
   /**
    * Ajusta la cantidad de un producto en `delta` unidades (stepper +/−).
    * El container parsea la cantidad actual (string), aplica el delta, hace
@@ -100,7 +98,7 @@ export interface FridgeListViewProps {
    * Opcional: las vistas solo pintan el stepper si el container lo provee.
    */
   onAdjustQuantity?: (id: string, delta: number) => void;
-  /** Tira un producto (lo elimina). */
+  /** Tira un producto: lo mueve a la ubicación "Tirado" (DISCARDED). */
   onThrow: (id: string) => void;
   /** Mueve un producto al congelador. */
   onFreeze: (id: string) => void;

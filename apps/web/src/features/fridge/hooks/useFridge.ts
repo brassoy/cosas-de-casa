@@ -6,7 +6,7 @@
  *   PATCH  /fridge-items/:id                 → FridgeItemDto
  *   DELETE /fridge-items/:id                 → 204
  *   POST   /fridge-items/:id/eat             → 200 { deleted: boolean, itemId: string }
- *   POST   /fridge-items/:id/throw           → 204
+ *   POST   /fridge-items/:id/throw           → 200 FridgeItemDto (location → DISCARDED)
  *   POST   /fridge-items/:id/freeze          → 200 FridgeItemDto
  *   POST   /fridge-items/:id/thaw            → 200 FridgeItemDto
  */
@@ -232,25 +232,22 @@ export function useEatFridgeItemByFamily(familyId: string) {
   });
 }
 
-/** POST /fridge-items/:id/throw → 204 (optimista + revert, id por mutación). */
+/**
+ * POST /fridge-items/:id/throw → 200 FridgeItemDto (relocation a DISCARDED).
+ *
+ * Tirar ya NO elimina: mueve el producto a la ubicación "Tirado" (DISCARDED),
+ * dejando un registro de comida tirada. Por eso reemplaza el ítem en el cache
+ * (como freeze/thaw) en vez de quitarlo. Espejo de `useThawFridgeItemByFamily`.
+ */
 export function useThrowFridgeItemByFamily(familyId: string) {
   const qc = useQueryClient();
-  return useMutation<void, ApiRequestError, string>({
-    mutationFn: (itemId) => api.post<void>(`/fridge-items/${itemId}/throw`, {}),
-    onMutate: async (itemId) => {
-      await qc.cancelQueries({ queryKey: fridgeKeys.byFamily(familyId) });
-      const prev = qc.getQueryData<FridgeItemDto[]>(fridgeKeys.byFamily(familyId));
+  return useMutation<FridgeItemDto, ApiRequestError, string>({
+    mutationFn: (itemId) => api.post<FridgeItemDto>(`/fridge-items/${itemId}/throw`, {}),
+    onSuccess: (updated, itemId) => {
       qc.setQueryData<FridgeItemDto[]>(
         fridgeKeys.byFamily(familyId),
-        (old) => old?.filter((i) => i.id !== itemId) ?? [],
+        (old) => old?.map((i) => (i.id === itemId ? updated : i)) ?? [],
       );
-      return { prev };
-    },
-    onError: (_err, _itemId, ctx) => {
-      const context = ctx as { prev?: FridgeItemDto[] } | undefined;
-      if (context?.prev) {
-        qc.setQueryData(fridgeKeys.byFamily(familyId), context.prev);
-      }
     },
     onSettled: () => {
       void qc.invalidateQueries({ queryKey: fridgeKeys.byFamily(familyId) });

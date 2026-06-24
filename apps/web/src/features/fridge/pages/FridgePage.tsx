@@ -11,10 +11,11 @@
  *  - Orden por caducidad y PRECÁLCULO de la urgencia (`getExpiryUrgency`):
  *    la vista recibe `item.urgency` + `item.urgencyLabel` listos para pintar
  *    (single source of truth, plan §4 fila 11 / §7 decisión A).
- *  - Mutaciones: crear, actualizar, eliminar (optimista + revert), comer
- *    (dual `{deleted}`), tirar, congelar (relocation a FREEZER).
- *  - CONFIRMACIÓN de acciones destructivas (tirar / eliminar) vía `window.confirm`
- *    (mismo patrón que listas/tickets) antes de disparar la mutación.
+ *  - Mutaciones: crear, actualizar, eliminar (optimista + revert), tirar
+ *    (relocation a DISCARDED), congelar/descongelar (relocation FREEZER/FRIDGE).
+ *  - CONFIRMACIÓN de la acción destructiva (eliminar) vía `window.confirm`
+ *    (mismo patrón que listas/tickets) antes de disparar la mutación. Tirar ya
+ *    NO es destructiva (mueve a "Tirado"), así que no pide confirmación.
  *  - MANEJO DE ERROR de las acciones rápidas: las mutaciones son optimistas y
  *    hacen rollback al fallar; sin feedback el ítem reaparecía "solo". Aquí cada
  *    acción pasa un `onError` que muestra un `toast.error` para que el fallo se vea.
@@ -34,7 +35,6 @@ import {
   useCreateFridgeItem,
   useUpdateFridgeItemByFamily,
   useDeleteFridgeItemByFamily,
-  useEatFridgeItemByFamily,
   useThrowFridgeItemByFamily,
   useFreezeFridgeItemByFamily,
   useThawFridgeItemByFamily,
@@ -80,6 +80,8 @@ const LOCATION_PHRASE: Record<FridgeLocation, string> = {
   FRIDGE: 'a la nevera',
   FREEZER: 'al congelador',
   PANTRY: 'a la despensa',
+  // No se importan productos a "Tirado"; la clave existe por exhaustividad del Record.
+  DISCARDED: 'a tirados',
 };
 
 // ── Container ─────────────────────────────────────────────────────────────────
@@ -97,14 +99,15 @@ export function FridgePage() {
   const setLocationFilter = useFridgeStore((s) => s.setLocationFilter);
 
   // Ubicación destino al añadir (manual o desde la compra): la sección seleccionada
-  // (Congelador/Despensa) o la Nevera por defecto cuando se ve "Todo".
-  const importTarget: FridgeLocation = locationFilter === 'ALL' ? 'FRIDGE' : locationFilter;
+  // (Congelador/Despensa) o la Nevera por defecto cuando se ve "Todo" o "Tirado"
+  // (no se importan productos a la papelera de tirados).
+  const importTarget: FridgeLocation =
+    locationFilter === 'ALL' || locationFilter === 'DISCARDED' ? 'FRIDGE' : locationFilter;
 
   // Mutaciones (instanciadas una vez; el id viaja en cada `mutate`).
   const create = useCreateFridgeItem(familyId);
   const update = useUpdateFridgeItemByFamily(familyId);
   const remove = useDeleteFridgeItemByFamily(familyId);
-  const eat = useEatFridgeItemByFamily(familyId);
   const discard = useThrowFridgeItemByFamily(familyId);
   const freeze = useFreezeFridgeItemByFamily(familyId);
   const thaw = useThawFridgeItemByFamily(familyId);
@@ -207,12 +210,6 @@ export function FridgePage() {
           toast.error(toMessage(err, 'No se ha podido eliminar el producto. Inténtalo de nuevo.')),
       });
     },
-    // Comer: no destructiva, pero también puede fallar en silencio → toast.
-    onEat: (id) =>
-      eat.mutate(id, {
-        onError: (err) =>
-          toast.error(toMessage(err, 'No se ha podido marcar como consumido. Inténtalo de nuevo.')),
-      }),
     // Stepper +/−: ajusta la cantidad de 1 en 1. La cantidad de la nevera debe ser
     // un número POSITIVO (contrato), así que bajar de 1 con "−" deja la cantidad en
     // 0 → el producto se ELIMINA de la nevera (sin confirmación: es el gesto natural
@@ -239,16 +236,13 @@ export function FridgePage() {
         },
       );
     },
-    // Tirar: DESTRUCTIVA → confirmación + feedback de error.
-    onThrow: (id) => {
-      if (!window.confirm(`¿Seguro que quieres tirar ${nameOf(id)}? Esta acción no se puede deshacer.`)) {
-        return;
-      }
+    // Tirar: NO destructiva (mueve el producto al tab "Tirado", no lo elimina) →
+    // sin confirmación, igual que congelar/descongelar. El fallo se ve por toast.
+    onThrow: (id) =>
       discard.mutate(id, {
         onError: (err) =>
           toast.error(toMessage(err, 'No se ha podido tirar el producto. Inténtalo de nuevo.')),
-      });
-    },
+      }),
     // Congelar: no destructiva, pero el fallo también debe verse → toast.
     onFreeze: (id) =>
       freeze.mutate(id, {

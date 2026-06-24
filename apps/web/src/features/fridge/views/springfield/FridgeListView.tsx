@@ -23,7 +23,7 @@
  *  - Título de nivel 2 "Nevera", botón accesible "Añadir producto".
  *  - Sección "Consumir primero" como `region` aria-label, solo con filter=ALL.
  *  - `data-urgency` por ítem (expired | warning | ok | none).
- *  - aria-labels de acciones: "Marcar X como consumido", "Tirar X", "Congelar X",
+ *  - aria-labels de acciones: "Tirar X", "Congelar X",
  *    "Editar X", "Eliminar X".
  *  - Mensaje vacío "La despensa está vacía" y diálogo "Añadir producto".
  */
@@ -81,6 +81,8 @@ function locationIcon(loc: FridgeLocation): string {
       return '🧊';
     case 'PANTRY':
       return '🥫';
+    case 'DISCARDED':
+      return '🗑️';
   }
 }
 
@@ -93,6 +95,8 @@ function locationTagStyle(loc: FridgeLocation): React.CSSProperties {
       return { background: COMIC.pink, color: INK };
     case 'PANTRY':
       return { background: COMIC.yellow, color: INK };
+    case 'DISCARDED':
+      return { background: COMIC.white, color: INK }; // tirado: neutro
   }
 }
 
@@ -144,23 +148,29 @@ export default function FridgeListView(props: FridgeListViewProps) {
     onAdd,
     onUpdate,
     onDelete,
-    onEat,
     onThrow,
     onFreeze,
     onThaw,
     onAdjustQuantity,
   } = props;
 
+  // "Todo" excluye los tirados (DISCARDED): tienen su propio tab.
   const visible =
-    locationFilter === 'ALL' ? items : items.filter((i) => i.location === locationFilter);
+    locationFilter === 'ALL'
+      ? items.filter((i) => i.location !== 'DISCARDED')
+      : items.filter((i) => i.location === locationFilter);
 
   // Sección "Consumir primero": solo con filter=ALL (urgencia ya precalculada).
+  // Los tirados no urgen: nunca aparecen aquí.
   const urgent =
     locationFilter === 'ALL'
-      ? items.filter((i) => i.urgency === 'expired' || i.urgency === 'warning')
+      ? items.filter(
+          (i) =>
+            i.location !== 'DISCARDED' && (i.urgency === 'expired' || i.urgency === 'warning'),
+        )
       : [];
 
-  const rowHandlers = { onOpenEdit, onDelete, onEat, onThrow, onFreeze, onThaw, onAdjustQuantity };
+  const rowHandlers = { onOpenEdit, onDelete, onThrow, onFreeze, onThaw, onAdjustQuantity };
 
   // Subtítulo real (NO el "2 caducan pronto" hardcodeado del kit): se deriva de
   // los datos que llegan por props.
@@ -211,7 +221,7 @@ export default function FridgeListView(props: FridgeListViewProps) {
 
       {/* ── Filtro por ubicación (tags conmutables) ────────────────────── */}
       <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filtrar por ubicación">
-        {(['ALL', ...LOCATION_ORDER] as FridgeLocationFilter[]).map((f) => {
+        {(['ALL', ...LOCATION_ORDER, 'DISCARDED'] as FridgeLocationFilter[]).map((f) => {
           const active = locationFilter === f;
           return (
             <button
@@ -334,7 +344,6 @@ interface FridgeRowProps {
   item: FridgeListItem;
   onOpenEdit: (item: FridgeListItem) => void;
   onDelete: (id: string) => void;
-  onEat: (id: string) => void;
   onThrow: (id: string) => void;
   onFreeze: (id: string) => void;
   onThaw?: (id: string) => void;
@@ -345,7 +354,6 @@ function FridgeRow({
   item,
   onOpenEdit,
   onDelete,
-  onEat,
   onThrow,
   onFreeze,
   onThaw,
@@ -412,14 +420,6 @@ function FridgeRow({
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5">
-          <ActionButton
-            onClick={() => onEat(item.id)}
-            aria-label={`Marcar ${item.name} como consumido`}
-            title="Comer"
-            style={{ background: COMIC.green, color: COMIC.white }}
-          >
-            🍽️ Comer
-          </ActionButton>
           <ActionButton
             onClick={() => onThrow(item.id)}
             aria-label={`Tirar ${item.name}`}

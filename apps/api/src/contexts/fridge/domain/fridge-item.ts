@@ -4,7 +4,7 @@ import {
   FridgeItemInvalidQuantityError,
 } from './fridge.errors';
 
-export type FridgeLocation = 'FRIDGE' | 'FREEZER' | 'PANTRY';
+export type FridgeLocation = 'FRIDGE' | 'FREEZER' | 'PANTRY' | 'DISCARDED';
 
 export interface FridgeItemProps {
   id: string;
@@ -50,6 +50,7 @@ export interface UpdateFridgeItemPatch {
  *
  * Acciones de dominio:
  * - eat(amount): decrementa la cantidad; si llega a 0 o la cantidad es null → devuelve true (eliminar).
+ * - throw_(): mueve el ítem a DISCARDED (registro de comida tirada).
  * - freeze(): mueve el ítem al congelador.
  * - thaw(): mueve el ítem de vuelta a la nevera.
  * - update(patch): actualiza campos editables.
@@ -149,10 +150,11 @@ export class FridgeItem {
   }
 
   /**
-   * Tira el ítem (desperdicio). La lógica de eliminación la gestiona el caso de uso.
-   * La entidad simplemente registra cuándo ocurrió el cambio.
+   * Tira el ítem (desperdicio): lo mueve a la ubicación DISCARDED en vez de
+   * eliminarlo, dejando un registro de la comida tirada. Espejo de freeze()/thaw().
    */
   throw_(now: Date): void {
+    this._location = 'DISCARDED';
     this._updatedAt = now;
   }
 
