@@ -29,6 +29,7 @@ import {
   SelectValue,
 } from '@/shared/ui/select';
 import PlacePicker, { hasGoogleMapsApiKey } from '../../components/PlacePicker';
+import { usePlanAutofillForm } from '../../hooks/usePlanAutofillForm';
 import type { PlanPlaceInput, CreatePlanViewProps } from '../types';
 
 export default function CreatePlanView(props: CreatePlanViewProps) {
@@ -43,6 +44,19 @@ export default function CreatePlanView(props: CreatePlanViewProps) {
   const [placeLat, setPlaceLat] = useState<number | undefined>(undefined);
   const [placeLng, setPlaceLng] = useState<number | undefined>(undefined);
   const [savePlace, setSavePlace] = useState(false);
+
+  const autofill = usePlanAutofillForm({
+    setTitle,
+    setDescription,
+    setScheduledAt,
+    setPlaceName,
+    setPlaceAddress,
+    setPlaceLat,
+    setPlaceLng,
+    autofill: props.onAutofill,
+    isAutofilling: props.isAutofilling,
+  });
+  const placeAlreadySet = Boolean(placeName.trim() || placeAddress.trim());
 
   function handleSubmit() {
     let place: PlanPlaceInput | undefined;
@@ -73,7 +87,25 @@ export default function CreatePlanView(props: CreatePlanViewProps) {
       <button type="button" onClick={onCancel} className="text-sm text-muted-foreground cursor-pointer">
         ‹ Planes
       </button>
-      <h1 className="text-2xl font-bold">Nuevo plan</h1>
+      <div className="flex items-center justify-between gap-2">
+        <h1 className="text-2xl font-bold">Nuevo plan</h1>
+        {autofill.voiceSupported && (
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            disabled={autofill.isBusy}
+            onClick={autofill.startVoice}
+            aria-label="Rellenar el plan hablando"
+            title="Habla y la IA rellena el plan"
+          >
+            {autofill.isBusy ? '…' : '🎤'} Hablar
+          </Button>
+        )}
+      </div>
+      {autofill.voiceInterim && (
+        <p className="text-xs text-muted-foreground italic">{autofill.voiceInterim}</p>
+      )}
 
       {error && (
         <Alert variant="destructive">
@@ -94,7 +126,19 @@ export default function CreatePlanView(props: CreatePlanViewProps) {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="plan-description">Descripción</Label>
+          <div className="flex items-center justify-between gap-2">
+            <Label htmlFor="plan-description">Descripción</Label>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={autofill.isBusy || !description.trim()}
+              onClick={() => autofill.autofillFromDescription(description, placeAlreadySet)}
+              title="La IA completa lo que falte a partir de la descripción"
+            >
+              ✨ Autocompletar
+            </Button>
+          </div>
           <Textarea
             id="plan-description"
             value={description}

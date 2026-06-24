@@ -108,6 +108,8 @@ function renderCreate(overrides: Partial<CreatePlanViewProps> = {}) {
     error: null,
     onSubmit: vi.fn(),
     onCancel: vi.fn(),
+    onAutofill: vi.fn().mockResolvedValue({}),
+    isAutofilling: false,
     ...overrides,
   };
   return { props, ...render(<CreatePlanView {...props} />) };

@@ -20,6 +20,7 @@
 
 import { useState } from 'react';
 import PlacePicker, { hasGoogleMapsApiKey } from '../../components/PlacePicker';
+import { usePlanAutofillForm } from '../../hooks/usePlanAutofillForm';
 import type { PlanPlaceInput, CreatePlanViewProps } from '../types';
 
 export default function CreatePlanView(props: CreatePlanViewProps) {
@@ -34,6 +35,19 @@ export default function CreatePlanView(props: CreatePlanViewProps) {
   const [placeLat, setPlaceLat] = useState<number | undefined>(undefined);
   const [placeLng, setPlaceLng] = useState<number | undefined>(undefined);
   const [savePlace, setSavePlace] = useState(false);
+
+  const autofill = usePlanAutofillForm({
+    setTitle,
+    setDescription,
+    setScheduledAt,
+    setPlaceName,
+    setPlaceAddress,
+    setPlaceLat,
+    setPlaceLng,
+    autofill: props.onAutofill,
+    isAutofilling: props.isAutofilling,
+  });
+  const placeAlreadySet = Boolean(placeName.trim() || placeAddress.trim());
 
   function handleSubmit() {
     let place: PlanPlaceInput | undefined;
@@ -79,6 +93,20 @@ export default function CreatePlanView(props: CreatePlanViewProps) {
           Nuevo plan
         </h1>
         <p className="text-base mt-2 opacity-80">Apunta algo divertido</p>
+        {autofill.voiceSupported && (
+          <button
+            type="button"
+            onClick={autofill.startVoice}
+            disabled={autofill.isBusy}
+            className="ck-btn ck-btn-blue mt-3 inline-flex items-center gap-2"
+            aria-label="Rellenar el plan hablando"
+          >
+            {autofill.isBusy ? '…' : '🎤'} cuéntamelo y lo apunto
+          </button>
+        )}
+        {autofill.voiceInterim && (
+          <p className="ck-marker text-base mt-2 opacity-70">{autofill.voiceInterim}</p>
+        )}
       </div>
 
       {error && (
@@ -111,9 +139,20 @@ export default function CreatePlanView(props: CreatePlanViewProps) {
         </div>
 
         <div>
-          <label htmlFor="plan-description" className="ck-marker text-xl block">
-            notas
-          </label>
+          <div className="flex items-end justify-between gap-2">
+            <label htmlFor="plan-description" className="ck-marker text-xl block">
+              notas
+            </label>
+            <button
+              type="button"
+              onClick={() => autofill.autofillFromDescription(description, placeAlreadySet)}
+              disabled={autofill.isBusy || !description.trim()}
+              className="ck-marker text-base cursor-pointer disabled:opacity-50"
+              style={{ color: 'var(--color-accent)' }}
+            >
+              ✨ autocompletar
+            </button>
+          </div>
           <textarea
             id="plan-description"
             className="ck-input"

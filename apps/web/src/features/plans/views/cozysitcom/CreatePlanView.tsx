@@ -19,6 +19,7 @@
 
 import { useState } from 'react';
 import PlacePicker, { hasGoogleMapsApiKey } from '../../components/PlacePicker';
+import { usePlanAutofillForm } from '../../hooks/usePlanAutofillForm';
 import type { PlanPlaceInput, CreatePlanViewProps } from '../types';
 
 export default function CreatePlanView(props: CreatePlanViewProps) {
@@ -33,6 +34,19 @@ export default function CreatePlanView(props: CreatePlanViewProps) {
   const [placeLat, setPlaceLat] = useState<number | undefined>(undefined);
   const [placeLng, setPlaceLng] = useState<number | undefined>(undefined);
   const [savePlace, setSavePlace] = useState(false);
+
+  const autofill = usePlanAutofillForm({
+    setTitle,
+    setDescription,
+    setScheduledAt,
+    setPlaceName,
+    setPlaceAddress,
+    setPlaceLat,
+    setPlaceLng,
+    autofill: props.onAutofill,
+    isAutofilling: props.isAutofilling,
+  });
+  const placeAlreadySet = Boolean(placeName.trim() || placeAddress.trim());
 
   function handleSubmit() {
     let place: PlanPlaceInput | undefined;
@@ -74,6 +88,20 @@ export default function CreatePlanView(props: CreatePlanViewProps) {
         </div>
         <h1 className="cz-serif text-4xl leading-none">Vamos a tramar algo</h1>
         <div className="cz-stripe mt-3" />
+        {autofill.voiceSupported && (
+          <button
+            type="button"
+            onClick={autofill.startVoice}
+            disabled={autofill.isBusy}
+            className="cz-btn-garnet mt-3 inline-flex items-center gap-2 disabled:opacity-50"
+            aria-label="Rellenar el plan hablando"
+          >
+            {autofill.isBusy ? '…' : '🎤'} Cuéntamelo
+          </button>
+        )}
+        {autofill.voiceInterim && (
+          <p className="text-sm mt-2 italic opacity-70">{autofill.voiceInterim}</p>
+        )}
       </div>
 
       {error && (
@@ -102,9 +130,20 @@ export default function CreatePlanView(props: CreatePlanViewProps) {
         </div>
 
         <div className="space-y-1.5">
-          <label htmlFor="plan-description" className="text-xs font-bold uppercase opacity-70">
-            Descripción
-          </label>
+          <div className="flex items-center justify-between gap-2">
+            <label htmlFor="plan-description" className="text-xs font-bold uppercase opacity-70">
+              Descripción
+            </label>
+            <button
+              type="button"
+              onClick={() => autofill.autofillFromDescription(description, placeAlreadySet)}
+              disabled={autofill.isBusy || !description.trim()}
+              className="text-xs font-bold uppercase cursor-pointer disabled:opacity-50"
+              style={{ color: 'var(--color-accent)' }}
+            >
+              ✨ Autocompletar
+            </button>
+          </div>
           <textarea
             id="plan-description"
             className="cz-input"

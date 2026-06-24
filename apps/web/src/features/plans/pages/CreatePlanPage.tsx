@@ -12,6 +12,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { ThemeView } from '@/shared/theme/ThemeView';
 import { useFamilyStore } from '@/features/family/store/family.store';
 import { useCreatePlan, useSavedPlaces } from '../hooks/usePlans';
+import { usePlanAutofill } from '../hooks/usePlanAutofill';
 import type { PlaceDto } from '../contracts';
 import type { CreatePlanViewProps, CreatePlanFormValues } from '../views/types';
 import { ApiRequestError } from '@/shared/lib/api';
@@ -24,6 +25,9 @@ export function CreatePlanPage() {
 
   const { data: savedPlaces } = useSavedPlaces(activeFamily?.id);
   const createPlan = useCreatePlan(activeFamily?.id ?? '');
+  // Autocompletado con IA (fetch a /ai/parse-plan + geocoding): vive en el
+  // container y se inyecta en la vista por props (la vista se mantiene pura).
+  const { autofill, isAutofilling } = usePlanAutofill();
 
   function handleSubmit(values: CreatePlanFormValues) {
     setErrorMsg(null);
@@ -48,7 +52,10 @@ export function CreatePlanPage() {
       {
         title: values.title.trim(),
         description: values.description,
-        scheduledAt: values.scheduledAt,
+        // `datetime-local` emite "2026-06-23T14:30" (sin segundos ni zona); el
+        // schema exige ISO completo (.datetime()). Convertimos aquí, una sola vez
+        // para los 4 themes (mismo criterio que buildUpdatePlanBody en edición).
+        scheduledAt: values.scheduledAt ? new Date(values.scheduledAt).toISOString() : undefined,
         place,
         savePlace: Boolean(values.savePlace && place),
       },
@@ -81,6 +88,8 @@ export function CreatePlanPage() {
     error: errorMsg,
     onSubmit: handleSubmit,
     onCancel: () => void navigate({ to: '/plans' }),
+    onAutofill: autofill,
+    isAutofilling,
   };
 
   return <ThemeView screen="plan_create" props={viewProps} />;

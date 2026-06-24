@@ -27,6 +27,7 @@ import type {
   UpdatePlanInput,
 } from '../contracts';
 import type { FriendFamilyDto } from '@cosasdecasa/contracts';
+import type { AutofillResult } from '../hooks/usePlanAutofill';
 
 // ── plans (lista) ───────────────────────────────────────────────────────────────
 
@@ -78,6 +79,14 @@ export interface CreatePlanViewProps {
   onSubmit: (values: CreatePlanFormValues) => void;
   /** Cancela y vuelve al listado. */
   onCancel: () => void;
+  /**
+   * Autocompleta el plan con IA a partir de una frase (voz o descripción). El
+   * fetch a la IA + geocoding vive en el CONTAINER; la vista solo lo invoca y
+   * vuelca el resultado en su estado local (se mantiene presentacional).
+   */
+  onAutofill: (phrase: string) => Promise<AutofillResult>;
+  /** El autocompletado por IA está en curso (lo aporta el container). */
+  isAutofilling: boolean;
 }
 
 // ── plan_detail (detalle + chat) ─────────────────────────────────────────────────

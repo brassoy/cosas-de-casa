@@ -8,6 +8,7 @@ import {
   ParseUUIDPipe,
   Post,
   Query,
+  UseFilters,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -22,6 +23,7 @@ import type {
   ExtractItemsResponse,
   DedupCheckResponse,
   FrequentItemDto,
+  ParsePlanResponse,
 } from '@cosasdecasa/contracts';
 import { JwtAuthGuard } from '../../identity-access/interface/jwt-auth.guard';
 import { FamilyScopeGuard } from '../../family/interface/family-scope.guard';
@@ -29,11 +31,15 @@ import { RateLimit, RateLimitGuard } from '../../../common/rate-limit.guard';
 import { ExtractItemsUseCase } from '../application/extract-items.use-case';
 import { DedupCheckUseCase } from '../application/dedup-check.use-case';
 import { GetFrequentItemsUseCase } from '../application/get-frequent-items.use-case';
+import { ParsePlanUseCase } from '../application/parse-plan.use-case';
 import { ExtractItemsDto } from './dto/extract-items.dto';
 import { DedupCheckDto } from './dto/dedup-check.dto';
+import { ParsePlanDto } from './dto/parse-plan.dto';
 import { AiPresenter } from './ai.presenter';
+import { AiErrorFilter } from './ai-error.filter';
 
 @ApiBearerAuth()
+@UseFilters(AiErrorFilter)
 @UseGuards(JwtAuthGuard)
 @Controller()
 @ApiTags('ai')
@@ -42,6 +48,7 @@ export class AiController {
     private readonly extractItems: ExtractItemsUseCase,
     private readonly dedupCheck: DedupCheckUseCase,
     private readonly getFrequentItems: GetFrequentItemsUseCase,
+    private readonly parsePlanUseCase: ParsePlanUseCase,
   ) {}
 
   /**
@@ -56,6 +63,21 @@ export class AiController {
   async extract(@Body() body: ExtractItemsDto): Promise<ExtractItemsResponse> {
     const items = await this.extractItems.execute({ phrase: body.phrase });
     return { items };
+  }
+
+  /**
+   * Deduce los campos de un plan (título, descripción, fecha/hora y lugar) a
+   * partir de una frase en lenguaje natural. Si la IA no está configurada o
+   * falla, responde 503 (AiUnavailableError → AiErrorFilter).
+   * POST /api/v1/ai/parse-plan
+   */
+  @Post('ai/parse-plan')
+  @UseGuards(RateLimitGuard)
+  @RateLimit({ limit: 5, ttl: 60_000 }) // 5 req/min — costoso (LLM)
+  @ApiOperation({ summary: 'Autocompletar un plan a partir de una frase (IA).' })
+  @ApiCreatedResponse({ description: 'Campos del plan deducidos.' })
+  async parsePlan(@Body() body: ParsePlanDto): Promise<ParsePlanResponse> {
+    return this.parsePlanUseCase.execute({ phrase: body.phrase, now: body.now });
   }
 
   /**

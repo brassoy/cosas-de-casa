@@ -96,11 +96,13 @@ export function usePlanChat(
   // para no pisar el estado tras un `loadOlder`.
   useEffect(() => {
     if (!initialMessages || hasMoreOlder !== null) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- init one-shot del flag "hay más histórico"
     setHasMoreOlder(initialMessages.length >= MESSAGES_PAGE_SIZE);
   }, [initialMessages, hasMoreOlder]);
 
   // Al cambiar de plan, reseteamos las páginas antiguas y el flag de "hay más".
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset al cambiar de plan
     setOlderMessages([]);
     setHasMoreOlder(null);
   }, [planId]);

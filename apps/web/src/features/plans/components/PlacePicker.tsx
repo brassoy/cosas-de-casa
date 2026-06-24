@@ -143,6 +143,7 @@ function PlacePickerInner({
 export default function PlacePicker({ className, ...inner }: PlacePickerProps) {
   // Render del cliente: en SSR/tests sin key no montamos nada de Google.
   const [mounted, setMounted] = useState(false);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- mount flag para evitar SSR/tests sin Google
   useEffect(() => setMounted(true), []);
 
   if (!hasGoogleMapsApiKey || !GOOGLE_MAPS_API_KEY) {
