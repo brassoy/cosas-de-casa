@@ -185,3 +185,48 @@ export class TaskPhoto {
     });
   }
 }
+
+// ── Entidad TaskComment ─────────────────────────────────────────────────────────
+
+export interface TaskCommentProps {
+  id: string;
+  taskId: string;
+  authorId: string | null;
+  body: string;
+  createdAt: Date;
+}
+
+export interface NewTaskCommentParams {
+  id: string;
+  taskId: string;
+  authorId: string | null;
+  body: string;
+  now: Date;
+}
+
+/** Entidad TaskComment. Inmutable tras la creación. */
+export class TaskComment {
+  readonly id: string;
+  readonly taskId: string;
+  readonly authorId: string | null;
+  readonly body: string;
+  readonly createdAt: Date;
+
+  constructor(props: TaskCommentProps) {
+    this.id = props.id;
+    this.taskId = props.taskId;
+    this.authorId = props.authorId;
+    this.body = props.body;
+    this.createdAt = props.createdAt;
+  }
+
+  static create(params: NewTaskCommentParams): TaskComment {
+    return new TaskComment({
+      id: params.id,
+      taskId: params.taskId,
+      authorId: params.authorId,
+      body: params.body,
+      createdAt: params.now,
+    });
+  }
+}

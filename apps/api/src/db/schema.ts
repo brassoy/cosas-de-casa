@@ -280,6 +280,24 @@ export const taskPhotos = pgTable(
   ],
 );
 
+// ── task_comments ─────────────────────────────────────────────────────────────
+
+export const taskComments = pgTable(
+  'task_comments',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    taskId: uuid('task_id')
+      .notNull()
+      .references(() => tasks.id, { onDelete: 'cascade' }),
+    authorId: uuid('author_id').references(() => appUsers.id, { onDelete: 'set null' }),
+    body: text('body').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('task_comments_task_idx').on(table.taskId),
+  ],
+);
+
 // ── fridge_location ───────────────────────────────────────────────────────────
 
 export const fridgeLocationEnum = pgEnum('fridge_location', ['FRIDGE', 'FREEZER', 'PANTRY']);
@@ -765,6 +783,7 @@ export type CatalogItemRow = typeof catalogItems.$inferSelect;
 export type TaskRow = typeof tasks.$inferSelect;
 export type TaskAssigneeRow = typeof taskAssignees.$inferSelect;
 export type TaskPhotoRow = typeof taskPhotos.$inferSelect;
+export type TaskCommentRow = typeof taskComments.$inferSelect;
 export type FridgeItemRow = typeof fridgeItems.$inferSelect;
 export type PushSubscriptionRow = typeof pushSubscriptions.$inferSelect;
 export type CalendarEventRow = typeof calendarEvents.$inferSelect;

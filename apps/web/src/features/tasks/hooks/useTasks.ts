@@ -14,7 +14,11 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { ShoppingListSummaryDto } from '@cosasdecasa/contracts';
+import type {
+  ShoppingListSummaryDto,
+  TaskCommentDto,
+  AddTaskCommentInput,
+} from '@cosasdecasa/contracts';
 import { api, ApiRequestError } from '@/shared/lib/api';
 import { supabase } from '@/shared/lib/supabase';
 import imageCompression from 'browser-image-compression';
@@ -33,6 +37,7 @@ export const taskKeys = {
   all: ['tasks'] as const,
   byFamily: (familyId: string) => ['tasks', 'family', familyId] as const,
   detail: (taskId: string) => ['tasks', 'detail', taskId] as const,
+  comments: (taskId: string) => ['tasks', 'comments', taskId] as const,
 };
 
 // ── Queries ───────────────────────────────────────────────────────────────────
@@ -53,6 +58,18 @@ export function useTaskDetail(taskId: string | undefined) {
   });
 }
 
+/**
+ * GET /tasks/:taskId/comments → TaskCommentDto[]
+ * Comentarios ordenados del más antiguo al más reciente (online-first).
+ */
+export function useTaskComments(taskId: string | undefined) {
+  return useQuery<TaskCommentDto[]>({
+    queryKey: taskId ? taskKeys.comments(taskId) : ['tasks', 'comments', 'none'],
+    queryFn: () => api.get<TaskCommentDto[]>(`/tasks/${taskId!}/comments`),
+    enabled: Boolean(taskId),
+  });
+}
+
 // ── Mutations ─────────────────────────────────────────────────────────────────
 
 export function useCreateTask(familyId: string) {
@@ -61,6 +78,20 @@ export function useCreateTask(familyId: string) {
     mutationFn: (input) => api.post<TaskDto>(`/families/${familyId}/tasks`, input),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: taskKeys.byFamily(familyId) });
+    },
+  });
+}
+
+/**
+ * POST /tasks/:taskId/comments → 201 TaskCommentDto
+ * Tras el éxito invalida la query de comentarios para refrescar el hilo.
+ */
+export function useAddTaskComment(taskId: string) {
+  const qc = useQueryClient();
+  return useMutation<TaskCommentDto, ApiRequestError, AddTaskCommentInput>({
+    mutationFn: (input) => api.post<TaskCommentDto>(`/tasks/${taskId}/comments`, input),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: taskKeys.comments(taskId) });
     },
   });
 }

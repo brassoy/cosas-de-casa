@@ -21,7 +21,7 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
-import type { TaskDto } from '@cosasdecasa/contracts';
+import type { TaskDto, TaskCommentDto } from '@cosasdecasa/contracts';
 import type { AuthenticatedUser } from '../../identity-access/domain/authenticated-user';
 import { CurrentUser } from '../../identity-access/interface/current-user.decorator';
 import { JwtAuthGuard } from '../../identity-access/interface/jwt-auth.guard';
@@ -36,6 +36,8 @@ import { SetAssigneesUseCase } from '../application/set-assignees.use-case';
 import { AddTaskPhotoUseCase } from '../application/add-task-photo.use-case';
 import { RemoveTaskPhotoUseCase } from '../application/remove-task-photo.use-case';
 import { GenerateListFromTaskUseCase } from '../application/generate-list-from-task.use-case';
+import { AddTaskCommentUseCase } from '../application/add-task-comment.use-case';
+import { ListTaskCommentsUseCase } from '../application/list-task-comments.use-case';
 
 import { TASK_PHOTO_REPOSITORY, type TaskPhotoRepository } from '../domain/ports/task-photo.repository';
 import { TaskAssigneesReadModel } from '../infrastructure/task-assignees-read-model';
@@ -48,6 +50,7 @@ import { UpdateTaskDto } from './dto/update-task.dto';
 import { AssigneesDto } from './dto/assignees.dto';
 import { AddPhotoDto } from './dto/add-photo.dto';
 import { ListTasksQueryDto } from './dto/list-tasks-query.dto';
+import { AddTaskCommentDto } from './dto/add-task-comment.dto';
 
 import type { ShoppingListSummaryDto } from '@cosasdecasa/contracts';
 import { ShoppingPresenter } from '../../shopping/interface/shopping.presenter';
@@ -75,6 +78,8 @@ export class TasksController {
     private readonly addPhoto: AddTaskPhotoUseCase,
     private readonly removePhoto: RemoveTaskPhotoUseCase,
     private readonly generateList: GenerateListFromTaskUseCase,
+    private readonly addComment: AddTaskCommentUseCase,
+    private readonly listComments: ListTaskCommentsUseCase,
     @Inject(TASK_PHOTO_REPOSITORY) private readonly photoRepo: TaskPhotoRepository,
     private readonly assigneesReadModel: TaskAssigneesReadModel,
   ) {}
@@ -231,6 +236,36 @@ export class TasksController {
     @Param('photoId', ParseUUIDPipe) photoId: string,
   ): Promise<void> {
     await this.removePhoto.execute({ photoId });
+  }
+
+  // ── Comentarios ─────────────────────────────────────────────────────────────
+
+  @Get('tasks/:taskId/comments')
+  @UseGuards(TaskScopeGuard)
+  @ApiOperation({ summary: 'Listar los comentarios de una tarea.' })
+  @ApiOkResponse({ description: 'Comentarios de la tarea.' })
+  async getCommentsHandler(
+    @Param('taskId', ParseUUIDPipe) taskId: string,
+  ): Promise<TaskCommentDto[]> {
+    const comments = await this.listComments.execute({ taskId });
+    return comments.map((c) => TaskPresenter.toCommentDto(c));
+  }
+
+  @Post('tasks/:taskId/comments')
+  @UseGuards(TaskScopeGuard)
+  @ApiOperation({ summary: 'Añadir un comentario a una tarea.' })
+  @ApiCreatedResponse({ description: 'Comentario añadido.' })
+  async addCommentHandler(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('taskId', ParseUUIDPipe) taskId: string,
+    @Body() body: AddTaskCommentDto,
+  ): Promise<TaskCommentDto> {
+    const comment = await this.addComment.execute({
+      taskId,
+      actingUserId: user.id,
+      body: body.body,
+    });
+    return TaskPresenter.toCommentDto(comment);
   }
 
   // ── Generar lista de la compra ────────────────────────────────────────────

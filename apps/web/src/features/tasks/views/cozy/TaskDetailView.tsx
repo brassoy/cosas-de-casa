@@ -24,7 +24,7 @@
  * datos, sin stores, sin navegación, sin Supabase.
  */
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ImagePlus, ListPlus, Loader2, Trash2, X } from 'lucide-react';
 import { Checkbox } from '@/shared/ui/checkbox';
 import { ScreenState } from '@/shared/components/ScreenState';
@@ -34,6 +34,7 @@ import type {
   TaskStatus,
   FamilyMemberDto,
   TaskPhotoView,
+  TaskCommentView,
   TaskDetailViewProps,
 } from '../types';
 
@@ -85,6 +86,11 @@ export default function TaskDetailView(props: TaskDetailViewProps) {
     onDeletePhoto,
     onDeleteTask,
     onGenerateShoppingList,
+    comments,
+    isLoadingComments,
+    isSendingComment,
+    commentError,
+    onAddComment,
   } = props;
 
   return (
@@ -197,6 +203,17 @@ export default function TaskDetailView(props: TaskDetailViewProps) {
           onUploadPhoto={onUploadPhoto}
           onDeletePhoto={onDeletePhoto}
         />
+
+        {/* Comentarios (hilo tipo chat manuscrito). */}
+        {onAddComment && (
+          <CommentsThread
+            comments={comments ?? []}
+            isLoading={isLoadingComments}
+            isSending={isSendingComment}
+            error={commentError}
+            onAddComment={onAddComment}
+          />
+        )}
 
         {/* Generar lista de la compra. */}
         <section className="space-y-2 border-t border-dashed border-[#d9c79a] pt-4">
@@ -463,6 +480,90 @@ function PhotoGallery({
             }}
           />
         </label>
+      </div>
+    </section>
+  );
+}
+
+// ── Sub-flujo presentacional: hilo de comentarios (notas manuscritas) ──────────
+
+interface CommentsThreadProps {
+  comments: TaskCommentView[];
+  isLoading?: boolean;
+  isSending?: boolean;
+  error?: string | null;
+  onAddComment: (body: string) => void;
+}
+
+function CommentsThread({
+  comments,
+  isLoading,
+  isSending,
+  error,
+  onAddComment,
+}: CommentsThreadProps) {
+  const [body, setBody] = useState('');
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll al final del hilo cuando llega un comentario nuevo.
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: 99999 });
+  }, [comments.length]);
+
+  function submit() {
+    const trimmed = body.trim();
+    if (!trimmed || isSending) return;
+    onAddComment(trimmed);
+    setBody('');
+  }
+
+  return (
+    <section className="space-y-2 border-t border-dashed border-[#d9c79a] pt-4">
+      <p className="ck-marker text-2xl text-primary">notas ({comments.length})</p>
+
+      {error && <ErrorNote message={error} />}
+
+      <div ref={scrollRef} className="max-h-72 space-y-2 overflow-y-auto">
+        {isLoading && <p className="text-base opacity-70">cargando notas…</p>}
+        {!isLoading &&
+          comments.map((c) => (
+            <div key={c.id} className="ck-card !p-3">
+              <p className="ck-marker text-base text-primary">
+                {c.authorName} ·{' '}
+                <span className="opacity-70">
+                  {new Date(c.createdAt).toLocaleString('es-ES', {
+                    dateStyle: 'short',
+                    timeStyle: 'short',
+                  })}
+                </span>
+              </p>
+              <p className="text-base">{c.body}</p>
+            </div>
+          ))}
+        {!isLoading && comments.length === 0 && (
+          <p className="text-base opacity-70">Aún no hay notas.</p>
+        )}
+      </div>
+
+      <div className="flex items-center gap-2">
+        <input
+          className="ck-input flex-1"
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') submit();
+          }}
+          placeholder="Escribe una nota"
+          aria-label="Nueva nota"
+        />
+        <button
+          type="button"
+          className="ck-btn ck-btn-blue whitespace-nowrap disabled:opacity-50"
+          onClick={submit}
+          disabled={!body.trim() || isSending}
+        >
+          {isSending ? 'enviando…' : 'enviar'}
+        </button>
       </div>
     </section>
   );

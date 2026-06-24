@@ -7,6 +7,7 @@ import type { Database } from '../../db/db.types';
 // ── Domain ports ─────────────────────────────────────────────────────────────
 import { TASK_REPOSITORY } from './domain/ports/task.repository';
 import { TASK_PHOTO_REPOSITORY } from './domain/ports/task-photo.repository';
+import { TASK_COMMENT_REPOSITORY } from './domain/ports/task-comment.repository';
 
 // ── Application ports ────────────────────────────────────────────────────────
 import { TASKS_CLOCK } from './application/ports/clock';
@@ -22,10 +23,13 @@ import { SetAssigneesUseCase } from './application/set-assignees.use-case';
 import { AddTaskPhotoUseCase } from './application/add-task-photo.use-case';
 import { RemoveTaskPhotoUseCase } from './application/remove-task-photo.use-case';
 import { GenerateListFromTaskUseCase } from './application/generate-list-from-task.use-case';
+import { AddTaskCommentUseCase } from './application/add-task-comment.use-case';
+import { ListTaskCommentsUseCase } from './application/list-task-comments.use-case';
 
 // ── Infrastructure ──────────────────────────────────────────────────────────
 import { DrizzleTaskRepository } from './infrastructure/drizzle-task.repository';
 import { DrizzleTaskPhotoRepository } from './infrastructure/drizzle-task-photo.repository';
+import { DrizzleTaskCommentRepository } from './infrastructure/drizzle-task-comment.repository';
 import { TaskAssigneesReadModel } from './infrastructure/task-assignees-read-model';
 
 // ── Interface ────────────────────────────────────────────────────────────────
@@ -53,6 +57,11 @@ import { UuidIdGenerator } from '../family/infrastructure/uuid-id-generator';
       provide: TASK_PHOTO_REPOSITORY,
       inject: [DRIZZLE],
       useFactory: (db: Database) => new DrizzleTaskPhotoRepository(db),
+    },
+    {
+      provide: TASK_COMMENT_REPOSITORY,
+      inject: [DRIZZLE],
+      useFactory: (db: Database) => new DrizzleTaskCommentRepository(db),
     },
 
     // ── Repositorio de familia (para los guards) ──────────────────────────
@@ -95,6 +104,8 @@ import { UuidIdGenerator } from '../family/infrastructure/uuid-id-generator';
     AddTaskPhotoUseCase,
     RemoveTaskPhotoUseCase,
     GenerateListFromTaskUseCase,
+    AddTaskCommentUseCase,
+    ListTaskCommentsUseCase,
   ],
 })
 export class TasksModule {}

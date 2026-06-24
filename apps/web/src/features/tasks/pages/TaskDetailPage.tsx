@@ -31,9 +31,11 @@ import {
   useDeleteTask,
   useDeleteTaskPhoto,
   useGenerateShoppingList,
+  useTaskComments,
+  useAddTaskComment,
   getPhotoPublicUrl,
 } from '../hooks/useTasks';
-import type { TaskDetailViewProps, TaskView } from '../views/types';
+import type { TaskCommentView, TaskDetailViewProps, TaskView } from '../views/types';
 
 export function TaskDetailPage() {
   const { taskId } = useParams({ from: '/tasks/$taskId' });
@@ -51,11 +53,19 @@ export function TaskDetailPage() {
   const deletePhoto = useDeleteTaskPhoto(taskId, familyId);
   const generateList = useGenerateShoppingList(taskId);
 
+  const {
+    data: rawComments = [],
+    isLoading: isLoadingComments,
+    error: commentsQueryError,
+  } = useTaskComments(taskId);
+  const addComment = useAddTaskComment(taskId);
+
   const [editMode, setEditMode] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [generateError, setGenerateError] = useState<string | null>(null);
+  const [sendCommentError, setSendCommentError] = useState<string | null>(null);
 
   // Enriquece las fotos con su URL pública resuelta desde Supabase Storage.
   const taskView: TaskView | null = useMemo(() => {
@@ -65,6 +75,22 @@ export function TaskDetailPage() {
       photos: task.photos.map((p) => ({ ...p, url: getPhotoPublicUrl(p.storagePath) })),
     };
   }, [task]);
+
+  // El DTO de comentario solo trae `authorId`; resolvemos el nombre desde los
+  // miembros de la familia (fallback a "Alguien" si el autor ya no está o es
+  // null) para que la vista sea presentacional pura.
+  const comments: TaskCommentView[] = useMemo(() => {
+    const nameById = new Map(members.map((m) => [m.userId, m.displayName]));
+    return rawComments.map((c) => ({
+      id: c.id,
+      body: c.body,
+      authorName: (c.authorId && nameById.get(c.authorId)) || 'Alguien',
+      createdAt: c.createdAt,
+    }));
+  }, [rawComments, members]);
+
+  const commentError =
+    sendCommentError ?? (commentsQueryError ? 'No se han podido cargar los comentarios.' : null);
 
   if (isLoading) {
     return (
@@ -98,6 +124,25 @@ export function TaskDetailPage() {
     isDeleting: deleteTask.isPending,
     deleteError,
     isDeletingPhoto: deletePhoto.isPending,
+    comments,
+    isLoadingComments,
+    isSendingComment: addComment.isPending,
+    commentError,
+    onAddComment: (body) => {
+      setSendCommentError(null);
+      addComment.mutate(
+        { body },
+        {
+          onError: (err) => {
+            const msg =
+              err instanceof ApiRequestError
+                ? err.body.message
+                : 'No se ha podido enviar el comentario.';
+            setSendCommentError(msg);
+          },
+        },
+      );
+    },
     onBack: () =>
       void navigate({ to: '/family/$familyId/tasks', params: { familyId } }),
     onToggleEdit: () => {

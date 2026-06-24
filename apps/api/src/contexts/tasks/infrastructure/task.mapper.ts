@@ -1,5 +1,5 @@
-import type { TaskRow, TaskAssigneeRow, TaskPhotoRow } from '../../../db/schema';
-import { Task, TaskPhoto } from '../domain/task';
+import type { TaskRow, TaskAssigneeRow, TaskPhotoRow, TaskCommentRow } from '../../../db/schema';
+import { Task, TaskPhoto, TaskComment } from '../domain/task';
 
 /** Traduce filas de BD a entidades de dominio. */
 export const TaskMapper = {
@@ -25,6 +25,16 @@ export const TaskMapper = {
       id: row.id,
       taskId: row.taskId,
       storagePath: row.storagePath,
+      createdAt: row.createdAt,
+    });
+  },
+
+  toComment(row: TaskCommentRow): TaskComment {
+    return new TaskComment({
+      id: row.id,
+      taskId: row.taskId,
+      authorId: row.authorId ?? null,
+      body: row.body,
       createdAt: row.createdAt,
     });
   },

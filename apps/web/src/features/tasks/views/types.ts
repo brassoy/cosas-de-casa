@@ -53,6 +53,18 @@ export interface TaskView extends Omit<TaskDto, 'photos'> {
   photos: TaskPhotoView[];
 }
 
+/**
+ * Comentario de una tarea, listo para pintar. El `TaskCommentDto` del contrato
+ * solo expone `authorId`; el container resuelve `authorName` desde los miembros
+ * de la familia (o un fallback) para que la vista sea presentacional pura.
+ */
+export interface TaskCommentView {
+  id: string;
+  body: string;
+  authorName: string;
+  createdAt: string;
+}
+
 /** Valores que emite el formulario de creación al enviar. */
 export interface CreateTaskFormValues {
   title: string;
@@ -167,6 +179,22 @@ export interface TaskDetailViewProps {
   onDeletePhoto?: (photoId: string) => void;
   /** El borrado de alguna foto está en curso. */
   isDeletingPhoto?: boolean;
+
+  // ── Comentarios (hilo tipo chat) ────────────────────────────────────────────
+  /**
+   * Comentarios de la tarea, ordenados del más antiguo al más reciente. Opcional
+   * para no romper consumidores/tests existentes; si no se pasa, la vista oculta
+   * el hilo de comentarios.
+   */
+  comments?: TaskCommentView[];
+  /** Carga inicial del hilo de comentarios en curso. */
+  isLoadingComments?: boolean;
+  /** Hay un envío de comentario en curso. */
+  isSendingComment?: boolean;
+  /** Error al cargar/enviar comentarios; `null`/`undefined` si no hay error. */
+  commentError?: string | null;
+  /** Envía un comentario nuevo (el body ya viene trimado por la vista). */
+  onAddComment?: (body: string) => void;
 }
 
 export type { TaskDto, TaskStatus, TaskPhotoDto, FamilyMemberDto };

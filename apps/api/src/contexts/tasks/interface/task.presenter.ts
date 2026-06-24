@@ -1,5 +1,5 @@
-import type { TaskDto, TaskAssigneeDto, TaskPhotoDto } from '@cosasdecasa/contracts';
-import type { Task, TaskPhoto } from '../domain/task';
+import type { TaskDto, TaskAssigneeDto, TaskPhotoDto, TaskCommentDto } from '@cosasdecasa/contracts';
+import type { Task, TaskPhoto, TaskComment } from '../domain/task';
 
 /** Traduce entidades de dominio a DTOs del contrato público. */
 export const TaskPresenter = {
@@ -34,6 +34,16 @@ export const TaskPresenter = {
       taskId: photo.taskId,
       storagePath: photo.storagePath,
       createdAt: photo.createdAt.toISOString(),
+    };
+  },
+
+  toCommentDto(comment: TaskComment): TaskCommentDto {
+    return {
+      id: comment.id,
+      taskId: comment.taskId,
+      authorId: comment.authorId ?? undefined,
+      body: comment.body,
+      createdAt: comment.createdAt.toISOString(),
     };
   },
 };

@@ -21,7 +21,7 @@
  * datos, sin stores, sin navegación, sin Supabase.
  */
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ImagePlus, ListPlus, Loader2, Trash2, X } from 'lucide-react';
 import { Checkbox } from '@/shared/ui/checkbox';
 import { ScreenState } from '@/shared/components/ScreenState';
@@ -31,6 +31,7 @@ import type {
   TaskStatus,
   FamilyMemberDto,
   TaskPhotoView,
+  TaskCommentView,
   TaskDetailViewProps,
 } from '../types';
 
@@ -71,6 +72,11 @@ export default function TaskDetailView(props: TaskDetailViewProps) {
     onDeletePhoto,
     onDeleteTask,
     onGenerateShoppingList,
+    comments,
+    isLoadingComments,
+    isSendingComment,
+    commentError,
+    onAddComment,
   } = props;
 
   return (
@@ -184,6 +190,17 @@ export default function TaskDetailView(props: TaskDetailViewProps) {
           onUploadPhoto={onUploadPhoto}
           onDeletePhoto={onDeletePhoto}
         />
+
+        {/* Comentarios (hilo tipo chat) */}
+        {onAddComment && (
+          <CommentsThread
+            comments={comments ?? []}
+            isLoading={isLoadingComments}
+            isSending={isSendingComment}
+            error={commentError}
+            onAddComment={onAddComment}
+          />
+        )}
 
         {/* Generar lista de la compra */}
         <section className="cz-frame space-y-2">
@@ -444,6 +461,88 @@ function PhotoGallery({
             }}
           />
         </label>
+      </div>
+    </section>
+  );
+}
+
+// ── Sub-flujo presentacional: hilo de comentarios (chat retro) ────────────────
+
+interface CommentsThreadProps {
+  comments: TaskCommentView[];
+  isLoading?: boolean;
+  isSending?: boolean;
+  error?: string | null;
+  onAddComment: (body: string) => void;
+}
+
+function CommentsThread({
+  comments,
+  isLoading,
+  isSending,
+  error,
+  onAddComment,
+}: CommentsThreadProps) {
+  const [body, setBody] = useState('');
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll al final del hilo cuando llega un comentario nuevo.
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: 99999 });
+  }, [comments.length]);
+
+  function submit() {
+    const trimmed = body.trim();
+    if (!trimmed || isSending) return;
+    onAddComment(trimmed);
+    setBody('');
+  }
+
+  return (
+    <section className="cz-frame space-y-2">
+      <p className="cz-serif text-lg">Comentarios ({comments.length})</p>
+
+      {error && <ErrorNote message={error} />}
+
+      <div ref={scrollRef} className="max-h-72 space-y-2 overflow-y-auto">
+        {isLoading && <p className="text-sm opacity-70">Cargando comentarios…</p>}
+        {!isLoading &&
+          comments.map((c) => (
+            <div key={c.id} className="rounded-md bg-surface p-2.5 border border-border">
+              <p className="text-xs font-bold opacity-70">
+                {c.authorName} ·{' '}
+                {new Date(c.createdAt).toLocaleString('es-ES', {
+                  dateStyle: 'short',
+                  timeStyle: 'short',
+                })}
+              </p>
+              <p className="text-sm">{c.body}</p>
+            </div>
+          ))}
+        {!isLoading && comments.length === 0 && (
+          <p className="text-sm opacity-70">Aún no hay comentarios.</p>
+        )}
+      </div>
+
+      <div className="flex items-center gap-2">
+        <input
+          className="cz-input flex-1"
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') submit();
+          }}
+          placeholder="Escribe un comentario"
+          aria-label="Nuevo comentario"
+        />
+        <button
+          type="button"
+          className="cz-btn-mustard whitespace-nowrap disabled:opacity-50"
+          onClick={submit}
+          disabled={!body.trim() || isSending}
+        >
+          {isSending ? 'Enviando…' : 'Enviar'}
+        </button>
       </div>
     </section>
   );
