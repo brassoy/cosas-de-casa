@@ -67,7 +67,11 @@ export const useAuthStore = create<AuthState>((set) => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          // OJO: NO usar `/auth/*` aquí — en producción ese prefijo lo enruta el
+          // proxy a GoTrue (`/auth/v1/...`), nunca llega al SPA (404). Volvemos a
+          // `/login`, que está servido por el SPA: Supabase detecta el `?code=` de
+          // la URL, fija la sesión y el `beforeLoad` de /login redirige a la familia.
+          redirectTo: `${window.location.origin}/login`,
         },
       });
       if (error) throw error;
