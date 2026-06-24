@@ -164,7 +164,7 @@ export default function CalendarView(props: CalendarViewProps) {
                     className={cn(
                       'sf-tag min-h-[34px] cursor-pointer px-4 transition-transform hover:-translate-y-px',
                       view === v
-                        ? 'bg-primary text-primary-foreground'
+                        ? 'bg-primary text-border'
                         : 'bg-card',
                     )}
                   >
@@ -374,7 +374,7 @@ function CalendarGrid({
                       }}
                       aria-label={`Evento: ${ev.title}`}
                       title={ev.title}
-                      className="flex w-full items-center gap-0.5 overflow-hidden truncate rounded border-2 border-border bg-primary px-1 text-left text-[0.65rem] font-bold leading-snug text-primary-foreground"
+                      className="flex w-full items-center gap-0.5 overflow-hidden truncate rounded border-2 border-border bg-primary px-1 text-left text-[0.65rem] font-bold leading-snug text-border"
                     >
                       {!ev.allDay && (
                         <span className="shrink-0 text-[0.6rem] opacity-80">
@@ -488,7 +488,7 @@ function AgendaView({ events, onEventClick, onNewEvent }: AgendaViewProps) {
                 </div>
                 <div className="flex min-w-0 flex-1 flex-col gap-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="sf-tag bg-primary text-primary-foreground">
+                    <span className="sf-tag bg-primary text-border">
                       {ev.allDay ? 'Todo el día' : formatTime(ev.startsAt)}
                     </span>
                     {ev.location && (
@@ -584,7 +584,7 @@ function DayEventsPanel({
                     aria-hidden="true"
                   />
                   <div className="flex min-w-0 flex-1 flex-col gap-1">
-                    <span className="sf-tag w-fit bg-primary text-primary-foreground">
+                    <span className="sf-tag w-fit bg-primary text-border">
                       {ev.allDay ? 'Todo el día' : formatTime(ev.startsAt)}
                     </span>
                     <span className="sf-fredoka truncate text-lg">{ev.title}</span>
@@ -929,7 +929,7 @@ function CalendarEventModal({
                       className={cn(
                         'sf-tag min-h-[34px] cursor-pointer px-3 transition-transform hover:-translate-y-px',
                         selected
-                          ? 'bg-primary text-primary-foreground'
+                          ? 'bg-primary text-border'
                           : 'bg-card',
                       )}
                     >
