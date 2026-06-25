@@ -12,12 +12,22 @@ precacheAndRoute(self.__WB_MANIFEST);
 // Remove outdated caches from previous SW versions
 cleanupOutdatedCaches();
 
+// ─── Rutas de Supabase servidas por Kong en el MISMO dominio (/auth, /rest,
+// /realtime, /storage). NO son del SPA: deben ir SIEMPRE a la red, nunca al app-shell
+// ni interceptadas por el SW. Si el SW sirviera el app-shell para una navegación de
+// nivel superior a /auth/v1/authorize (login con Google), el router no conocería esa
+// ruta → "Página no encontrada" y el OAuth nunca llegaría al proveedor (bug clásico
+// PWA + OAuth). Cubre además los redirects 302/303 del callback de OAuth y el realtime.
+const SUPABASE_PREFIXES = ['/auth/', '/rest/', '/realtime/', '/storage/'];
+const isSupabasePath = (pathname: string): boolean =>
+  SUPABASE_PREFIXES.some((p) => pathname.startsWith(p));
+
 // ─── App shell fallback for SPA navigation ─────────────────────────────────
 // Any navigation request not matched by precache falls back to index.html
 const appShellHandler = createHandlerBoundToURL('/index.html');
 const navigationRoute = new NavigationRoute(appShellHandler, {
-  // Exclude API calls from the SPA fallback
-  denylist: [/^\/api\//],
+  // Excluye nuestra API (/api) y las rutas del backend Supabase del fallback del SPA.
+  denylist: [/^\/api\//, ...SUPABASE_PREFIXES.map((p) => new RegExp('^' + p))],
 });
 registerRoute(navigationRoute);
 
@@ -25,9 +35,12 @@ registerRoute(navigationRoute);
 // Cubre llamadas a la misma origin (/api/...) y al servidor externo (VITE_API_URL).
 registerRoute(
   ({ url }) =>
-    url.pathname.startsWith('/api/') ||
-    url.hostname === self.location.hostname ||
-    url.port === '3000',
+    // Nunca interceptar las rutas de Supabase (Kong): van directas a la red para no
+    // romper el OAuth (302/303) ni el canal de realtime. /api (NestJS) sí se cachea.
+    !isSupabasePath(url.pathname) &&
+    (url.pathname.startsWith('/api/') ||
+      url.hostname === self.location.hostname ||
+      url.port === '3000'),
   new NetworkFirst({
     cacheName: 'api-cache',
     networkTimeoutSeconds: 10,
