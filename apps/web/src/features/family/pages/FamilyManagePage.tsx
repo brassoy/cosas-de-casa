@@ -1,27 +1,133 @@
 /**
  * FamilyManagePage — CONTAINER de la pantalla "Gestionar familia".
  *
- * Saca la gestión de la familia (antes embebida en la home, solo OWNER) a su
- * propia pantalla. Cablea la lógica con `useFamilyManage` (mutaciones,
- * confirmaciones, estado) y los miembros con `useFamilyMembers`, y delega el
- * render en `ThemeView`.
+ * Reúne TODA la gestión de la familia, accesible a cualquier miembro:
+ *  - Miembros (lista, visible para todos) — `useFamilyMembers`.
+ *  - Salir de la familia (todos) — `useLeaveFamily` con confirmación propia
+ *    (`ConfirmDialog`, no `window.confirm`).
+ *  - Invitar con PIN (generar/copiar/compartir/revocar) — SOLO OWNER.
+ *  - Administración (cambiar rol/expulsar, nombre/descripción, borrar) — SOLO
+ *    OWNER, vía `useFamilyManage` (`manage` llega `undefined` para no-OWNER y
+ *    la vista oculta esas secciones).
  *
- * Si no hay familia activa, o el usuario no es OWNER (`manage` undefined),
- * muestra un aviso amable en vez de la sección de administración.
+ * Delega el render en `ThemeView`.
  */
 
+import { useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
+import type { GeneratePinResponse } from '@cosasdecasa/contracts';
 import { ThemeView } from '@/shared/theme/ThemeView';
-import { useFamilyMembers } from '../hooks/useFamily';
+import { ConfirmDialog } from '@/shared/components/ConfirmDialog';
+import { ApiRequestError } from '@/shared/lib/api';
+import {
+  useFamilyMembers,
+  useGenerateJoinPin,
+  useLeaveFamily,
+  useRevokeFamilyPin,
+} from '../hooks/useFamily';
 import { useFamilyManage } from '../hooks/useFamilyManage';
 import { useFamilyStore } from '../store/family.store';
-import type { FamilyManageViewProps } from '../views/types';
+import type { FamilyInviteProps, FamilyManageViewProps } from '../views/types';
+
+function buildShareText(pin: string): string {
+  return `¡Únete a mi familia en Cosas de Casa! Usa el PIN: ${pin}`;
+}
 
 export function FamilyManagePage() {
   const navigate = useNavigate();
   const activeFamily = useFamilyStore((s) => s.activeFamily);
-  const { data: members } = useFamilyMembers(activeFamily?.id);
-  const { manage } = useFamilyManage();
+
+  const familyId = activeFamily?.id ?? '';
+  const {
+    data: members,
+    isLoading: membersLoading,
+    error: membersQueryError,
+  } = useFamilyMembers(activeFamily?.id);
+  const { isOwner, manage } = useFamilyManage();
+  const generatePin = useGenerateJoinPin(familyId);
+  const revokePin = useRevokeFamilyPin(familyId);
+  const leaveFamily = useLeaveFamily(familyId);
+
+  // ── Invitación por PIN (solo OWNER) ─────────────────────────────────────────
+  const [generatedPin, setGeneratedPin] = useState<GeneratePinResponse | null>(null);
+  const [pinError, setPinError] = useState<string | null>(null);
+  const [pinRevokeError, setPinRevokeError] = useState<string | null>(null);
+
+  // ── Salir de la familia (todos) ─────────────────────────────────────────────
+  const [leaveError, setLeaveError] = useState<string | null>(null);
+  const [confirmLeaveOpen, setConfirmLeaveOpen] = useState(false);
+
+  function handleGeneratePin() {
+    setPinError(null);
+    generatePin.mutate(undefined, {
+      onSuccess: (res) => setGeneratedPin(res),
+      onError: (err) => {
+        const msg =
+          err instanceof ApiRequestError
+            ? err.body.message
+            : 'No se ha podido generar el PIN.';
+        setPinError(msg);
+      },
+    });
+  }
+
+  function handleRevokePin() {
+    // Confirmación bloqueante heredada de la home (el ConfirmDialog compartido
+    // se reserva de momento para "Salir de la familia").
+    if (
+      !window.confirm(
+        '¿Seguro que quieres revocar el PIN de invitación activo? Dejará de funcionar para quien intente unirse con él.',
+      )
+    ) {
+      return;
+    }
+    setPinRevokeError(null);
+    revokePin.mutate(undefined, {
+      // Tras revocar, el PIN mostrado deja de ser válido: lo ocultamos.
+      onSuccess: () => setGeneratedPin(null),
+      onError: (err) => {
+        const msg =
+          err instanceof ApiRequestError
+            ? err.body.message
+            : 'No se ha podido revocar el PIN.';
+        setPinRevokeError(msg);
+      },
+    });
+  }
+
+  function handleCopyPin() {
+    if (!generatedPin) return;
+    void navigator.clipboard.writeText(generatedPin.code);
+  }
+
+  function handleShare(channel: 'whatsapp' | 'telegram') {
+    if (!generatedPin) return;
+    const text = buildShareText(generatedPin.code);
+    const url =
+      channel === 'whatsapp'
+        ? `https://wa.me/?text=${encodeURIComponent(text)}`
+        : `https://t.me/share/url?url=${encodeURIComponent(window.location.origin)}&text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
+
+  function handleConfirmLeave() {
+    setConfirmLeaveOpen(false);
+    setLeaveError(null);
+    leaveFamily.mutate(undefined, {
+      // El hook ya limpia la familia activa del store (clearFamily). Navegamos a
+      // onboarding ("/") como hace el AppHeader al cerrar sesión.
+      onSuccess: async () => {
+        await navigate({ to: '/' });
+      },
+      onError: (err) => {
+        const msg =
+          err instanceof ApiRequestError
+            ? err.body.message
+            : 'No se ha podido salir de la familia. Inténtalo de nuevo.';
+        setLeaveError(msg);
+      },
+    });
+  }
 
   if (!activeFamily) {
     return (
@@ -31,19 +137,32 @@ export function FamilyManagePage() {
     );
   }
 
-  if (!manage) {
-    return (
-      <div className="min-h-[60dvh] grid place-items-center px-4 text-center">
-        <p className="text-muted-foreground">
-          Solo el propietario de la familia puede gestionarla.
-        </p>
-      </div>
-    );
-  }
+  // Invitación con PIN: solo se cablea para el OWNER (la vista oculta la
+  // sección si `invite` llega undefined).
+  const invite: FamilyInviteProps | undefined = isOwner
+    ? {
+        generatedPin,
+        pinLoading: generatePin.isPending,
+        pinError,
+        onGeneratePin: handleGeneratePin,
+        onCopyPin: handleCopyPin,
+        onShare: handleShare,
+        // Revocar PIN: solo si hay un PIN recién generado a la vista.
+        onRevokePin: generatedPin ? handleRevokePin : undefined,
+        pinRevoking: revokePin.isPending,
+        pinRevokeError,
+      }
+    : undefined;
 
   const viewProps: FamilyManageViewProps = {
     manage,
+    invite,
     members: members ?? [],
+    membersLoading,
+    membersError: membersQueryError ? 'No se han podido cargar los miembros.' : null,
+    onLeaveFamily: () => setConfirmLeaveOpen(true),
+    leaveLoading: leaveFamily.isPending,
+    leaveError,
     onBack: () =>
       void navigate({
         to: '/family/$familyId',
@@ -51,5 +170,19 @@ export function FamilyManagePage() {
       }),
   };
 
-  return <ThemeView screen="family_manage" props={viewProps} />;
+  return (
+    <>
+      <ThemeView screen="family_manage" props={viewProps} />
+      <ConfirmDialog
+        open={confirmLeaveOpen}
+        title="¿Salir de la familia?"
+        description="Perderás el acceso a sus listas, tareas y demás datos del hogar."
+        confirmLabel="Salir de la familia"
+        cancelLabel="Cancelar"
+        destructive
+        onConfirm={handleConfirmLeave}
+        onCancel={() => setConfirmLeaveOpen(false)}
+      />
+    </>
+  );
 }

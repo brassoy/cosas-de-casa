@@ -2,30 +2,21 @@
  * FamilyHomePage — CONTAINER de la home del hogar.
  *
  * Cablea toda la lógica real una sola vez y delega el render en `ThemeView`:
- *  - Miembros + detección de OWNER: `useFamilyMembers` + `useAuthStore`.
- *  - PIN de invitación: `useGenerateJoinPin` (se guarda la respuesta completa
- *    `GeneratePinResponse` para exponer `expiresAt`).
  *  - Notificaciones como PROPS PURAS (plan §7.E): el estado se deriva de
  *    `useNotificationsStore` + `useSubscribeToPush`; aquí NO se monta el
  *    componente real `NotificationToggle`.
  *  - Grid de accesos rápidos: `onOpen(id)` mapea a ~11 rutas del router.
- *  - Compartir PIN (WhatsApp/Telegram) + copiar al portapapeles.
+ *  - Card de cabecera clicable: `onManageFamily` navega a la pantalla
+ *    "Gestionar familia" (`/family/$familyId/manage`), donde ahora viven la
+ *    invitación por PIN, la lista de miembros y salir de la familia.
  */
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useNavigate } from '@tanstack/react-router';
-import type { GeneratePinResponse } from '@cosasdecasa/contracts';
 import { ThemeView } from '@/shared/theme/ThemeView';
-import { ApiRequestError } from '@/shared/lib/api';
-import { useAuthStore } from '@/features/auth/store/auth.store';
 import { useNotificationsStore } from '@/features/notifications/store/notifications.store';
 import { useSubscribeToPush } from '@/features/notifications/hooks/useNotifications';
-import {
-  useFamilyMembers,
-  useGenerateJoinPin,
-  useLeaveFamily,
-  useRevokeFamilyPin,
-} from '../hooks/useFamily';
+import { useNotificationsBootstrap } from '@/features/notifications/hooks/useNotificationsBootstrap';
 import { useFamilyStore } from '../store/family.store';
 import type { FamilyHomeViewProps, FamilyQuickAccess } from '../views/types';
 
@@ -54,36 +45,19 @@ const NOTIF_HINT: Record<string, string> = {
   default: 'Recibe avisos de tareas, fechas de caducidad y más.',
 };
 
-function buildShareText(pin: string): string {
-  return `¡Únete a mi familia en Cosas de Casa! Usa el PIN: ${pin}`;
-}
-
 export function FamilyHomePage() {
   const navigate = useNavigate();
   const activeFamily = useFamilyStore((s) => s.activeFamily);
-  const user = useAuthStore((s) => s.user);
-
-  const familyId = activeFamily?.id ?? '';
-  const { data: members, isLoading, error } = useFamilyMembers(activeFamily?.id);
-  const generatePin = useGenerateJoinPin(familyId);
-  const revokePin = useRevokeFamilyPin(familyId);
-  const leaveFamily = useLeaveFamily(familyId);
-
-  // Detección de OWNER: se usa para la sección de invitación y el botón de
-  // revocar PIN. La GESTIÓN de la familia (editar/borrar/miembros) vive ahora en
-  // su propia pantalla (`FamilyManagePage` + `useFamilyManage`).
-  const isOwner =
-    members?.some((m) => m.userId === user?.id && m.role === 'OWNER') ?? false;
-
-  const [generatedPin, setGeneratedPin] = useState<GeneratePinResponse | null>(null);
-  const [pinError, setPinError] = useState<string | null>(null);
-  const [pinRevokeError, setPinRevokeError] = useState<string | null>(null);
-  const [leaveError, setLeaveError] = useState<string | null>(null);
 
   // ── Notificaciones (props puras derivadas del store + mutación) ─────────────
   const { permissionStatus, isSubscribed, isLoading: notifStoreLoading } =
     useNotificationsStore();
   const subscribe = useSubscribeToPush();
+
+  // Hidrata el estado real del navegador y auto-activa las notificaciones una
+  // sola vez al entrar al dashboard (ver useNotificationsBootstrap). Se invoca
+  // antes de cualquier early return para respetar las reglas de los hooks.
+  useNotificationsBootstrap();
 
   function handleOpen(section: string) {
     if (!activeFamily) return;
@@ -114,82 +88,12 @@ export function FamilyHomePage() {
     }
   }
 
-  function handleGeneratePin() {
-    setPinError(null);
-    generatePin.mutate(undefined, {
-      onSuccess: (res) => setGeneratedPin(res),
-      onError: (err) => {
-        const msg =
-          err instanceof ApiRequestError
-            ? err.body.message
-            : 'No se ha podido generar el PIN.';
-        setPinError(msg);
-      },
+  function handleManageFamily() {
+    if (!activeFamily) return;
+    void navigate({
+      to: '/family/$familyId/manage',
+      params: { familyId: activeFamily.id },
     });
-  }
-
-  function handleRevokePin() {
-    // Confirmación bloqueante: no hay un AlertDialog compartido en el repo.
-    if (
-      !window.confirm(
-        '¿Seguro que quieres revocar el PIN de invitación activo? Dejará de funcionar para quien intente unirse con él.',
-      )
-    ) {
-      return;
-    }
-    setPinRevokeError(null);
-    revokePin.mutate(undefined, {
-      // Tras revocar, el PIN mostrado deja de ser válido: lo ocultamos.
-      onSuccess: () => setGeneratedPin(null),
-      onError: (err) => {
-        const msg =
-          err instanceof ApiRequestError
-            ? err.body.message
-            : 'No se ha podido revocar el PIN.';
-        setPinRevokeError(msg);
-      },
-    });
-  }
-
-  function handleLeaveFamily() {
-    // Confirmación FUERTE: la salida es destructiva (pierde acceso a la familia).
-    if (
-      !window.confirm(
-        '¿Seguro que quieres salir de esta familia? Perderás el acceso a sus listas, tareas, etc.',
-      )
-    ) {
-      return;
-    }
-    setLeaveError(null);
-    leaveFamily.mutate(undefined, {
-      // El hook ya limpia la familia activa del store (clearFamily). Navegamos a
-      // onboarding ("/") como hace el AppHeader al cerrar sesión.
-      onSuccess: async () => {
-        await navigate({ to: '/' });
-      },
-      onError: (err) => {
-        const msg =
-          err instanceof ApiRequestError
-            ? err.body.message
-            : 'No se ha podido salir de la familia. Inténtalo de nuevo.';
-        setLeaveError(msg);
-      },
-    });
-  }
-
-  function handleCopyPin() {
-    if (!generatedPin) return;
-    void navigator.clipboard.writeText(generatedPin.code);
-  }
-
-  function handleShare(channel: 'whatsapp' | 'telegram') {
-    if (!generatedPin) return;
-    const text = buildShareText(generatedPin.code);
-    const url =
-      channel === 'whatsapp'
-        ? `https://wa.me/?text=${encodeURIComponent(text)}`
-        : `https://t.me/share/url?url=${encodeURIComponent(window.location.origin)}&text=${encodeURIComponent(text)}`;
-    window.open(url, '_blank', 'noopener,noreferrer');
   }
 
   function handleToggleNotifications() {
@@ -204,14 +108,7 @@ export function FamilyHomePage() {
     () => ({
       familyId: activeFamily?.id ?? '',
       familyName: activeFamily?.name ?? '',
-      isOwner,
-      members: members ?? [],
-      membersLoading: isLoading,
-      membersError: error ? 'No se han podido cargar los miembros.' : null,
       quickAccess: QUICK_ACCESS,
-      generatedPin,
-      pinLoading: generatePin.isPending,
-      pinError,
       notificationsEnabled: permissionStatus === 'granted' && isSubscribed,
       notificationsDisabled:
         permissionStatus === 'unsupported' || permissionStatus === 'denied',
@@ -220,33 +117,12 @@ export function FamilyHomePage() {
         : NOTIF_HINT[permissionStatus],
       notificationsLoading: notifStoreLoading || subscribe.isPending,
       onToggleNotifications: handleToggleNotifications,
-      onGeneratePin: handleGeneratePin,
-      onCopyPin: handleCopyPin,
-      onShare: handleShare,
       onOpen: handleOpen,
-      // Revocar PIN: solo OWNER y solo si hay un PIN recién generado a la vista.
-      onRevokePin: isOwner && generatedPin ? handleRevokePin : undefined,
-      pinRevoking: revokePin.isPending,
-      pinRevokeError,
-      // Salir de la familia: disponible para cualquier miembro.
-      onLeaveFamily: handleLeaveFamily,
-      leaveLoading: leaveFamily.isPending,
-      leaveError,
+      onManageFamily: handleManageFamily,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       activeFamily,
-      isOwner,
-      members,
-      isLoading,
-      error,
-      generatedPin,
-      generatePin.isPending,
-      pinError,
-      pinRevokeError,
-      revokePin.isPending,
-      leaveError,
-      leaveFamily.isPending,
       permissionStatus,
       isSubscribed,
       notifStoreLoading,

@@ -75,20 +75,8 @@ export interface JoinFamilyViewProps {
 export interface FamilyHomeViewProps {
   familyId: string;
   familyName: string;
-  /** El usuario autenticado es OWNER de la familia. */
-  isOwner: boolean;
-  /** Miembros de la familia (DTO real). */
-  members: FamilyMemberDto[];
-  membersLoading?: boolean;
-  membersError?: string | null;
   /** Accesos rápidos a renderizar en el grid (el container decide el orden). */
   quickAccess: FamilyQuickAccess[];
-  /** PIN generado (respuesta real `{ code, expiresAt }`) o null. */
-  generatedPin?: GeneratePinResponse | null;
-  /** La generación de PIN está en curso. */
-  pinLoading?: boolean;
-  /** Error al generar el PIN. */
-  pinError?: string | null;
   /** Estado de notificaciones push en este dispositivo (prop pura, §7.E). */
   notificationsEnabled: boolean;
   /** Las notificaciones no se pueden alternar (no soportadas/bloqueadas). */
@@ -98,44 +86,39 @@ export interface FamilyHomeViewProps {
   /** La acción de activar notificaciones está en curso. */
   notificationsLoading?: boolean;
   onToggleNotifications: () => void;
+  /** Abre una sección (recibe el `id`/ruta del acceso rápido). */
+  onOpen: (section: string) => void;
+  /**
+   * Ir a la pantalla "Gestionar familia". Lo emite el card de cabecera (el
+   * nombre de la familia es clicable); la navegación vive en el container.
+   */
+  onManageFamily: () => void;
+}
+
+// ── Sección "Invitar miembros" con PIN (solo OWNER) ──────────────────────────
+
+export interface FamilyInviteProps {
+  /** PIN generado (respuesta real `{ code, expiresAt }`) o null. */
+  generatedPin?: GeneratePinResponse | null;
+  /** La generación de PIN está en curso. */
+  pinLoading?: boolean;
+  /** Error al generar el PIN. */
+  pinError?: string | null;
   onGeneratePin: () => void;
   /** Copia el PIN al portapapeles. */
   onCopyPin: () => void;
   /** Comparte el PIN por el canal indicado. */
   onShare: (channel: 'whatsapp' | 'telegram') => void;
-  /** Abre una sección (recibe el `id`/ruta del acceso rápido). */
-  onOpen: (section: string) => void;
   /**
-   * Revocar el PIN de invitación activo (solo OWNER). OPCIONAL: si el container
-   * no lo cablea, la vista no muestra el botón de revocar. La confirmación vive
-   * en el container (`window.confirm`).
+   * Revocar el PIN de invitación activo. OPCIONAL: si el container no lo
+   * cablea, la vista no muestra el botón de revocar. La confirmación vive en el
+   * container (`window.confirm`).
    */
   onRevokePin?: () => void;
   /** La revocación del PIN está en curso. */
   pinRevoking?: boolean;
   /** Error al revocar el PIN; `null`/`undefined` si no hay. */
   pinRevokeError?: string | null;
-  /**
-   * Salir de la familia. OPCIONAL: si el container no lo cablea, la vista no
-   * muestra el botón de salir. La confirmación fuerte vive en el container
-   * (`window.confirm`); la vista solo emite el callback.
-   */
-  onLeaveFamily?: () => void;
-  /** La salida de la familia está en curso. */
-  leaveLoading?: boolean;
-  /** Error al salir de la familia; `null`/`undefined` si no hay. */
-  leaveError?: string | null;
-
-  /**
-   * Sección "Gestionar familia" (solo OWNER). OPCIONAL: si el container no
-   * cablea `manage`, la vista no muestra la sección. Reúne las tres acciones de
-   * administración: gestión de miembros (cambiar rol / expulsar), edición del
-   * nombre y descripción, y borrado de la familia.
-   *
-   * Toda la lógica (confirmaciones, llamadas a la API, navegación) vive en el
-   * container; la vista solo pinta el estado y emite callbacks.
-   */
-  manage?: FamilyManageProps;
 }
 
 // ── Sección "Gestionar familia" (solo OWNER) ─────────────────────────────────
@@ -183,13 +166,33 @@ export interface FamilyManageProps {
 
 export interface FamilyManageViewProps {
   /**
-   * Datos y callbacks de las tres acciones de administración (gestión de
-   * miembros, edición de nombre/descripción y borrado de la familia). Toda la
+   * Datos y callbacks de las acciones de administración (cambiar rol /
+   * expulsar miembros, edición de nombre/descripción y borrado de la familia).
+   * OPCIONAL: `undefined` si el usuario no es OWNER — la vista solo muestra
+   * entonces las secciones de miembro (lista de miembros y salir). Toda la
    * lógica (confirmaciones, llamadas a la API, navegación) vive en el container.
    */
-  manage: FamilyManageProps;
-  /** Miembros de la familia (DTO real) para la sección de gestión de roles. */
+  manage?: FamilyManageProps;
+  /**
+   * Invitación por PIN (generar/copiar/compartir/revocar). OPCIONAL: solo el
+   * OWNER la recibe cableada; sin ella la vista no muestra la sección.
+   */
+  invite?: FamilyInviteProps;
+  /** Miembros de la familia (DTO real): lista visible para todos. */
   members: FamilyMemberDto[];
+  /** La carga de miembros está en curso. */
+  membersLoading?: boolean;
+  /** Error al cargar los miembros. */
+  membersError?: string | null;
+  /**
+   * Salir de la familia (disponible para cualquier miembro). La confirmación
+   * (ConfirmDialog) vive en el container; la vista solo emite el callback.
+   */
+  onLeaveFamily: () => void;
+  /** La salida de la familia está en curso. */
+  leaveLoading?: boolean;
+  /** Error al salir de la familia; `null`/`undefined` si no hay. */
+  leaveError?: string | null;
   /** Volver a la home de la familia (la navegación vive en el container). */
   onBack: () => void;
 }

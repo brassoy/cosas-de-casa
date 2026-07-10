@@ -1,24 +1,21 @@
 /* ─── Vista presentacional cozy — family_home ───────────────────────────────
  *
  * Theme `cozy` (estética "cuaderno de papel manuscrito": papel pautado, tinta
- * marrón, notas con cinta y chinchetas, fonts Caveat/Patrick Hand). Misma
- * funcionalidad que la vista base: accesos rápidos, notificaciones, invitación
- * por PIN (solo OWNER) y lista de miembros con estados de carga/error/vacío.
+ * marrón, notas con cinta y chinchetas, fonts Caveat/Patrick Hand). Home del
+ * hogar: cabecera clicable que lleva a "Gestionar familia", accesos rápidos y
+ * notificaciones.
+ *
+ * La invitación por PIN, la lista de miembros y "Salir de la familia" viven
+ * ahora en la pantalla "Gestionar familia" (`FamilyManageView`).
  *
  * Sub-flujos preservados:
  *  - Notificaciones como props puras (plan §7.E): se pinta el estado y se emite
  *    `onToggleNotifications` con un toggle accesible nativo (no `Switch` shadcn).
- *  - Invitación: botón "Generar PIN" o, si ya hay PIN, la caja `InvitePinBox`
- *    (copiar + compartir WhatsApp/Telegram) reestilizada al theme.
- *  - Miembros: estados de carga/error/vacío vía `ScreenState`/`ListSkeleton`
- *    (componentes neutros que resuelven colores por el theme activo).
  *
  * Presentacional puro: solo props in / callbacks out.
  * ─────────────────────────────────────────────────────────────────────────── */
 
-import { Bell, BellOff, Copy, Share2 } from 'lucide-react';
-import type { FamilyMemberDto, GeneratePinResponse } from '@cosasdecasa/contracts';
-import { ScreenState, ListSkeleton } from '@/shared/components/ScreenState';
+import { Bell, BellOff } from 'lucide-react';
 import type { FamilyHomeViewProps } from '../types';
 
 // Paleta de chinchetas/avatares del cuaderno (mismo orden que la maqueta del kit).
@@ -27,40 +24,36 @@ const PINS: readonly string[] = ['#c0392b', '#2d4a8a', '#5b8a3a', '#e3a51a', '#8
 export default function FamilyHomeView(props: FamilyHomeViewProps) {
   const {
     familyName,
-    isOwner,
-    members,
-    membersLoading,
-    membersError,
     quickAccess,
-    generatedPin,
-    pinLoading,
-    pinError,
     notificationsEnabled,
     notificationsDisabled,
     notificationsHint,
     notificationsLoading,
     onToggleNotifications,
-    onGeneratePin,
-    onCopyPin,
-    onShare,
     onOpen,
-    onRevokePin,
-    pinRevoking,
-    pinRevokeError,
-    onLeaveFamily,
-    leaveLoading,
-    leaveError,
+    onManageFamily,
   } = props;
 
   return (
     <div className="ck ck-page min-h-[80dvh] px-5 py-8">
       <div className="max-w-[640px] mx-auto space-y-6">
-        {/* ── Cabecera ──────────────────────────────────────────────────── */}
-        <header className="text-center">
+        {/* ── Cabecera clicable → Gestionar familia ─────────────────────── */}
+        <header className="relative text-center rounded-md transition hover:bg-black/5 focus-within:outline focus-within:outline-2 focus-within:outline-dashed focus-within:outline-[var(--color-border-strong)]">
           <p className="ck-marker text-lg opacity-70">— diario de la casa —</p>
           <h1 className="ck-marker text-5xl leading-none mt-1 text-primary truncate">
             {familyName}
+            {/* Pista manuscrita: la casita se gestiona tocando su nombre. */}
+            <span className="ml-2 align-middle text-4xl opacity-60" aria-hidden="true">
+              ›
+            </span>
           </h1>
+          {/* Botón extendido: hace clicable toda la cabecera sin meter el h1 en un button. */}
+          <button
+            type="button"
+            onClick={onManageFamily}
+            aria-label="Gestionar familia"
+            className="absolute inset-0 cursor-pointer focus:outline-none"
+          />
         </header>
 
         {/* ── Accesos rápidos ───────────────────────────────────────────── */}
@@ -111,87 +104,6 @@ export default function FamilyHomeView(props: FamilyHomeViewProps) {
             onToggle={onToggleNotifications}
           />
         </section>
-
-        {/* ── Invitar miembros (solo OWNER) ─────────────────────────────── */}
-        {isOwner && (
-          <section className="ck-card p-4 space-y-3 relative">
-            <span className="ck-tape" aria-hidden="true" />
-            <div>
-              <h2 className="ck-marker text-2xl text-primary">Invitar miembros</h2>
-              <p className="text-sm opacity-70">Comparte un PIN de un solo uso.</p>
-            </div>
-
-            {pinError && (
-              <div role="alert">
-                <p className="text-base text-error">{pinError}</p>
-              </div>
-            )}
-            {pinRevokeError && (
-              <div role="alert">
-                <p className="text-base text-error">{pinRevokeError}</p>
-              </div>
-            )}
-
-            {generatedPin ? (
-              <InvitePinBox
-                pin={generatedPin}
-                onCopy={onCopyPin}
-                onShare={onShare}
-                onRevoke={onRevokePin}
-                revoking={pinRevoking}
-              />
-            ) : (
-              <button
-                type="button"
-                onClick={onGeneratePin}
-                disabled={pinLoading}
-                className="ck-btn ck-btn-blue w-full"
-              >
-                {pinLoading ? 'Generando…' : 'Generar PIN'}
-              </button>
-            )}
-          </section>
-        )}
-
-        {/* ── Miembros ──────────────────────────────────────────────────── */}
-        <section>
-          <h2 className="ck-marker text-2xl mb-3 text-primary">
-            Quién vive aquí {members.length ? `(${members.length})` : ''}
-          </h2>
-          <ScreenState
-            isLoading={membersLoading}
-            error={membersError}
-            isEmpty={!members.length}
-            emptyTitle="Aún no hay miembros."
-            skeleton={<ListSkeleton rows={3} />}
-          >
-            <ul className="space-y-3 list-none p-0 m-0">
-              {members.map((m, i) => (
-                <MemberRow key={m.userId} member={m} color={PINS[i % PINS.length]!} />
-              ))}
-            </ul>
-          </ScreenState>
-        </section>
-
-        {/* ── Salir de la familia ─────────────────────────────────────────── */}
-        {onLeaveFamily && (
-          <section className="ck-card p-4 space-y-3">
-            <h2 className="ck-marker text-2xl text-error">Salir de la familia</h2>
-            {leaveError && (
-              <div role="alert">
-                <p className="text-base text-error">{leaveError}</p>
-              </div>
-            )}
-            <button
-              type="button"
-              onClick={onLeaveFamily}
-              disabled={leaveLoading}
-              className="ck-btn ck-btn-red self-start disabled:opacity-60"
-            >
-              {leaveLoading ? 'Saliendo…' : 'Salir de la familia'}
-            </button>
-          </section>
-        )}
       </div>
     </div>
   );
@@ -230,103 +142,5 @@ function NotificationToggle({
         }}
       />
     </button>
-  );
-}
-
-// ── Subcomponente: caja del PIN generado ──────────────────────────────────────
-
-export function InvitePinBox({
-  pin,
-  onCopy,
-  onShare,
-  onRevoke,
-  revoking,
-}: {
-  pin: GeneratePinResponse;
-  onCopy: () => void;
-  onShare: (channel: 'whatsapp' | 'telegram') => void;
-  onRevoke?: () => void;
-  revoking?: boolean;
-}) {
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <code className="ck-input ck-marker flex-1 text-3xl tracking-widest text-center">
-          {pin.code}
-        </code>
-        <button
-          type="button"
-          onClick={onCopy}
-          aria-label="Copiar PIN"
-          className="ck-btn shrink-0 grid place-items-center !px-3"
-        >
-          <Copy className="h-4 w-4" />
-        </button>
-      </div>
-      <div className="grid grid-cols-2 gap-2">
-        <button
-          type="button"
-          onClick={() => onShare('whatsapp')}
-          className="ck-btn ck-btn-blue flex items-center justify-center gap-2"
-        >
-          <Share2 className="h-4 w-4" />
-          WhatsApp
-        </button>
-        <button
-          type="button"
-          onClick={() => onShare('telegram')}
-          className="ck-btn flex items-center justify-center gap-2"
-        >
-          <Share2 className="h-4 w-4" />
-          Telegram
-        </button>
-      </div>
-      <p className="text-sm opacity-70">
-        Caduca: {new Date(pin.expiresAt).toLocaleString('es-ES')}
-      </p>
-      {onRevoke && (
-        <button
-          type="button"
-          onClick={onRevoke}
-          disabled={revoking}
-          className="ck-marker text-xl text-error self-start hover:opacity-80 disabled:opacity-60"
-        >
-          {revoking ? 'Revocando…' : 'Revocar PIN'}
-        </button>
-      )}
-    </div>
-  );
-}
-
-// ── Subcomponente: fila de miembro ────────────────────────────────────────────
-
-function MemberRow({ member, color }: { member: FamilyMemberDto; color: string }) {
-  const initial = member.displayName.charAt(0).toUpperCase();
-  return (
-    <li className="ck-card p-3 flex items-center gap-3">
-      <span
-        className="h-10 w-10 rounded-full overflow-hidden grid place-items-center text-text-inverse shrink-0 ck-marker text-2xl"
-        style={{ background: color }}
-      >
-        {member.avatarUrl ? (
-          <img
-            src={member.avatarUrl}
-            alt={member.displayName}
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          initial
-        )}
-      </span>
-      <div className="flex-1 min-w-0">
-        <p className="text-lg truncate">{member.displayName}</p>
-        <p className="text-sm opacity-70">
-          Desde {new Date(member.joinedAt).toLocaleDateString('es-ES')}
-        </p>
-      </div>
-      <span className="ck-marker text-xl text-error">
-        {member.role === 'OWNER' ? 'Propietario' : 'Miembro'}
-      </span>
-    </li>
   );
 }
