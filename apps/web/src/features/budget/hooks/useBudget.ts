@@ -145,7 +145,14 @@ import imageCompression from 'browser-image-compression';
 
 export async function compressImageToBase64(file: File): Promise<string> {
   const compressed = await imageCompression(file, {
-    maxSizeMB: 1,
+    // `fileType: 'image/jpeg'` fuerza la SALIDA a JPEG sea cual sea el origen
+    // (PNG, HEIC del iPhone…). Así el base64 que enviamos coincide con el
+    // `media_type: 'image/jpeg'` que asume la API y, de paso, PNG/HEIC pesan
+    // mucho menos como JPEG.
+    fileType: 'image/jpeg',
+    // El binario objetivo es ~0.7 MB: base64 infla ~33% → ~0.93 MB, muy por
+    // debajo del máximo de 4 MB del contrato (`ExtractReceiptInputSchema`).
+    maxSizeMB: 0.7,
     maxWidthOrHeight: 1600,
     useWebWorker: true,
   });

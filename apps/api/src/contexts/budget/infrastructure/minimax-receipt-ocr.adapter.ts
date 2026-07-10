@@ -11,6 +11,27 @@ import { AiUnavailableError } from '../domain/budget.errors';
 import type { ReceiptOcrPort, ExtractReceiptResult, ExtractedLine } from '../domain/ports/receipt-ocr.port';
 import type { MiniMaxConfig } from '../../ai/infrastructure/minimax-item-extraction.adapter';
 
+/** Media types de imagen que acepta la API de mensajes (bloque `image`). */
+type ImageMediaType = 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif';
+
+/**
+ * Deduce el media type real a partir de los primeros bytes del base64 (magic
+ * numbers), sin depender del prefijo `data:` que la web ya ha eliminado.
+ *
+ * La web garantiza JPEG (comprime con `fileType: 'image/jpeg'`), así que en el
+ * flujo normal esto devuelve siempre `image/jpeg`. La detección es una defensa
+ * barata para llamadas directas a la API o formatos inesperados: enviar el
+ * `media_type` correcto evita que el proveedor rechace la imagen por un
+ * `image/jpeg` mal declarado. Por defecto asume JPEG.
+ */
+export function detectImageMediaType(imageBase64: string): ImageMediaType {
+  if (imageBase64.startsWith('/9j/')) return 'image/jpeg';
+  if (imageBase64.startsWith('iVBORw0KGgo')) return 'image/png';
+  if (imageBase64.startsWith('UklGR')) return 'image/webp';
+  if (imageBase64.startsWith('R0lGOD')) return 'image/gif';
+  return 'image/jpeg';
+}
+
 const EXTRACT_RECEIPT_TOOL = {
   name: 'extract_receipt',
   description:
@@ -81,7 +102,7 @@ export class MinimaxReceiptOcrAdapter implements ReceiptOcrPort {
                 type: 'image',
                 source: {
                   type: 'base64',
-                  media_type: 'image/jpeg',
+                  media_type: detectImageMediaType(imageBase64),
                   data: imageBase64,
                 },
               },

@@ -11,6 +11,7 @@
  * módulo de test a mano registrando todos los providers necesarios.
  */
 import 'reflect-metadata';
+import { json, urlencoded } from 'express';
 import { AppZodValidationPipe } from '../../src/common/zod-validation.pipe';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
@@ -948,9 +949,13 @@ export async function createTestApp(): Promise<TestApp> {
     ],
   }).compile();
 
-  const app = moduleRef.createNestApplication();
+  const app = moduleRef.createNestApplication({ bodyParser: false });
 
   // Replica exacta de los globales de main.ts (sin Swagger, no lo necesitamos)
+  // Body parser con el mismo límite que producción (5mb): el OCR de tickets
+  // admite ~4 MB de base64; el límite por defecto de Express (100kb) daría 413.
+  app.use(json({ limit: '5mb' }));
+  app.use(urlencoded({ extended: true, limit: '5mb' }));
   app.setGlobalPrefix('api/v1');
   app.useGlobalPipes(new AppZodValidationPipe());
 

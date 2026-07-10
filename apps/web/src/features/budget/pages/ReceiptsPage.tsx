@@ -34,6 +34,14 @@ function isAiUnavailable(error: ApiRequestError | null): boolean {
   return error?.status === 503;
 }
 
+/**
+ * La imagen supera el tamaño admitido por el servidor (413) o por el contrato
+ * OCR (400). Merece un mensaje específico en vez del genérico de error.
+ */
+function isImageTooLarge(error: ApiRequestError | null): boolean {
+  return error?.status === 413 || error?.status === 400;
+}
+
 export function ReceiptsPage() {
   const navigate = useNavigate();
   const { familyId } = useParams({ strict: false }) as { familyId: string };
@@ -58,6 +66,9 @@ export function ReceiptsPage() {
       const apiErr = err as ApiRequestError;
       if (isAiUnavailable(apiErr)) {
         setCapture({ phase: 'ai-unavailable' });
+      } else if (isImageTooLarge(apiErr)) {
+        setCapture({ phase: 'idle' });
+        setCaptureError('La imagen es demasiado grande. Prueba con una foto más ligera o recórtala.');
       } else {
         setCapture({ phase: 'idle' });
         setCaptureError('No se ha podido procesar la imagen. Inténtalo de nuevo.');
