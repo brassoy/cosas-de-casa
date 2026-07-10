@@ -859,10 +859,10 @@ function SuccessOverlayInner({ onClose }: { onClose: () => void }) {
       aria-live="polite"
       aria-label="Artículo añadido"
       onClick={onClose}
-      className="pointer-events-auto fixed inset-x-0 bottom-24 z-40 grid cursor-pointer place-items-center"
+      className="pointer-events-auto fixed inset-x-0 bottom-24 z-40 grid cursor-pointer place-items-center px-4"
     >
       <div
-        className="cz-pop flex items-center gap-2 rounded-full px-5 py-3 font-bold"
+        className="cz-pop flex max-w-full items-center gap-2 rounded-2xl px-5 py-3 font-bold"
         style={{
           background: 'var(--color-success)',
           color: 'var(--color-text-inverse)',
@@ -870,7 +870,7 @@ function SuccessOverlayInner({ onClose }: { onClose: () => void }) {
         }}
       >
         <span
-          className={cn('text-2xl', !reducedMotion && 'motion-safe:animate-bounce')}
+          className={cn('shrink-0 text-2xl', !reducedMotion && 'motion-safe:animate-bounce')}
           aria-hidden="true"
         >
           🛒

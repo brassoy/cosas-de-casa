@@ -794,10 +794,10 @@ function SuccessOverlayInner({ onClose }: { onClose: () => void }) {
       aria-live="polite"
       aria-label="Artículo añadido"
       onClick={onClose}
-      className="pointer-events-auto fixed inset-x-0 bottom-24 z-40 grid cursor-pointer place-items-center"
+      className="pointer-events-auto fixed inset-x-0 bottom-24 z-40 grid cursor-pointer place-items-center px-4"
     >
-      <div className="flex items-center gap-2 rounded-full bg-success px-5 py-3 text-success-foreground shadow-lg animate-in fade-in zoom-in">
-        <span className={cn('text-2xl', !reducedMotion && 'motion-safe:animate-bounce')} aria-hidden="true">
+      <div className="flex max-w-full items-center gap-2 rounded-2xl bg-success px-5 py-3 text-success-foreground shadow-lg animate-in fade-in zoom-in">
+        <span className={cn('shrink-0 text-2xl', !reducedMotion && 'motion-safe:animate-bounce')} aria-hidden="true">
           🛒
         </span>
         <span className="font-medium">{phrase}</span>

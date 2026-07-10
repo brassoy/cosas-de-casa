@@ -862,11 +862,11 @@ function SuccessOverlayInner({ onClose }: { onClose: () => void }) {
       aria-live="polite"
       aria-label="Artículo añadido"
       onClick={onClose}
-      className="pointer-events-auto fixed inset-x-0 bottom-24 z-40 grid cursor-pointer place-items-center"
+      className="pointer-events-auto fixed inset-x-0 bottom-24 z-40 grid cursor-pointer place-items-center px-4"
     >
-      <div className="sf-card-g sf-pop flex items-center gap-2 px-5 py-3 font-bold">
+      <div className="sf-card-g sf-pop flex max-w-full items-center gap-2 px-5 py-3 font-bold">
         <span
-          className={cn('text-2xl', !reducedMotion && 'motion-safe:animate-bounce')}
+          className={cn('shrink-0 text-2xl', !reducedMotion && 'motion-safe:animate-bounce')}
           aria-hidden="true"
         >
           🛒
