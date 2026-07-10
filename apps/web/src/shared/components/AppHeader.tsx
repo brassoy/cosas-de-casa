@@ -117,7 +117,11 @@ export function AppHeader() {
           </button>
         )}
 
-        {session && (
+        {/* Logout de respaldo: el drawer (donde vive ahora el botón "Salir")
+            solo se renderiza con sesión + familia activa. Si hay sesión pero
+            NO familia activa, no habría drawer → mantenemos aquí el acceso a
+            cerrar sesión para no dejar al usuario sin salida. */}
+        {session && !activeFamily && (
           <button
             type="button"
             onClick={() => void handleLogout()}

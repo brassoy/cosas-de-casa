@@ -24,7 +24,9 @@ interface NavEntry {
 
 export function NavDrawer() {
   const session = useAuthStore((s) => s.session);
+  const signOut = useAuthStore((s) => s.signOut);
   const activeFamily = useFamilyStore((s) => s.activeFamily);
+  const clearFamily = useFamilyStore((s) => s.clearFamily);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -140,6 +142,16 @@ export function NavDrawer() {
     );
   }
 
+  // Cierra sesión desde el pie del drawer: limpia la familia activa, cierra la
+  // sesión de Supabase y navega a /login (los guards de ruta solo reaccionan al
+  // navegar, no al cambio de sesión en la misma página).
+  async function handleLogout() {
+    setOpen(false);
+    clearFamily();
+    await signOut();
+    void navigate({ to: '/login' });
+  }
+
   return (
     <>
       <button
@@ -175,6 +187,19 @@ export function NavDrawer() {
         {renderGroup('Hogar', hogar)}
         {renderGroup('Social', social)}
         {renderGroup('Cuenta', cuenta)}
+
+        {/* Cerrar sesión: al final del drawer, separado del resto con un borde
+            superior para diferenciarlo de la navegación. */}
+        <div style={styles.logoutGroup}>
+          <button
+            type="button"
+            onClick={() => void handleLogout()}
+            style={{ ...styles.item, ...styles.logoutItem }}
+            aria-label="Cerrar sesión"
+          >
+            🚪 Salir
+          </button>
+        </div>
       </nav>
     </>
   );
@@ -254,5 +279,15 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: 'var(--color-accent)',
     color: 'var(--color-accent-contrast, #fff)',
     fontWeight: 'var(--font-weight-semibold)',
+  },
+  logoutGroup: {
+    marginTop: 'auto',
+    paddingTop: 'var(--space-3)',
+    borderTop: '1px solid var(--color-border)',
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  logoutItem: {
+    color: 'var(--color-text-muted)',
   },
 };
