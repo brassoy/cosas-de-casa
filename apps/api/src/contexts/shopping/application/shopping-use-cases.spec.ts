@@ -9,6 +9,8 @@
  *  ✓ CreateCustomList: crea una lista CUSTOM
  *  ✓ AddItem: añade un ítem a una lista existente
  *  ✓ AddItem: lanza ListNotFoundError si la lista no existe
+ *  ✓ AddItemToList: SUGGEST solo si hay un ítem PENDIENTE igual en la lista actual
+ *    (el catálogo histórico NO decide; forceAdd salta la sugerencia)
  *  ✓ ToggleItemChecked: invierte el estado checked
  *  ✓ ToggleItemChecked: lanza ItemNotFoundError si no existe el ítem
  *  ✓ DeleteCustomList: borra una lista CUSTOM
@@ -29,8 +31,10 @@ import {
 import { EnsureAndListListsUseCase } from './ensure-and-list-lists.use-case';
 import { CreateCustomListUseCase } from './create-custom-list.use-case';
 import { AddItemUseCase } from './add-item.use-case';
+import { AddItemToListUseCase } from './add-item-to-list.use-case';
 import { ToggleItemCheckedUseCase } from './toggle-item-checked.use-case';
 import { DeleteCustomListUseCase } from './delete-custom-list.use-case';
+import type { UpsertCatalogItemUseCase } from '../../ai/application/upsert-catalog-item.use-case';
 
 // ── Fakes ──────────────────────────────────────────────────────────────────
 
@@ -159,6 +163,125 @@ describe('AddItemUseCase', () => {
     await expect(
       addItem.execute({ listId: 'nonexistent', actingUserId: 'user-1', name: 'Pan' }),
     ).rejects.toThrow(ListNotFoundError);
+  });
+});
+
+// ── AddItemToList (dedup contra la lista actual) ─────────────────────────────
+
+describe('AddItemToListUseCase', () => {
+  /** Catálogo histórico simulado: registra los upserts pero NUNCA decide. */
+  let catalogUpserts: Array<{ familyId: string; displayName: string }>;
+
+  function makeAddItemToList() {
+    catalogUpserts = [];
+    const upsertCatalogStub = {
+      execute: async (cmd: { familyId: string; displayName: string }) => {
+        catalogUpserts.push(cmd);
+      },
+    } as unknown as UpsertCatalogItemUseCase;
+
+    const addItem = new AddItemUseCase(fakeListRepo, fakeItemRepo, fakeClock, fakeIds);
+    return new AddItemToListUseCase(fakeItemRepo, addItem, upsertCatalogStub);
+  }
+
+  async function makeList(): Promise<string> {
+    const ensureAndList = new EnsureAndListListsUseCase(fakeListRepo, fakeClock, fakeIds);
+    const [list] = await ensureAndList.execute({ familyId: 'fam-1', actingUserId: 'user-1' });
+    return list.id;
+  }
+
+  it('con la lista vacía NUNCA sugiere, aunque el catálogo histórico tenga "leche"', async () => {
+    const useCase = makeAddItemToList();
+    const listId = await makeList();
+    // Simula historial: "leche" ya pasó por el catálogo de la familia en el pasado.
+    catalogUpserts.push({ familyId: 'fam-1', displayName: 'leche' });
+
+    const result = await useCase.execute({
+      listId,
+      familyId: 'fam-1',
+      actingUserId: 'user-1',
+      name: 'leche',
+    });
+
+    expect(result.decision).toBe('ADD_NEW');
+    expect(result.item).toBeDefined();
+    expect(result.candidates).toBeUndefined();
+    expect(itemStore).toHaveLength(1);
+  });
+
+  it('sugiere (SUGGEST) si hay un ítem PENDIENTE con el mismo nombre normalizado', async () => {
+    const useCase = makeAddItemToList();
+    const listId = await makeList();
+    await useCase.execute({ listId, familyId: 'fam-1', actingUserId: 'user-1', name: 'leche' });
+
+    const result = await useCase.execute({
+      listId,
+      familyId: 'fam-1',
+      actingUserId: 'user-1',
+      name: 'Leche',
+    });
+
+    expect(result.decision).toBe('SUGGEST');
+    expect(result.item).toBeUndefined();
+    expect(result.candidates).toHaveLength(1);
+    expect(result.candidates![0].displayName).toBe('leche');
+    expect(result.candidates![0].normalizedName).toBe('leche');
+    // No se creó un segundo ítem.
+    expect(itemStore).toHaveLength(1);
+  });
+
+  it('NO sugiere si el ítem coincidente ya está comprado (checked): se añade normal', async () => {
+    const useCase = makeAddItemToList();
+    const listId = await makeList();
+    const first = await useCase.execute({
+      listId,
+      familyId: 'fam-1',
+      actingUserId: 'user-1',
+      name: 'leche',
+    });
+
+    // Marcamos "leche" como comprada.
+    const toggleChecked = new ToggleItemCheckedUseCase(fakeItemRepo, fakeClock);
+    await toggleChecked.execute({ itemId: first.item!.id });
+
+    const result = await useCase.execute({
+      listId,
+      familyId: 'fam-1',
+      actingUserId: 'user-1',
+      name: 'Leche',
+    });
+
+    expect(result.decision).toBe('ADD_NEW');
+    expect(result.item).toBeDefined();
+    expect(itemStore).toHaveLength(2);
+  });
+
+  it('con forceAdd=true añade aunque exista un duplicado pendiente', async () => {
+    const useCase = makeAddItemToList();
+    const listId = await makeList();
+    await useCase.execute({ listId, familyId: 'fam-1', actingUserId: 'user-1', name: 'leche' });
+
+    const result = await useCase.execute({
+      listId,
+      familyId: 'fam-1',
+      actingUserId: 'user-1',
+      name: 'Leche',
+      forceAdd: true,
+    });
+
+    expect(result.decision).toBe('ADD_NEW');
+    expect(itemStore).toHaveLength(2);
+  });
+
+  it('sigue alimentando el catálogo (upsert) cada vez que crea un ítem', async () => {
+    const useCase = makeAddItemToList();
+    const listId = await makeList();
+
+    await useCase.execute({ listId, familyId: 'fam-1', actingUserId: 'user-1', name: 'pan' });
+    // El upsert es fire-and-forget: damos un tick para que se resuelva.
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(catalogUpserts).toEqual([{ familyId: 'fam-1', displayName: 'pan' }]);
   });
 });
 

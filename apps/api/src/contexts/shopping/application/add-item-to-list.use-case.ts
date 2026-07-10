@@ -1,7 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import type { AddItemDecision, DedupCandidateDto } from '@cosasdecasa/contracts';
 import { ShoppingItem } from '../domain/shopping-list';
-import { DedupCheckUseCase } from '../../ai/application/dedup-check.use-case';
+import {
+  SHOPPING_ITEM_REPOSITORY,
+  type ShoppingItemRepository,
+} from '../domain/ports/shopping-item.repository';
+import { normalizeItemNameForMatch } from '../domain/item-name';
 import { UpsertCatalogItemUseCase } from '../../ai/application/upsert-catalog-item.use-case';
 import { AddItemUseCase } from './add-item.use-case';
 
@@ -36,14 +40,20 @@ export interface AddItemToListResult {
 }
 
 /**
- * Caso de uso orquestador: añade un artículo a una lista aplicando el dedup
- * semántico y manteniendo el catálogo de la familia actualizado.
+ * Caso de uso orquestador: añade un artículo a una lista avisando de duplicados
+ * y manteniendo el catálogo de la familia actualizado.
  *
- * Encapsula el flujo que antes vivía en el controller:
- *   1. Dedup semántico (no lanza; solo decide) acotado a la familia.
- *   2. Decisión:
- *      - SUGGEST sin `forceAdd` → devuelve los candidatos SIN crear el ítem.
- *      - ADD_NEW, AUTO_MERGE o `forceAdd=true` → crea el ítem en la lista.
+ * Decisión de producto: el aviso "¿Ya lo tienes?" (SUGGEST) mira SOLO la lista
+ * actual — salta únicamente si existe un ítem PENDIENTE (no comprado) con el
+ * mismo nombre normalizado. El catálogo histórico de la familia (contexto ai)
+ * NO se consulta para decidir: nunca se limpia y hacía saltar el aviso incluso
+ * con la lista vacía. El catálogo se sigue alimentando (upsert fire-and-forget)
+ * para frecuentes y otros flujos.
+ *
+ * Flujo:
+ *   1. Sin `forceAdd`: busca en la lista un ítem pendiente con el mismo nombre
+ *      normalizado → si existe, devuelve SUGGEST con los candidatos SIN crear.
+ *   2. Sin duplicado pendiente, o con `forceAdd=true` → crea el ítem.
  *   3. Actualiza el catálogo de la familia (incrementa frecuencia o lo crea).
  *
  * La existencia de la lista la valida {@link AddItemUseCase} al crear el ítem;
@@ -52,35 +62,40 @@ export interface AddItemToListResult {
 @Injectable()
 export class AddItemToListUseCase {
   constructor(
-    private readonly dedupCheck: DedupCheckUseCase,
+    @Inject(SHOPPING_ITEM_REPOSITORY)
+    private readonly items: ShoppingItemRepository,
     private readonly addItem: AddItemUseCase,
     private readonly upsertCatalog: UpsertCatalogItemUseCase,
   ) {}
 
   async execute(command: AddItemToListCommand): Promise<AddItemToListResult> {
-    // Dedup semántico (no lanza; solo decide).
-    const dedupResult = await this.dedupCheck.execute({
-      familyId: command.familyId,
-      name: command.name,
-    });
+    // Dedup contra la lista actual: solo ítems PENDIENTES (checked=false).
+    if (!command.forceAdd) {
+      const normalized = normalizeItemNameForMatch(command.name);
+      const existing = await this.items.findByList(command.listId);
+      const pendingDuplicates = existing.filter(
+        (item) => !item.checked && normalizeItemNameForMatch(item.name) === normalized,
+      );
 
-    const candidates =
-      dedupResult.candidates.length > 0 ? dedupResult.candidates : undefined;
-
-    // SUGGEST y AUTO_MERGE indican un duplicado (probable o claro). La fusión
-    // automática NO está implementada, así que AMBOS piden confirmación al
-    // usuario en vez de crear una línea duplicada en silencio. Solo se añade si
-    // el cliente confirma explícitamente con `forceAdd`.
-    const isPossibleDuplicate =
-      dedupResult.decision === 'SUGGEST' || dedupResult.decision === 'AUTO_MERGE';
-    if (isPossibleDuplicate && !command.forceAdd) {
-      return {
-        decision: 'SUGGEST',
-        candidates,
-      };
+      if (pendingDuplicates.length > 0) {
+        return {
+          decision: 'SUGGEST',
+          candidates: pendingDuplicates.map(
+            (item): DedupCandidateDto => ({
+              // Mantiene el contrato DedupCandidateDto: aquí el candidato es un
+              // ítem de la lista (no del catálogo), con coincidencia exacta.
+              catalogItemId: item.id,
+              normalizedName: normalizeItemNameForMatch(item.name),
+              displayName: item.name,
+              similarity: 1,
+              frequency: 1,
+            }),
+          ),
+        };
+      }
     }
 
-    // ADD_NEW, o adición confirmada por el cliente (forceAdd=true) → creamos el ítem.
+    // Sin duplicado pendiente, o adición confirmada por el cliente (forceAdd=true).
     const item = await this.addItem.execute({
       listId: command.listId,
       actingUserId: command.actingUserId,
@@ -102,12 +117,11 @@ export class AddItemToListUseCase {
         console.error('[shopping] upsertCatalog falló (no bloqueante):', err);
       });
 
-    // El ítem se añade como nuevo (ADD_NEW directo, o adición confirmada tras una
-    // sugerencia). Nunca devolvemos AUTO_MERGE: la fusión automática no se realiza.
+    // El ítem se añade como nuevo (sin duplicado pendiente, o adición confirmada
+    // tras una sugerencia). Nunca devolvemos AUTO_MERGE: no hay fusión automática.
     return {
       decision: 'ADD_NEW',
       item,
-      candidates,
     };
   }
 }
