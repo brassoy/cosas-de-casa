@@ -67,9 +67,13 @@ import { RateLimitGuard } from '../../common/rate-limit.guard';
         const model = config.get('MINIMAX_MODEL' as keyof Env, { infer: true }) as string | undefined;
 
         if (!baseURL || !apiKey || !model) {
-          // Si no hay config, devuelve una implementación nula segura
+          // Sin config de IA (ADR 0014) → adaptador nulo que lanza
+          // AiUnavailableError; el filtro lo traduce a 503. Nunca devolvemos
+          // [] aquí: la web lo confundiría con "no hay artículos".
           return {
-            extractItems: async () => [],
+            extractItems: async () => {
+              throw new AiUnavailableError('El servicio de IA no está configurado en este entorno.');
+            },
           };
         }
         return new MinimaxItemExtractionAdapter({ baseURL, apiKey, model });

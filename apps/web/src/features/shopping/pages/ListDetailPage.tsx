@@ -25,7 +25,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import type { ExtractItemsResponse } from '@cosasdecasa/contracts';
-import { api } from '@/shared/lib/api';
+import { api, ApiRequestError } from '@/shared/lib/api';
 import { ThemeView } from '@/shared/theme/ThemeView';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import {
@@ -145,8 +145,14 @@ export function ListDetailPage() {
         return;
       }
       setVoiceCandidates(detected);
-    } catch {
-      setVoiceExtractError('No se ha podido extraer los artículos. Inténtalo de nuevo.');
+    } catch (err) {
+      // 503 = IA no disponible (sin configurar, sin crédito, proveedor caído…):
+      // no lo confundimos con "no se han detectado artículos" (ADR 0014).
+      setVoiceExtractError(
+        err instanceof ApiRequestError && err.status === 503
+          ? 'La IA no está disponible ahora mismo. Inténtalo de nuevo más tarde.'
+          : 'No se ha podido extraer los artículos. Inténtalo de nuevo.',
+      );
     } finally {
       setExtracting(false);
     }

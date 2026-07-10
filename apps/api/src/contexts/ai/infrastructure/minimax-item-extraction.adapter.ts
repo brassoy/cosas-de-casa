@@ -4,11 +4,17 @@
  *
  * Usa tool_choice forzado a "extract_items" para obtener una salida
  * estructurada (array de strings). Si MiniMax no soporta tool_choice
- * forzado o falla, hace fallback a parseo de texto plano.
+ * forzado, hace fallback a parseo de texto plano.
+ *
+ * Si el proveedor falla (auth, balance/cuota/rate-limit, red) o la respuesta
+ * no tiene contenido utilizable → lanza AiUnavailableError (ADR 0014); el
+ * filtro de interfaz lo traduce a 503. Solo devuelve [] cuando la IA
+ * respondió correctamente y de verdad no hay artículos.
  */
 
 import { Logger } from '@nestjs/common';
 import Anthropic from '@anthropic-ai/sdk';
+import { AiUnavailableError } from '../domain/ai.errors';
 import type { ItemExtractionPort } from '../domain/ports/item-extraction.port';
 
 export interface MiniMaxConfig {
@@ -88,15 +94,17 @@ export class MinimaxItemExtractionAdapter implements ItemExtractionPort {
       if (toolUseBlock && toolUseBlock.name === 'extract_items') {
         const input = toolUseBlock.input as { items?: unknown };
         if (Array.isArray(input.items)) {
-          const items = input.items.filter(
-            (item): item is string => typeof item === 'string' && item.trim().length > 0,
+          const items = input.items
+            .filter(
+              (item): item is string => typeof item === 'string' && item.trim().length > 0,
+            )
+            .map((s) => s.trim());
+          // La IA respondió correctamente: un array vacío significa que de
+          // verdad no hay artículos en la frase (NO es un fallo del proveedor).
+          this.logger.debug(
+            `MiniMax tool_use OK: ${items.length} artículos extraídos de "${phrase}"`,
           );
-          if (items.length > 0) {
-            this.logger.debug(
-              `MiniMax tool_use OK: ${items.length} artículos extraídos de "${phrase}"`,
-            );
-            return items.map((s) => s.trim());
-          }
+          return items;
         }
       }
 
@@ -111,13 +119,28 @@ export class MinimaxItemExtractionAdapter implements ItemExtractionPort {
         return parseTextFallback(textBlock.text);
       }
 
-      this.logger.warn('MiniMax devolvió respuesta vacía; retornando array vacío.');
-      return [];
+      // Sin tool_use ni texto: respuesta sin contenido utilizable → 503 (ADR 0014).
+      this.logger.warn('MiniMax devolvió una respuesta sin contenido utilizable.');
+      throw new AiUnavailableError('La IA no devolvió una respuesta utilizable.');
     } catch (err) {
-      this.logger.error(
-        `Error llamando a MiniMax: ${(err as Error).message}. Retornando array vacío.`,
-      );
-      return [];
+      if (err instanceof AiUnavailableError) throw err;
+
+      const message = (err as Error).message ?? '';
+      this.logger.error(`Error MiniMax extract-items: ${message}`);
+
+      if (
+        message.includes('balance') ||
+        message.includes('credit') ||
+        message.includes('quota') ||
+        message.includes('rate') ||
+        message.includes('auth') ||
+        message.includes('unauthorized') ||
+        message.includes('payment')
+      ) {
+        throw new AiUnavailableError('Sin crédito o límite de tasa alcanzado.');
+      }
+
+      throw new AiUnavailableError(`Error de IA: ${message}`);
     }
   }
 }
