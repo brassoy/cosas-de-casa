@@ -2,6 +2,13 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useRouterState } from '@tanstack/react-router';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { useFamilyStore } from '@/features/family/store/family.store';
+import { isIOS, isStandalone, promptInstall } from '@/shared/lib/pwa-install';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/shared/ui/dialog';
 
 /**
  * Menú de navegación lateral (drawer).
@@ -30,6 +37,7 @@ export function NavDrawer() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const [showInstallHelp, setShowInstallHelp] = useState(false);
 
   // Cerrar con Escape mientras está abierto.
   useEffect(() => {
@@ -113,6 +121,21 @@ export function NavDrawer() {
         void navigate({ to: '/family/$familyId/manage', params: { familyId } }),
     },
   ];
+
+  // Vía PERMANENTE de instalación de la PWA (la card del dashboard caduca al
+  // descartarla). Solo cuando la app corre en el navegador, no instalada.
+  if (!isStandalone()) {
+    cuenta.push({
+      label: '📲 Instalar la app',
+      path: '#instalar-app', // pseudo-ruta: nunca coincide, no se marca activa
+      go: () => {
+        void promptInstall().then((outcome) => {
+          // Sin evento diferido (iOS o navegador sin soporte): instrucciones.
+          if (outcome === 'unavailable') setShowInstallHelp(true);
+        });
+      },
+    });
+  }
 
   const isActive = (entry: NavEntry): boolean =>
     entry.exact
@@ -206,6 +229,32 @@ export function NavDrawer() {
           </button>
         </div>
       </nav>
+
+      {/* Instrucciones de instalación manual (iOS o navegador sin prompt). */}
+      <Dialog open={showInstallHelp} onOpenChange={setShowInstallHelp}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>📲 Instalar Cosas de Casa</DialogTitle>
+          </DialogHeader>
+          {isIOS() ? (
+            <p className="text-sm text-muted-foreground">
+              En Safari, toca el botón <strong>Compartir</strong> (el cuadrado con
+              la flecha hacia arriba) y elige{' '}
+              <strong>«Añadir a pantalla de inicio»</strong>.
+            </p>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Abre el menú del navegador (⋮) y elige{' '}
+              <strong>«Instalar aplicación»</strong> o{' '}
+              <strong>«Añadir a pantalla de inicio»</strong>.
+            </p>
+          )}
+          <p className="text-sm text-muted-foreground">
+            Tendrás la app a pantalla completa, con su icono y funciones sin
+            conexión.
+          </p>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

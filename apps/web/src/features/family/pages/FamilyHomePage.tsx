@@ -14,6 +14,7 @@
 import { useMemo } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { ThemeView } from '@/shared/theme/ThemeView';
+import { InstallAppCard } from '@/shared/components/InstallAppCard';
 import { useNotificationsStore } from '@/features/notifications/store/notifications.store';
 import { useSubscribeToPush } from '@/features/notifications/hooks/useNotifications';
 import { useNotificationsBootstrap } from '@/features/notifications/hooks/useNotificationsBootstrap';
@@ -142,5 +143,15 @@ export function FamilyHomePage() {
     );
   }
 
-  return <ThemeView screen="family_home" props={viewProps} />;
+  return (
+    <>
+      <ThemeView screen="family_home" props={viewProps} />
+      {/* CTA de instalación de la PWA: solo aparece si la app corre en el
+          navegador (no standalone) y hay vía de instalación. Va FUERA del
+          ThemeView para no tocar las 4 vistas de theme del dashboard. */}
+      <div className="mx-auto max-w-2xl px-6 pb-6">
+        <InstallAppCard />
+      </div>
+    </>
+  );
 }

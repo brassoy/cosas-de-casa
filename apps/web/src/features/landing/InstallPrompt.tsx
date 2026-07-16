@@ -17,24 +17,9 @@
  * ─────────────────────────────────────────────────────────────────────────── */
 
 import { useEffect, useRef, useState } from 'react';
-
-/* Tipado propio del evento `beforeinstallprompt` (no está en lib.dom estándar),
- * así evitamos `any` y respetamos el lint del proyecto. */
-type BeforeInstallPromptEvent = Event & {
-  readonly platforms: string[];
-  readonly userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
-  prompt: () => Promise<void>;
-};
+import { isStandalone, type BeforeInstallPromptEvent } from '@/shared/lib/pwa-install';
 
 const DISMISS_KEY = 'cosasdecasa:install-dismissed';
-
-/* ¿La app ya corre como aplicación instalada? (standalone o iOS legacy). */
-function isStandalone(): boolean {
-  if (typeof window === 'undefined') return false;
-  const mql = window.matchMedia?.('(display-mode: standalone)').matches ?? false;
-  const iosStandalone = (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
-  return mql || iosStandalone;
-}
 
 function wasDismissed(): boolean {
   try {
