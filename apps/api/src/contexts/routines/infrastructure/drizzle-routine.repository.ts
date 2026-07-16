@@ -192,7 +192,7 @@ export class DrizzleRoutineRepository implements RoutineRepository {
         }
       }
 
-      // ── Incidents (inmutables: solo insert de nuevas y delete de quitadas) ──
+      // ── Incidents (diff por id; update de descripción/minutos editados) ──
       const remainingAssignmentIds = nextAssignments.map((a) => a.id);
       const currentIncidents = remainingAssignmentIds.length
         ? await tx
@@ -212,18 +212,30 @@ export class DrizzleRoutineRepository implements RoutineRepository {
           .delete(routineIncidents)
           .where(inArray(routineIncidents.id, removedIncidentIds));
       }
-      const newIncidents = nextIncidents.filter((i) => !currentIncidentIds.has(i.id));
-      if (newIncidents.length > 0) {
-        await tx.insert(routineIncidents).values(
-          newIncidents.map((i) => ({
-            id: i.id,
-            assignmentId: i.assignmentId,
-            description: i.description,
-            lostMinutes: i.lostMinutes,
-            createdBy: i.createdBy ?? undefined,
-            createdAt: i.createdAt,
-          })),
-        );
+      const currentIncidentById = new Map(currentIncidents.map((i) => [i.id, i]));
+      for (const incident of nextIncidents) {
+        const current = currentIncidentById.get(incident.id);
+        if (!current) {
+          await tx.insert(routineIncidents).values({
+            id: incident.id,
+            assignmentId: incident.assignmentId,
+            description: incident.description,
+            lostMinutes: incident.lostMinutes,
+            createdBy: incident.createdBy ?? undefined,
+            createdAt: incident.createdAt,
+          });
+        } else if (
+          current.description !== incident.description ||
+          current.lostMinutes !== incident.lostMinutes
+        ) {
+          await tx
+            .update(routineIncidents)
+            .set({
+              description: incident.description,
+              lostMinutes: incident.lostMinutes,
+            })
+            .where(eq(routineIncidents.id, incident.id));
+        }
       }
     });
   }

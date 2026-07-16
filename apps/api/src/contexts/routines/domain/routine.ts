@@ -311,6 +311,38 @@ export class Routine {
     return { ...incident };
   }
 
+  /** Edita una incidencia (descripción y/o minutos perdidos). */
+  updateIncident(
+    incidentId: string,
+    patch: { description?: string; lostMinutes?: number | null },
+    now: Date,
+  ): RoutineIncident {
+    const incident = this._incidents.find((i) => i.id === incidentId);
+    if (!incident) {
+      throw new RoutineIncidentNotFoundError();
+    }
+    if (patch.description !== undefined) {
+      const description = patch.description.trim();
+      if (!description) {
+        throw new IncidentDescriptionEmptyError();
+      }
+      incident.description = description;
+    }
+    if (patch.lostMinutes !== undefined) {
+      const assignment = this._assignments.find((a) => a.id === incident.assignmentId);
+      const duration = assignment?.durationMinutes ?? 0;
+      if (
+        patch.lostMinutes !== null &&
+        (patch.lostMinutes < 0 || patch.lostMinutes > duration)
+      ) {
+        throw new LostMinutesExceedPlannedError();
+      }
+      incident.lostMinutes = patch.lostMinutes;
+    }
+    this._updatedAt = now;
+    return { ...incident };
+  }
+
   removeIncident(incidentId: string, now: Date): void {
     if (!this._incidents.some((i) => i.id === incidentId)) {
       throw new RoutineIncidentNotFoundError();

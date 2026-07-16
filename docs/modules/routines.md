@@ -60,6 +60,7 @@ globales filtrables por fechas. Las asignaciones se proyectan en el calendario c
 | PATCH | `/routines/:routineId/assignments/:assignmentId` | Mover de día / ajustar ventana |
 | DELETE | `/routines/:routineId/assignments/:assignmentId` | Quitar asignación (incidencias en cascada) |
 | POST | `/routines/:routineId/assignments/:assignmentId/incidents` | Abrir incidencia |
+| PATCH | `/routines/:routineId/incidents/:incidentId` | Editar incidencia (descripción y/o minutos; null borra el descuento) |
 | DELETE | `/routines/:routineId/incidents/:incidentId` | Eliminar incidencia |
 
 **Autorización**: `JwtAuthGuard` global del controller + `FamilyScopeGuard` en rutas con

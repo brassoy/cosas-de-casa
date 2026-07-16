@@ -342,6 +342,7 @@ import { CreateAssignmentUseCase } from '../../src/contexts/routines/application
 import { UpdateAssignmentUseCase } from '../../src/contexts/routines/application/update-assignment.use-case';
 import { DeleteAssignmentUseCase } from '../../src/contexts/routines/application/delete-assignment.use-case';
 import { CreateIncidentUseCase } from '../../src/contexts/routines/application/create-incident.use-case';
+import { UpdateIncidentUseCase } from '../../src/contexts/routines/application/update-incident.use-case';
 import { DeleteIncidentUseCase } from '../../src/contexts/routines/application/delete-incident.use-case';
 import { RoutineStatsQuery } from '../../src/contexts/routines/application/routine-stats.query';
 
@@ -733,6 +734,7 @@ export async function createTestApp(): Promise<TestApp> {
       UpdateAssignmentUseCase,
       DeleteAssignmentUseCase,
       CreateIncidentUseCase,
+      UpdateIncidentUseCase,
       DeleteIncidentUseCase,
 
       // ── fridge: repositorio ────────────────────────────────────────────

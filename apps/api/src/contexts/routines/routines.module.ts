@@ -27,6 +27,7 @@ import { CreateAssignmentUseCase } from './application/create-assignment.use-cas
 import { UpdateAssignmentUseCase } from './application/update-assignment.use-case';
 import { DeleteAssignmentUseCase } from './application/delete-assignment.use-case';
 import { CreateIncidentUseCase } from './application/create-incident.use-case';
+import { UpdateIncidentUseCase } from './application/update-incident.use-case';
 import { DeleteIncidentUseCase } from './application/delete-incident.use-case';
 import { RoutineStatsQuery } from './application/routine-stats.query';
 
@@ -105,6 +106,7 @@ import { UuidIdGenerator } from '../family/infrastructure/uuid-id-generator';
     UpdateAssignmentUseCase,
     DeleteAssignmentUseCase,
     CreateIncidentUseCase,
+    UpdateIncidentUseCase,
     DeleteIncidentUseCase,
   ],
 })

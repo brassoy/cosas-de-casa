@@ -119,6 +119,12 @@ export interface RoutineDetailViewProps {
     description: string,
     lostMinutes?: number,
   ) => void;
+  /** Edita una incidencia existente (lostMinutes null borra el descuento). */
+  onUpdateIncident: (
+    incidentId: string,
+    description: string,
+    lostMinutes: number | null,
+  ) => void;
   onDeleteIncident: (incidentId: string) => void;
 
   onBack: () => void;

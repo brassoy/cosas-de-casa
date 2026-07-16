@@ -50,6 +50,7 @@ import { CreateAssignmentUseCase } from '../application/create-assignment.use-ca
 import { UpdateAssignmentUseCase } from '../application/update-assignment.use-case';
 import { DeleteAssignmentUseCase } from '../application/delete-assignment.use-case';
 import { CreateIncidentUseCase } from '../application/create-incident.use-case';
+import { UpdateIncidentUseCase } from '../application/update-incident.use-case';
 import { DeleteIncidentUseCase } from '../application/delete-incident.use-case';
 import { RoutineStatsQuery } from '../application/routine-stats.query';
 
@@ -73,6 +74,7 @@ import { SetRoutineItemsDto } from './dto/set-routine-items.dto';
 import { CreateAssignmentDto } from './dto/create-assignment.dto';
 import { UpdateAssignmentDto } from './dto/update-assignment.dto';
 import { CreateIncidentDto } from './dto/create-incident.dto';
+import { UpdateIncidentDto } from './dto/update-incident.dto';
 import { RoutineStatsQueryDto } from './dto/routine-stats-query.dto';
 
 /**
@@ -104,6 +106,7 @@ export class RoutinesController {
     private readonly updateAssignment: UpdateAssignmentUseCase,
     private readonly deleteAssignment: DeleteAssignmentUseCase,
     private readonly createIncident: CreateIncidentUseCase,
+    private readonly updateIncident: UpdateIncidentUseCase,
     private readonly deleteIncident: DeleteIncidentUseCase,
     private readonly statsQuery: RoutineStatsQuery,
     @Inject(ROUTINE_ITEM_REPOSITORY) private readonly itemRepo: RoutineItemRepository,
@@ -392,6 +395,24 @@ export class RoutinesController {
       description: body.description,
       lostMinutes: body.lostMinutes,
       createdBy: user.id,
+    });
+    return this.presentRoutine(routine);
+  }
+
+  @Patch('routines/:routineId/incidents/:incidentId')
+  @UseGuards(RoutineScopeGuard)
+  @ApiOperation({ summary: 'Editar una incidencia (descripción y/o minutos perdidos).' })
+  @ApiOkResponse({ description: 'Incidencia actualizada; devuelve la rutina completa.' })
+  async updateIncidentHandler(
+    @Param('routineId', ParseUUIDPipe) routineId: string,
+    @Param('incidentId', ParseUUIDPipe) incidentId: string,
+    @Body() body: UpdateIncidentDto,
+  ): Promise<RoutineDto> {
+    const { routine } = await this.updateIncident.execute({
+      routineId,
+      incidentId,
+      description: body.description,
+      lostMinutes: body.lostMinutes,
     });
     return this.presentRoutine(routine);
   }

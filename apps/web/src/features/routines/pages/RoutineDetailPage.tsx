@@ -21,6 +21,7 @@ import {
   useRoutineSummary,
   useSetRoutineItems,
   useUpdateAssignment,
+  useUpdateIncident,
 } from '../hooks/useRoutines';
 import type { RoutineDetailTab, RoutineDetailViewProps } from '../views/types';
 
@@ -51,6 +52,7 @@ export function RoutineDetailPage() {
   const updateAssignment = useUpdateAssignment(rid);
   const deleteAssignment = useDeleteAssignment(rid);
   const createIncident = useCreateIncident(rid);
+  const updateIncident = useUpdateIncident(rid);
   const deleteIncident = useDeleteIncident(rid);
 
   const isMutating =
@@ -59,6 +61,7 @@ export function RoutineDetailPage() {
     updateAssignment.isPending ||
     deleteAssignment.isPending ||
     createIncident.isPending ||
+    updateIncident.isPending ||
     deleteIncident.isPending;
 
   const onError = (fallback: string) => (err: unknown) =>
@@ -116,6 +119,13 @@ export function RoutineDetailPage() {
       createIncident.mutate(
         { assignmentId, input: { description, lostMinutes } },
         { onError: onError('No se ha podido abrir la incidencia.') },
+      );
+    },
+    onUpdateIncident: (incidentId, description, lostMinutes) => {
+      clearError();
+      updateIncident.mutate(
+        { incidentId, input: { description, lostMinutes } },
+        { onError: onError('No se ha podido editar la incidencia.') },
       );
     },
     onDeleteIncident: (incidentId) => {

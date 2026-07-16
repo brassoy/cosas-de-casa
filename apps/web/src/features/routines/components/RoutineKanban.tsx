@@ -1,12 +1,17 @@
 /**
  * RoutineKanban — kanban de 7 columnas (los días de la rutina).
  *
- * Interacciones (ambas conviven):
- *  - Drag & drop con @dnd-kit (PointerSensor con distancia y TouchSensor con
- *    delay para no secuestrar el scroll en móvil): arrastrar un chip pendiente
- *    a una columna asigna; arrastrar una tarjeta entre columnas la mueve.
- *  - Tap-para-asignar: tocar un chip lo deja "armado" y tocar una columna
- *    asigna ahí (red de seguridad táctil). Tocar una tarjeta abre su editor.
+ * Modo consulta / edición (`isEditing`):
+ *  - En CONSULTA no hay drag ni tap-para-asignar: se puede desplazar la
+ *    bandeja y las columnas sin mover nada sin querer; tocar una tarjeta abre
+ *    su detalle.
+ *  - En EDICIÓN: drag & drop con @dnd-kit y tap-para-asignar.
+ *
+ * Sensores (scroll vs arrastre, sobre todo en móvil):
+ *  - MouseSensor con distancia (escritorio) + TouchSensor con LONG-PRESS
+ *    (250 ms): un gesto rápido hace scroll; mantener pulsado arrastra.
+ *  - `touch-manipulation` (no `touch-none`) en chips y tarjetas para que el
+ *    navegador conserve el pan/scroll nativo.
  *
  * Presentacional: recibe la rutina y callbacks; no conoce las mutaciones.
  */
@@ -15,7 +20,7 @@ import { useState } from 'react';
 import {
   DndContext,
   DragOverlay,
-  PointerSensor,
+  MouseSensor,
   TouchSensor,
   useDraggable,
   useDroppable,
@@ -30,6 +35,8 @@ import { formatMinutes, routineDayDate, shortDateLabel, weekdayLabel } from '../
 
 interface RoutineKanbanProps {
   routine: RoutineDto;
+  /** false = consulta (sin drag ni tap-para-asignar). */
+  isEditing: boolean;
   onAssign: (routineItemId: string, dayIndex: number) => void;
   onMoveAssignment: (assignmentId: string, dayIndex: number) => void;
   onOpenAssignment: (assignment: RoutineAssignmentDto) => void;
@@ -43,16 +50,19 @@ type DragData =
 
 function PendingChip({
   selection,
+  isEditing,
   isArmed,
   onTap,
 }: {
   selection: RoutineSelectionDto;
+  isEditing: boolean;
   isArmed: boolean;
   onTap: () => void;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `pending-${selection.routineItemId}`,
     data: { type: 'pending', routineItemId: selection.routineItemId } satisfies DragData,
+    disabled: !isEditing,
   });
   const missing = selection.targetTimesPerWeek - selection.assignedCount;
   return (
@@ -63,7 +73,8 @@ function PendingChip({
       {...listeners}
       {...attributes}
       className={cn(
-        'flex shrink-0 cursor-grab touch-none items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors',
+        'flex shrink-0 touch-manipulation items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors',
+        isEditing && 'cursor-grab',
         selection.isCompliant
           ? 'border-border bg-surface-raised text-muted-foreground'
           : 'border-warning/40 bg-warning/10',
@@ -96,15 +107,18 @@ function PendingChip({
 function AssignmentCard({
   assignment,
   name,
+  isEditing,
   onOpen,
 }: {
   assignment: RoutineAssignmentDto;
   name: string;
+  isEditing: boolean;
   onOpen: () => void;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `assignment-${assignment.id}`,
     data: { type: 'assignment', assignmentId: assignment.id } satisfies DragData,
+    disabled: !isEditing,
   });
   return (
     <button
@@ -119,7 +133,8 @@ function AssignmentCard({
       {...listeners}
       {...attributes}
       className={cn(
-        'w-full cursor-grab touch-none rounded-card border border-border bg-background p-2 text-left text-xs shadow-sm transition-colors hover:border-primary/40',
+        'w-full touch-manipulation rounded-card border border-border bg-background p-2 text-left text-xs shadow-sm transition-colors hover:border-primary/40',
+        isEditing && 'cursor-grab',
         isDragging && 'opacity-40',
       )}
     >
@@ -188,6 +203,7 @@ function DayColumn({
 
 export function RoutineKanban({
   routine,
+  isEditing,
   onAssign,
   onMoveAssignment,
   onOpenAssignment,
@@ -196,12 +212,14 @@ export function RoutineKanban({
   const [dragging, setDragging] = useState<{ label: string } | null>(null);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    // Long-press en táctil: un gesto rápido hace scroll, mantener arrastra.
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 10 } }),
   );
 
   const nameByItem = new Map(routine.selections.map((s) => [s.routineItemId, s.name]));
   const todayYMD = new Date().toLocaleDateString('sv-SE'); // "YYYY-MM-DD" local
+  const armed = isEditing ? armedItemId : null;
 
   function handleDragStart(event: DragStartEvent) {
     const data = event.active.data.current as DragData | undefined;
@@ -246,12 +264,14 @@ export function RoutineKanban({
             <PendingChip
               key={selection.routineItemId}
               selection={selection}
-              isArmed={armedItemId === selection.routineItemId}
-              onTap={() =>
+              isEditing={isEditing}
+              isArmed={armed === selection.routineItemId}
+              onTap={() => {
+                if (!isEditing) return;
                 setArmedItemId((prev) =>
                   prev === selection.routineItemId ? null : selection.routineItemId,
-                )
-              }
+                );
+              }}
             />
           ))}
         </div>
@@ -270,10 +290,10 @@ export function RoutineKanban({
               dayIndex={dayIndex}
               date={date}
               isToday={date === todayYMD}
-              armed={armedItemId !== null}
+              armed={armed !== null}
               onTapColumn={() => {
-                if (armedItemId) {
-                  onAssign(armedItemId, dayIndex);
+                if (armed) {
+                  onAssign(armed, dayIndex);
                   setArmedItemId(null);
                 }
               }}
@@ -283,6 +303,7 @@ export function RoutineKanban({
                   key={assignment.id}
                   assignment={assignment}
                   name={nameByItem.get(assignment.routineItemId) ?? 'Item'}
+                  isEditing={isEditing}
                   onOpen={() => onOpenAssignment(assignment)}
                 />
               ))}

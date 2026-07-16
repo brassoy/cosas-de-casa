@@ -306,6 +306,21 @@ describe('Routines context – integración', () => {
       expect(withIncident.incidents).toHaveLength(1);
       expect(withIncident.incidents[0].lostMinutes).toBe(120);
 
+      // Se puede editar (descripción y minutos), con el mismo límite de rango.
+      const editRes = await request(server)
+        .patch(`/api/v1/routines/${routine.id}/incidents/${withIncident.incidents[0].id}`)
+        .set('Authorization', `Bearer ${owner.accessToken}`)
+        .send({ description: 'Recogida y médico', lostMinutes: 180 });
+      expect(editRes.status).toBe(200);
+      const edited = (editRes.body as RoutineBody).assignments[0].incidents[0];
+      expect(edited).toMatchObject({ description: 'Recogida y médico', lostMinutes: 180 });
+
+      const editExcess = await request(server)
+        .patch(`/api/v1/routines/${routine.id}/incidents/${withIncident.incidents[0].id}`)
+        .set('Authorization', `Bearer ${owner.accessToken}`)
+        .send({ lostMinutes: 301 });
+      expect(editExcess.status).toBe(422);
+
       // Y se puede eliminar.
       const delRes = await request(server)
         .delete(

@@ -284,6 +284,58 @@ describe('Routine.addIncident', () => {
   });
 });
 
+describe('Routine.updateIncident', () => {
+  function makeRoutineWithIncident() {
+    const routine = makeRoutineWithAssignment(); // asg-1: 18:00–20:00 (120 min)
+    routine.addIncident({
+      id: 'inc-1',
+      assignmentId: 'asg-1',
+      description: 'Salida antes',
+      lostMinutes: 60,
+      createdBy: 'user-1',
+      now: NOW,
+    });
+    return routine;
+  }
+
+  it('edita descripción y minutos perdidos', () => {
+    const routine = makeRoutineWithIncident();
+    const updated = routine.updateIncident(
+      'inc-1',
+      { description: '  Recogida del niño  ', lostMinutes: 90 },
+      NOW,
+    );
+    expect(updated).toMatchObject({ description: 'Recogida del niño', lostMinutes: 90 });
+    expect(routine.incidents[0]).toMatchObject({ description: 'Recogida del niño', lostMinutes: 90 });
+  });
+
+  it('lostMinutes null borra el descuento', () => {
+    const routine = makeRoutineWithIncident();
+    expect(routine.updateIncident('inc-1', { lostMinutes: null }, NOW).lostMinutes).toBeNull();
+  });
+
+  it('valida el rango contra la duración de su asignación', () => {
+    const routine = makeRoutineWithIncident();
+    expect(() => routine.updateIncident('inc-1', { lostMinutes: 121 }, NOW)).toThrow(
+      LostMinutesExceedPlannedError,
+    );
+  });
+
+  it('lanza IncidentDescriptionEmptyError con descripción vacía', () => {
+    const routine = makeRoutineWithIncident();
+    expect(() => routine.updateIncident('inc-1', { description: '  ' }, NOW)).toThrow(
+      IncidentDescriptionEmptyError,
+    );
+  });
+
+  it('lanza RoutineIncidentNotFoundError si no existe', () => {
+    const routine = makeRoutine();
+    expect(() => routine.updateIncident('nope', { lostMinutes: 1 }, NOW)).toThrow(
+      RoutineIncidentNotFoundError,
+    );
+  });
+});
+
 describe('Routine.removeIncident', () => {
   it('elimina la incidencia', () => {
     const routine = makeRoutineWithAssignment();

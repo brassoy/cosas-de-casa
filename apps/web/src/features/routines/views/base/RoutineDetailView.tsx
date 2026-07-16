@@ -33,8 +33,9 @@ import {
   formatMinutes,
   routineDefaultName,
   shortDateLabel,
+  weekdayLabel,
 } from '../../types';
-import type { RoutineAssignmentDto, RoutineSummaryDto } from '../../types';
+import type { RoutineAssignmentDto, RoutineDto, RoutineSummaryDto } from '../../types';
 import type { RoutineDetailViewProps } from '../types';
 
 export default function RoutineDetailView(props: RoutineDetailViewProps) {
@@ -43,10 +44,12 @@ export default function RoutineDetailView(props: RoutineDetailViewProps) {
     activeTab, isItemPickerOpen, isMutating, mutationError,
     onChangeTab, onOpenItemPicker, onCloseItemPicker, onSubmitItems,
     onAssign, onMoveAssignment, onUpdateWindow, onDeleteAssignment,
-    onCreateIncident, onDeleteIncident, onBack,
+    onCreateIncident, onUpdateIncident, onDeleteIncident, onBack,
   } = props;
 
   const [openAssignmentId, setOpenAssignmentId] = useState<string | null>(null);
+  // Modo consulta por defecto: nada se arrastra hasta pulsar «Editar».
+  const [isEditing, setIsEditing] = useState(false);
   // La asignación abierta se relee de la rutina (la cache optimista la actualiza).
   const openAssignment =
     routine?.assignments.find((a) => a.id === openAssignmentId) ?? null;
@@ -93,9 +96,23 @@ export default function RoutineDetailView(props: RoutineDetailViewProps) {
                   </button>
                 ))}
               </div>
-              <Button variant="outline" size="sm" onClick={onOpenItemPicker}>
-                Elegir items
-              </Button>
+              <div className="flex gap-2">
+                {activeTab === 'kanban' && (
+                  <Button
+                    variant={isEditing ? 'default' : 'outline'}
+                    size="sm"
+                    aria-pressed={isEditing}
+                    onClick={() => setIsEditing((v) => !v)}
+                  >
+                    {isEditing ? '👁 Consultar' : '✏️ Editar'}
+                  </Button>
+                )}
+                {isEditing && (
+                  <Button variant="outline" size="sm" onClick={onOpenItemPicker}>
+                    Elegir items
+                  </Button>
+                )}
+              </div>
             </div>
 
             {mutationError && (
@@ -126,18 +143,20 @@ export default function RoutineDetailView(props: RoutineDetailViewProps) {
                 <>
                   <RoutineKanban
                     routine={routine}
+                    isEditing={isEditing}
                     onAssign={onAssign}
                     onMoveAssignment={onMoveAssignment}
                     onOpenAssignment={(a) => setOpenAssignmentId(a.id)}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Arrastra un item a un día (o tócalo y toca el día). Toca una tarjeta
-                    para cambiar su horario o abrir una incidencia.
+                    {isEditing
+                      ? 'Arrastra un item a un día (en móvil, mantén pulsado; o toca el item y luego el día). Toca una tarjeta para horario e incidencias.'
+                      : 'Modo consulta: pulsa «Editar» para asignar o mover items. Toca una tarjeta para ver su detalle.'}
                   </p>
                 </>
               )
             ) : (
-              <SummaryPanel summary={summary} />
+              <SummaryPanel summary={summary} routine={routine} />
             )}
           </>
         )}
@@ -178,6 +197,7 @@ export default function RoutineDetailView(props: RoutineDetailViewProps) {
             setOpenAssignmentId(null);
           }}
           onCreateIncident={onCreateIncident}
+          onUpdateIncident={onUpdateIncident}
           onDeleteIncident={onDeleteIncident}
         />
       )}
@@ -187,12 +207,42 @@ export default function RoutineDetailView(props: RoutineDetailViewProps) {
 
 // ── Resumen ───────────────────────────────────────────────────────────────────
 
-function SummaryPanel({ summary }: { summary: RoutineSummaryDto | null }) {
+/** Incidencia aplanada para el desplegable del resumen. */
+interface IncidentDetail {
+  id: string;
+  dayLabel: string;
+  description: string;
+  lostMinutes: number | null;
+}
+
+function SummaryPanel({
+  summary,
+  routine,
+}: {
+  summary: RoutineSummaryDto | null;
+  routine: RoutineDto | null;
+}) {
   if (!summary) {
     return <p className="text-sm text-muted-foreground">Calculando resumen…</p>;
   }
   const maxItem = Math.max(1, ...summary.perItem.map((i) => i.plannedMinutes));
   const maxTag = Math.max(1, ...summary.perTag.map((t) => t.plannedMinutes));
+
+  // Detalle de incidencias por item (el summary solo trae el contador; el
+  // detalle vive en las asignaciones de la rutina ya cargada).
+  const incidentsByItem = new Map<string, IncidentDetail[]>();
+  for (const assignment of routine?.assignments ?? []) {
+    for (const incident of assignment.incidents) {
+      const list = incidentsByItem.get(assignment.routineItemId) ?? [];
+      list.push({
+        id: incident.id,
+        dayLabel: `${weekdayLabel(assignment.date)} ${shortDateLabel(assignment.date)}`,
+        description: incident.description,
+        lostMinutes: incident.lostMinutes,
+      });
+      incidentsByItem.set(assignment.routineItemId, list);
+    }
+  }
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -221,6 +271,7 @@ function SummaryPanel({ summary }: { summary: RoutineSummaryDto | null }) {
                 planned={item.plannedMinutes}
                 actual={item.actualMinutes}
                 incidents={item.incidentCount}
+                incidentDetails={incidentsByItem.get(item.routineItemId)}
                 max={maxItem}
               />
             ))}
@@ -278,16 +329,22 @@ function StatTile({
   );
 }
 
-/** Barra CSS pura: tiempo real sobre planificado (patrón budget/SpendView). */
+/**
+ * Barra CSS pura: tiempo real sobre planificado (patrón budget/SpendView).
+ * Si hay `incidentDetails`, el icono ⚠️ es pulsable y despliega la lista.
+ */
 function TimeBar({
-  label, planned, actual, incidents, max,
+  label, planned, actual, incidents, incidentDetails, max,
 }: {
   label: string;
   planned: number;
   actual: number;
   incidents: number;
+  incidentDetails?: IncidentDetail[];
   max: number;
 }) {
+  const [showIncidents, setShowIncidents] = useState(false);
+  const expandable = (incidentDetails?.length ?? 0) > 0;
   return (
     <li className="space-y-1">
       <div className="flex items-baseline justify-between gap-2 text-sm">
@@ -297,9 +354,39 @@ function TimeBar({
           {actual !== planned && (
             <span className="text-muted-foreground"> / {formatMinutes(planned)}</span>
           )}
-          {incidents > 0 && <span className="text-warning"> · ⚠️{incidents}</span>}
+          {incidents > 0 &&
+            (expandable ? (
+              <button
+                type="button"
+                className="ml-1 text-warning underline decoration-dotted underline-offset-2"
+                aria-expanded={showIncidents}
+                aria-label={`Ver ${incidents} incidencia(s)`}
+                onClick={() => setShowIncidents((v) => !v)}
+              >
+                ⚠️{incidents}
+              </button>
+            ) : (
+              <span className="text-warning"> · ⚠️{incidents}</span>
+            ))}
         </span>
       </div>
+      {showIncidents && expandable && (
+        <ul className="m-0 list-none space-y-1 rounded-card bg-warning/10 p-2 text-xs">
+          {incidentDetails!.map((incident) => (
+            <li key={incident.id} className="flex justify-between gap-2">
+              <span className="min-w-0">
+                <span className="capitalize text-muted-foreground">{incident.dayLabel}: </span>
+                {incident.description}
+              </span>
+              {incident.lostMinutes !== null && (
+                <span className="shrink-0 text-warning">
+                  −{formatMinutes(incident.lostMinutes)}
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
       <div
         className="h-2 overflow-hidden rounded-full bg-muted"
         role="progressbar"
@@ -394,7 +481,7 @@ function ItemPickerDialog({
 
 function AssignmentDialog({
   assignment, itemName, isMutating, onClose,
-  onUpdateWindow, onDelete, onCreateIncident, onDeleteIncident,
+  onUpdateWindow, onDelete, onCreateIncident, onUpdateIncident, onDeleteIncident,
 }: {
   assignment: RoutineAssignmentDto;
   itemName: string;
@@ -403,6 +490,7 @@ function AssignmentDialog({
   onUpdateWindow: RoutineDetailViewProps['onUpdateWindow'];
   onDelete: (assignmentId: string) => void;
   onCreateIncident: RoutineDetailViewProps['onCreateIncident'];
+  onUpdateIncident: RoutineDetailViewProps['onUpdateIncident'];
   onDeleteIncident: RoutineDetailViewProps['onDeleteIncident'];
 }) {
   // El componente se remonta (key=assignment.id en el padre): el formulario se
@@ -412,6 +500,16 @@ function AssignmentDialog({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [incidentText, setIncidentText] = useState('');
   const [lostMinutesText, setLostMinutesText] = useState('');
+  /** Incidencia cargada en el formulario para editar, o null (creación). */
+  const [editingIncidentId, setEditingIncidentId] = useState<string | null>(null);
+  /** Incidencia pendiente de confirmar su borrado (dos toques). */
+  const [confirmIncidentId, setConfirmIncidentId] = useState<string | null>(null);
+
+  function resetIncidentForm() {
+    setEditingIncidentId(null);
+    setIncidentText('');
+    setLostMinutesText('');
+  }
 
   const windowChanged =
     startTime !== assignment.startTime || endTime !== assignment.endTime;
@@ -471,7 +569,10 @@ function AssignmentDialog({
             {assignment.incidents.map((incident) => (
               <div
                 key={incident.id}
-                className="flex items-start justify-between gap-2 rounded-card bg-warning/10 p-2 text-sm"
+                className={cn(
+                  'flex items-start justify-between gap-2 rounded-card bg-warning/10 p-2 text-sm',
+                  editingIncidentId === incident.id && 'ring-1 ring-warning',
+                )}
               >
                 <div className="min-w-0">
                   <p>{incident.description}</p>
@@ -481,14 +582,42 @@ function AssignmentDialog({
                     </p>
                   )}
                 </div>
-                <button
-                  type="button"
-                  className="shrink-0 text-muted-foreground"
-                  aria-label="Eliminar incidencia"
-                  onClick={() => onDeleteIncident(incident.id)}
-                >
-                  ✕
-                </button>
+                <div className="flex shrink-0 items-center gap-1">
+                  <button
+                    type="button"
+                    className="text-muted-foreground"
+                    aria-label="Editar incidencia"
+                    onClick={() => {
+                      setEditingIncidentId(incident.id);
+                      setIncidentText(incident.description);
+                      setLostMinutesText(
+                        incident.lostMinutes === null ? '' : String(incident.lostMinutes),
+                      );
+                      setConfirmIncidentId(null);
+                    }}
+                  >
+                    ✏️
+                  </button>
+                  <button
+                    type="button"
+                    className={cn(
+                      'text-muted-foreground',
+                      confirmIncidentId === incident.id && 'font-semibold text-error',
+                    )}
+                    aria-label="Eliminar incidencia"
+                    onClick={() => {
+                      if (confirmIncidentId === incident.id) {
+                        onDeleteIncident(incident.id);
+                        setConfirmIncidentId(null);
+                        if (editingIncidentId === incident.id) resetIncidentForm();
+                      } else {
+                        setConfirmIncidentId(incident.id);
+                      }
+                    }}
+                  >
+                    {confirmIncidentId === incident.id ? '¿Borrar?' : '✕'}
+                  </button>
+                </div>
               </div>
             ))}
             <Textarea
@@ -497,7 +626,7 @@ function AssignmentDialog({
               maxLength={1000}
               onChange={(e) => setIncidentText(e.target.value)}
             />
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Input
                 type="number"
                 min={0}
@@ -512,14 +641,24 @@ function AssignmentDialog({
                 variant="outline"
                 disabled={isMutating || !incidentText.trim()}
                 onClick={() => {
-                  const lost = lostMinutesText === '' ? undefined : Number(lostMinutesText);
-                  onCreateIncident(assignment.id, incidentText.trim(), lost);
-                  setIncidentText('');
-                  setLostMinutesText('');
+                  const text = incidentText.trim();
+                  if (editingIncidentId) {
+                    const lost = lostMinutesText === '' ? null : Number(lostMinutesText);
+                    onUpdateIncident(editingIncidentId, text, lost);
+                  } else {
+                    const lost = lostMinutesText === '' ? undefined : Number(lostMinutesText);
+                    onCreateIncident(assignment.id, text, lost);
+                  }
+                  resetIncidentForm();
                 }}
               >
-                Abrir incidencia
+                {editingIncidentId ? 'Guardar cambios' : 'Abrir incidencia'}
               </Button>
+              {editingIncidentId && (
+                <Button size="sm" variant="ghost" onClick={resetIncidentForm}>
+                  Cancelar edición
+                </Button>
+              )}
             </div>
           </div>
         </div>

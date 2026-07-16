@@ -302,6 +302,13 @@ export const CreateIncidentInputSchema = z.object({
 });
 export type CreateIncidentInput = z.infer<typeof CreateIncidentInputSchema>;
 
+/** Payload para editar una incidencia (patch parcial; lostMinutes null la borra). */
+export const UpdateIncidentInputSchema = z.object({
+  description: z.string().trim().min(1).max(1000).optional(),
+  lostMinutes: z.number().int().min(0).max(1440).nullable().optional(),
+});
+export type UpdateIncidentInput = z.infer<typeof UpdateIncidentInputSchema>;
+
 /** Parámetros para listar rutinas cuyo rango solapa [from, to]. */
 export const ListRoutinesQuerySchema = z.object({
   from: DateYMDSchema.optional(),

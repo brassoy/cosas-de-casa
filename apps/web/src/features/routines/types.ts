@@ -21,6 +21,7 @@ export type {
   CreateAssignmentInput,
   UpdateAssignmentInput,
   CreateIncidentInput,
+  UpdateIncidentInput,
 } from '@cosasdecasa/contracts';
 
 /** Prefijo de los ids sintéticos del overlay del calendario. */

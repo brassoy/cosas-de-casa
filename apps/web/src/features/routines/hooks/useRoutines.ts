@@ -29,6 +29,7 @@ import type {
   RoutineStatsDto,
   RoutineSummaryDto,
   UpdateAssignmentInput,
+  UpdateIncidentInput,
   UpdateRoutineItemInput,
 } from '../types';
 
@@ -288,6 +289,19 @@ export function useCreateIncident(routineId: string) {
         `/routines/${routineId}/assignments/${assignmentId}/incidents`,
         input,
       ),
+    onSuccess: apply,
+  });
+}
+
+export function useUpdateIncident(routineId: string) {
+  const apply = useApplyRoutine();
+  return useMutation<
+    RoutineDto,
+    ApiRequestError,
+    { incidentId: string; input: UpdateIncidentInput }
+  >({
+    mutationFn: ({ incidentId, input }) =>
+      api.patch<RoutineDto>(`/routines/${routineId}/incidents/${incidentId}`, input),
     onSuccess: apply,
   });
 }
