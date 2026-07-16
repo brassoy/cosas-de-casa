@@ -22,12 +22,19 @@
  *    abierto mostrando `submitError`.
  */
 
-import { useState } from 'react';
-import { useParams } from '@tanstack/react-router';
+import { useMemo, useState } from 'react';
+import { useNavigate, useParams } from '@tanstack/react-router';
 import { useFamilyStore } from '@/features/family/store/family.store';
 import { useFamilyMembers } from '@/features/family/hooks/useFamily';
 import { ThemeView } from '@/shared/theme/ThemeView';
 import { ApiRequestError } from '@/shared/lib/api';
+import { useDetailedRoutines } from '@/features/routines/hooks/useRoutines';
+import {
+  buildRoutineByEventId,
+  buildRoutineDayMap,
+  routinesToVirtualEvents,
+} from '@/features/routines/lib/calendarOverlay';
+import { isRoutineEventId } from '@/features/routines/types';
 import {
   useCalendarEvents,
   useCreateCalendarEvent,
@@ -37,7 +44,7 @@ import {
 } from '../hooks/useCalendar';
 import { useRealtimeCalendar } from '../hooks/useRealtimeCalendar';
 import { useCalendarStore } from '../store/calendar.store';
-import { isOccurrenceId, parentEventId } from '../types';
+import { getCalendarEnd, getCalendarStart, isOccurrenceId, parentEventId } from '../types';
 import type { CalendarEventDto } from '../types';
 import type {
   CalendarEventFormValues,
@@ -70,6 +77,7 @@ export function CalendarPage() {
   const { familyId } = useParams({ strict: false }) as { familyId?: string };
   const activeFamily = useFamilyStore((s) => s.activeFamily);
   const resolvedFamilyId = familyId ?? activeFamily?.id;
+  const navigate = useNavigate();
 
   // ── Estado del store (vista, mes visible, día seleccionado) ──
   const viewYear = useCalendarStore((s) => s.viewYear);
@@ -97,6 +105,27 @@ export function CalendarPage() {
     viewMonth,
   );
   const { data: members = [] } = useFamilyMembers(resolvedFamilyId);
+
+  // ── Overlay de rutinas (solo lectura) sobre el rango visible del grid ──
+  // Las asignaciones se proyectan como eventos "fijados" con id sintético
+  // `routine_<assignmentId>` y cada día cubierto por una rutina lleva un ring
+  // sutil (dos colores alternos separan una semana de la siguiente).
+  const gridFromYMD = getCalendarStart(viewYear, viewMonth).toLocaleDateString('sv-SE');
+  const gridToYMD = getCalendarEnd(viewYear, viewMonth).toLocaleDateString('sv-SE');
+  const { data: gridRoutines = [] } = useDetailedRoutines(
+    resolvedFamilyId,
+    gridFromYMD,
+    gridToYMD,
+  );
+  const mergedEvents = useMemo(
+    () => [...events, ...routinesToVirtualEvents(gridRoutines)],
+    [events, gridRoutines],
+  );
+  const routineDays = useMemo(() => buildRoutineDayMap(gridRoutines), [gridRoutines]);
+  const routineByEventId = useMemo(
+    () => buildRoutineByEventId(gridRoutines),
+    [gridRoutines],
+  );
 
   // Realtime: refresca los eventos cuando otro miembro crea/edita/borra.
   useRealtimeCalendar(resolvedFamilyId);
@@ -128,6 +157,17 @@ export function CalendarPage() {
   }
 
   function handleOpenEvent(event: CalendarEventDto) {
+    // Los eventos de rutina son de solo lectura: navegan a su rutina.
+    if (isRoutineEventId(event.id)) {
+      const routineId = routineByEventId.get(event.id);
+      if (routineId && resolvedFamilyId) {
+        void navigate({
+          to: '/family/$familyId/routines/$routineId',
+          params: { familyId: resolvedFamilyId, routineId },
+        });
+      }
+      return;
+    }
     setEditingEvent(event);
     setNewEventDate(null);
     setConfirmDelete(false);
@@ -234,8 +274,9 @@ export function CalendarPage() {
   }
 
   const props: CalendarViewProps = {
-    events,
+    events: mergedEvents,
     members,
+    routineDays,
     isLoading,
     error: error ? 'No se han podido cargar los eventos.' : null,
     view: activeView,

@@ -72,6 +72,11 @@ export function NavDrawer() {
       go: () => void navigate({ to: '/family/$familyId/calendar', params: { familyId } }),
     },
     {
+      label: '🗓️ Rutinas',
+      path: `/family/${familyId}/routines`,
+      go: () => void navigate({ to: '/family/$familyId/routines', params: { familyId } }),
+    },
+    {
       label: '📊 Estadísticas',
       path: `/family/${familyId}/stats`,
       go: () => void navigate({ to: '/family/$familyId/stats', params: { familyId } }),

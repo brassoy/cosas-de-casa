@@ -21,6 +21,10 @@ import { TaskDetailPage } from '@/features/tasks/pages/TaskDetailPage';
 import { FridgePage } from '@/features/fridge/pages/FridgePage';
 import { StatsPage } from '@/features/stats/pages/StatsPage';
 import { CalendarPage } from '@/features/calendar/pages/CalendarPage';
+import { RoutinesPage } from '@/features/routines/pages/RoutinesPage';
+import { RoutineDetailPage } from '@/features/routines/pages/RoutineDetailPage';
+import { RoutineItemsPage } from '@/features/routines/pages/RoutineItemsPage';
+import { RoutineStatsPage } from '@/features/routines/pages/RoutineStatsPage';
 import { RomanticPage } from '@/features/romantic/pages/RomanticPage';
 import { GroupsPage } from '@/features/groups/pages/GroupsPage';
 import { CreateGroupPage } from '@/features/groups/pages/CreateGroupPage';
@@ -390,6 +394,38 @@ const calendarRoute = createRoute({
   component: CalendarPage,
 });
 
+// ── Routines routes ───────────────────────────────────────────────────────────
+// Las rutas estáticas (items, stats) van antes que `$routineId`; TanStack
+// prioriza los segmentos estáticos así que el orden es solo documental.
+
+const routinesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/family/$familyId/routines',
+  beforeLoad: requireFamily,
+  component: RoutinesPage,
+});
+
+const routineItemsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/family/$familyId/routines/items',
+  beforeLoad: requireFamily,
+  component: RoutineItemsPage,
+});
+
+const routineStatsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/family/$familyId/routines/stats',
+  beforeLoad: requireFamily,
+  component: RoutineStatsPage,
+});
+
+const routineDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/family/$familyId/routines/$routineId',
+  beforeLoad: requireFamily,
+  component: RoutineDetailPage,
+});
+
 // ── Romantic route ────────────────────────────────────────────────────────────
 
 const romanticRoute = createRoute({
@@ -539,6 +575,10 @@ const routeTree = rootRoute.addChildren([
   fridgeRoute,
   statsRoute,
   calendarRoute,
+  routinesRoute,
+  routineItemsRoute,
+  routineStatsRoute,
+  routineDetailRoute,
   romanticRoute,
   groupsRoute,
   groupCreateRoute,

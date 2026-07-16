@@ -28,6 +28,7 @@ const QUICK_ACCESS: FamilyQuickAccess[] = [
   { id: 'fridge', emoji: '🧊', label: 'Nevera' },
   { id: 'stats', emoji: '📊', label: 'Estadísticas' },
   { id: 'calendar', emoji: '📅', label: 'Calendario' },
+  { id: 'routines', emoji: '🗓️', label: 'Rutinas' },
   { id: 'romantic', emoji: '💕', label: 'Rincón' },
   { id: 'groups', emoji: '🎉', label: 'Peñas' },
   { id: 'plans', emoji: '🗺️', label: 'Planes' },
@@ -73,6 +74,8 @@ export function FamilyHomePage() {
         return void navigate({ to: '/family/$familyId/stats', params });
       case 'calendar':
         return void navigate({ to: '/family/$familyId/calendar', params });
+      case 'routines':
+        return void navigate({ to: '/family/$familyId/routines', params });
       case 'romantic':
         return void navigate({ to: '/family/$familyId/romantic', params });
       case 'budget':

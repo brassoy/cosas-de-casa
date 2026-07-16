@@ -19,6 +19,7 @@ import { SocialModule } from './contexts/social/social.module';
 import { PlansModule } from './contexts/plans/plans.module';
 import { BudgetModule } from './contexts/budget/budget.module';
 import { MenuModule } from './contexts/menu/menu.module';
+import { RoutinesModule } from './contexts/routines/routines.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { MenuModule } from './contexts/menu/menu.module';
     RomanticModule,
     BudgetModule,
     MenuModule,
+    RoutinesModule,
   ],
 })
 export class AppModule {}

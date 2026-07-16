@@ -317,6 +317,34 @@ import { GenerateListFromTaskUseCase } from '../../src/contexts/tasks/applicatio
 import { AddTaskCommentUseCase } from '../../src/contexts/tasks/application/add-task-comment.use-case';
 import { ListTaskCommentsUseCase } from '../../src/contexts/tasks/application/list-task-comments.use-case';
 
+// ── routines ────────────────────────────────────────────────────────────────
+import { RoutinesController } from '../../src/contexts/routines/interface/routines.controller';
+import { RoutineScopeGuard } from '../../src/contexts/routines/interface/routine-scope.guard';
+import { RoutineItemScopeGuard } from '../../src/contexts/routines/interface/routine-item-scope.guard';
+import { ROUTINE_REPOSITORY } from '../../src/contexts/routines/domain/ports/routine.repository';
+import { ROUTINE_ITEM_REPOSITORY } from '../../src/contexts/routines/domain/ports/routine-item.repository';
+import { ROUTINES_CLOCK } from '../../src/contexts/routines/application/ports/clock';
+import { ROUTINES_ID_GENERATOR } from '../../src/contexts/routines/application/ports/id-generator';
+import { DrizzleRoutineRepository } from '../../src/contexts/routines/infrastructure/drizzle-routine.repository';
+import { DrizzleRoutineItemRepository } from '../../src/contexts/routines/infrastructure/drizzle-routine-item.repository';
+import { CreateRoutineItemUseCase } from '../../src/contexts/routines/application/create-routine-item.use-case';
+import { ListRoutineItemsUseCase } from '../../src/contexts/routines/application/list-routine-items.use-case';
+import { UpdateRoutineItemUseCase } from '../../src/contexts/routines/application/update-routine-item.use-case';
+import { DeleteRoutineItemUseCase } from '../../src/contexts/routines/application/delete-routine-item.use-case';
+import { CreateRoutineUseCase } from '../../src/contexts/routines/application/create-routine.use-case';
+import { ListRoutinesUseCase } from '../../src/contexts/routines/application/list-routines.use-case';
+import { GetRoutineUseCase } from '../../src/contexts/routines/application/get-routine.use-case';
+import { UpdateRoutineUseCase } from '../../src/contexts/routines/application/update-routine.use-case';
+import { DeleteRoutineUseCase } from '../../src/contexts/routines/application/delete-routine.use-case';
+import { SetRoutineItemsUseCase } from '../../src/contexts/routines/application/set-routine-items.use-case';
+import { GetRoutineSummaryUseCase } from '../../src/contexts/routines/application/get-routine-summary.use-case';
+import { CreateAssignmentUseCase } from '../../src/contexts/routines/application/create-assignment.use-case';
+import { UpdateAssignmentUseCase } from '../../src/contexts/routines/application/update-assignment.use-case';
+import { DeleteAssignmentUseCase } from '../../src/contexts/routines/application/delete-assignment.use-case';
+import { CreateIncidentUseCase } from '../../src/contexts/routines/application/create-incident.use-case';
+import { DeleteIncidentUseCase } from '../../src/contexts/routines/application/delete-incident.use-case';
+import { RoutineStatsQuery } from '../../src/contexts/routines/application/routine-stats.query';
+
 export interface TestApp {
   app: INestApplication;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -347,7 +375,7 @@ export async function createTestApp(): Promise<TestApp> {
       }),
       ScheduleModule.forRoot(),
     ],
-    controllers: [FamilyController, AuthController, GroupsController, SocialController, PlansController, ShoppingListsController, ShoppingItemsController, AiController, TasksController, FridgeController, NotificationsController, StatsController, CalendarController, RomanticController, BudgetController, MenuController],
+    controllers: [FamilyController, AuthController, GroupsController, SocialController, PlansController, ShoppingListsController, ShoppingItemsController, AiController, TasksController, FridgeController, NotificationsController, StatsController, CalendarController, RomanticController, BudgetController, MenuController, RoutinesController],
     providers: [
       // ── DB ─────────────────────────────────────────────────────────────
       {
@@ -657,6 +685,55 @@ export async function createTestApp(): Promise<TestApp> {
       GenerateListFromTaskUseCase,
       AddTaskCommentUseCase,
       ListTaskCommentsUseCase,
+
+      // ── routines: repositorios ─────────────────────────────────────────
+      {
+        provide: ROUTINE_REPOSITORY,
+        inject: [DRIZZLE],
+        useFactory: (db: ReturnType<typeof drizzle>) =>
+          new DrizzleRoutineRepository(db as Parameters<typeof DrizzleRoutineRepository.prototype.constructor>[0]),
+      },
+      {
+        provide: ROUTINE_ITEM_REPOSITORY,
+        inject: [DRIZZLE],
+        useFactory: (db: ReturnType<typeof drizzle>) =>
+          new DrizzleRoutineItemRepository(db as Parameters<typeof DrizzleRoutineItemRepository.prototype.constructor>[0]),
+      },
+
+      // ── routines: read-model de estadísticas ───────────────────────────
+      RoutineStatsQuery,
+
+      // ── routines: puertos de infra (reutiliza los de family) ───────────
+      {
+        provide: ROUTINES_CLOCK,
+        useExisting: SystemClock,
+      },
+      {
+        provide: ROUTINES_ID_GENERATOR,
+        useExisting: UuidIdGenerator,
+      },
+
+      // ── routines: guards ───────────────────────────────────────────────
+      RoutineScopeGuard,
+      RoutineItemScopeGuard,
+
+      // ── routines: casos de uso ─────────────────────────────────────────
+      CreateRoutineItemUseCase,
+      ListRoutineItemsUseCase,
+      UpdateRoutineItemUseCase,
+      DeleteRoutineItemUseCase,
+      CreateRoutineUseCase,
+      ListRoutinesUseCase,
+      GetRoutineUseCase,
+      UpdateRoutineUseCase,
+      DeleteRoutineUseCase,
+      SetRoutineItemsUseCase,
+      GetRoutineSummaryUseCase,
+      CreateAssignmentUseCase,
+      UpdateAssignmentUseCase,
+      DeleteAssignmentUseCase,
+      CreateIncidentUseCase,
+      DeleteIncidentUseCase,
 
       // ── fridge: repositorio ────────────────────────────────────────────
       {

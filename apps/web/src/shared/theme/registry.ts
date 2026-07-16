@@ -31,6 +31,7 @@ import { tasksBaseViews, tasksCozyViews, tasksCozysitcomViews, tasksSpringfieldV
 import { calendarBaseViews, calendarCozyViews, calendarCozysitcomViews, calendarSpringfieldViews } from '@/features/calendar/views';
 import { budgetBaseViews, budgetCozyViews, budgetCozysitcomViews, budgetSpringfieldViews } from '@/features/budget/views';
 import { settingsBaseViews, settingsCozyViews, settingsCozysitcomViews, settingsSpringfieldViews } from '@/features/settings/views';
+import { routinesBaseViews } from '@/features/routines/views';
 
 /** Identificadores de las 27 pantallas de la app (ver plan §2.2). */
 export type ScreenId =
@@ -63,7 +64,11 @@ export type ScreenId =
   | 'group_settings'
   | 'friends'
   | 'friends_redeem'
-  | 'settings';
+  | 'settings'
+  | 'routines'
+  | 'routine_detail'
+  | 'routine_items'
+  | 'routine_stats';
 
 // Las vistas reciben props específicas de cada pantalla (contratos por feature).
 // `any` aquí es intencional: el registry es agnóstico al contrato concreto; el
@@ -88,6 +93,7 @@ export const themeRegistry: Record<ThemeName, Partial<Record<ScreenId, AnyView>>
     ...calendarBaseViews,
     ...budgetBaseViews,
     ...settingsBaseViews,
+    ...routinesBaseViews,
   },
   cozy: {
     ...authCozyViews,

@@ -13,3 +13,4 @@ export * from './social';
 export * from './plans';
 export * from './budget';
 export * from './menu';
+export * from './routines';

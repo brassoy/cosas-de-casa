@@ -74,6 +74,7 @@ import type {
   CalendarViewProps,
   FamilyMemberDto,
 } from '../types';
+import { routineRingClass } from '../types';
 
 // ── Constantes de presentación ────────────────────────────────────────────────
 
@@ -113,6 +114,7 @@ function attendeeName(userId: string, members: FamilyMemberDto[]): string {
 export default function CalendarView(props: CalendarViewProps) {
   const {
     events,
+    routineDays,
     members,
     isLoading,
     error,
@@ -191,6 +193,7 @@ export default function CalendarView(props: CalendarViewProps) {
               year={viewYear}
               month={viewMonth}
               events={events}
+              routineDays={routineDays}
               selectedDay={selectedDay}
               onDayClick={onSelectDay}
               onEventClick={onOpenEvent}
@@ -251,6 +254,7 @@ interface CalendarGridProps {
   year: number;
   month: number;
   events: CalendarEventDto[];
+  routineDays?: CalendarViewProps['routineDays'];
   selectedDay: Date | null;
   onDayClick: (date: Date) => void;
   onEventClick: (event: CalendarEventDto) => void;
@@ -263,6 +267,7 @@ function CalendarGrid({
   year,
   month,
   events,
+  routineDays,
   selectedDay,
   onDayClick,
   onEventClick,
@@ -328,6 +333,7 @@ function CalendarGrid({
             const dateStr = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
             const isToday = dateStr === todayStr;
             const isSelected = selectedDay ? isSameDay(day, selectedDay) : false;
+            const routineInfo = routineDays?.[dateStr];
             const dayEvents = eventsForDay(events, day);
             const visibleEvents = dayEvents.slice(0, MAX_EVENTS_PER_DAY);
             const hiddenCount = dayEvents.length - visibleEvents.length;
@@ -349,6 +355,7 @@ function CalendarGrid({
                   'relative flex min-h-[84px] cursor-pointer flex-col gap-0.5 rounded-md border-2 border-border bg-background p-1.5 transition-transform hover:-translate-y-px',
                   !isCurrentMonth && 'opacity-45',
                   isToday && 'bg-warning',
+                  routineRingClass(routineInfo),
                   isSelected && 'outline outline-[3px] -outline-offset-2 outline-destructive',
                 )}
               >

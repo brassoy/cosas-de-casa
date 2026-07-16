@@ -789,6 +789,129 @@ export const receiptLines = pgTable(
   ],
 );
 
+// ── routine_items ─────────────────────────────────────────────────────────────
+// Catálogo familiar de la feature Rutinas: items reutilizables con regla
+// (veces/semana + ventana horaria por defecto) y tags para agrupar en stats.
+
+export const routineItems = pgTable(
+  'routine_items',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    familyId: uuid('family_id')
+      .notNull()
+      .references(() => families.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    targetTimesPerWeek: integer('target_times_per_week').notNull(),
+    /** "HH:mm". La ventana puede cruzar medianoche (end <= start ⇒ día siguiente). */
+    defaultStartTime: text('default_start_time').notNull(),
+    defaultEndTime: text('default_end_time').notNull(),
+    tags: text('tags').array().notNull().default(sql`'{}'::text[]`),
+    /** Soft-archive: se conserva por las rutinas históricas que lo referencian. */
+    archivedAt: timestamp('archived_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('routine_items_family_idx').on(table.familyId),
+  ],
+);
+
+// ── routines ──────────────────────────────────────────────────────────────────
+// Instancia semanal: cubre startDate..startDate+6 (el fin es siempre derivado).
+// El no-solapamiento por familia se valida en aplicación; el unique es backstop.
+
+export const routines = pgTable(
+  'routines',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    familyId: uuid('family_id')
+      .notNull()
+      .references(() => families.id, { onDelete: 'cascade' }),
+    name: text('name'),
+    startDate: date('start_date').notNull(),
+    createdBy: uuid('created_by').references(() => appUsers.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('routines_family_start_idx').on(table.familyId, table.startDate),
+    unique('routines_family_start_unique').on(table.familyId, table.startDate),
+  ],
+);
+
+// ── routine_selections ────────────────────────────────────────────────────────
+// Items elegidos para la semana. `target_times_per_week` es un SNAPSHOT del
+// catálogo al seleccionar: el cumplimiento queda registrado aunque la regla
+// cambie después. FK restrict al item: el catálogo se archiva, no se borra.
+
+export const routineSelections = pgTable(
+  'routine_selections',
+  {
+    routineId: uuid('routine_id')
+      .notNull()
+      .references(() => routines.id, { onDelete: 'cascade' }),
+    routineItemId: uuid('routine_item_id')
+      .notNull()
+      .references(() => routineItems.id, { onDelete: 'restrict' }),
+    targetTimesPerWeek: integer('target_times_per_week').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.routineId, table.routineItemId] }),
+    index('routine_selections_item_idx').on(table.routineItemId),
+  ],
+);
+
+// ── routine_assignments ───────────────────────────────────────────────────────
+// Item colocado en un día concreto (day_index 0..6 desde routines.start_date).
+// `duration_minutes` lo calcula SOLO el agregado con aritmética modular
+// (cruce de medianoche: "22:00"→"12:00" = 840). Máx. 1 asignación item+día.
+
+export const routineAssignments = pgTable(
+  'routine_assignments',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    routineId: uuid('routine_id')
+      .notNull()
+      .references(() => routines.id, { onDelete: 'cascade' }),
+    routineItemId: uuid('routine_item_id')
+      .notNull()
+      .references(() => routineItems.id, { onDelete: 'restrict' }),
+    dayIndex: integer('day_index').notNull(),
+    startTime: text('start_time').notNull(),
+    endTime: text('end_time').notNull(),
+    durationMinutes: integer('duration_minutes').notNull(),
+  },
+  (table) => [
+    index('routine_assignments_routine_idx').on(table.routineId),
+    unique('routine_assignments_item_day_unique').on(
+      table.routineId,
+      table.routineItemId,
+      table.dayIndex,
+    ),
+  ],
+);
+
+// ── routine_incidents ─────────────────────────────────────────────────────────
+// Incumplimientos registrados sobre una asignación. `lost_minutes` se descuenta
+// del tiempo real en resúmenes y estadísticas.
+
+export const routineIncidents = pgTable(
+  'routine_incidents',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    assignmentId: uuid('assignment_id')
+      .notNull()
+      .references(() => routineAssignments.id, { onDelete: 'cascade' }),
+    description: text('description').notNull(),
+    lostMinutes: integer('lost_minutes'),
+    createdBy: uuid('created_by').references(() => appUsers.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('routine_incidents_assignment_idx').on(table.assignmentId),
+  ],
+);
+
 // ── Tipos de fila inferidos (uso interno de infraestructura) ──────────────────
 
 export type AppUserRow = typeof appUsers.$inferSelect;
@@ -823,3 +946,8 @@ export type PlanParticipantRow = typeof planParticipants.$inferSelect;
 export type PlanMessageRow = typeof planMessages.$inferSelect;
 export type ReceiptRow = typeof receipts.$inferSelect;
 export type ReceiptLineRow = typeof receiptLines.$inferSelect;
+export type RoutineItemRow = typeof routineItems.$inferSelect;
+export type RoutineRow = typeof routines.$inferSelect;
+export type RoutineSelectionRow = typeof routineSelections.$inferSelect;
+export type RoutineAssignmentRow = typeof routineAssignments.$inferSelect;
+export type RoutineIncidentRow = typeof routineIncidents.$inferSelect;

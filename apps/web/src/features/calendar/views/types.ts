@@ -40,6 +40,19 @@ export type { CalendarEventDto, FamilyMemberDto } from '@cosasdecasa/contracts';
 export type CalendarViewMode = 'month' | 'agenda';
 
 /**
+ * Clases del ring sutil que marca los días cubiertos por una rutina. Helper
+ * COMPARTIDO por las 4 vistas de theme para que el borde por semana sea
+ * idéntico en todas: dos colores alternos (info/warning) separan una semana de
+ * rutina de la siguiente. `ring-inset` no rompe los bordes propios del grid.
+ */
+export function routineRingClass(info?: { colorIndex: 0 | 1 }): string {
+  if (!info) return '';
+  return info.colorIndex === 0
+    ? 'ring-1 ring-inset ring-info/50'
+    : 'ring-1 ring-inset ring-warning/60';
+}
+
+/**
  * Valores que emite el modal de evento al guardar. Son los campos del formulario
  * en hora LOCAL del usuario (`startsAt`/`endsAt` como "YYYY-MM-DDTHH:mm" del
  * input `datetime-local`, o "YYYY-MM-DD" cuando `allDay`). El container los
@@ -62,10 +75,21 @@ export interface CalendarEventFormValues {
 
 export interface CalendarViewProps {
   // ── Datos ──────────────────────────────────────────────────────────────────
-  /** Eventos del mes visible (incluye días adyacentes de la rejilla y ocurrencias). */
+  /**
+   * Eventos del mes visible (incluye días adyacentes de la rejilla y
+   * ocurrencias). También incluye los eventos VIRTUALES de rutina (overlay de
+   * solo lectura, id `routine_<assignmentId>`): al abrirlos, el container
+   * navega a la rutina en vez de abrir el modal.
+   */
   events: CalendarEventDto[];
   /** Miembros de la familia, para seleccionar asistentes y resolver nombres. */
   members: FamilyMemberDto[];
+  /**
+   * Días cubiertos por una rutina ("YYYY-MM-DD" local → colorIndex). La vista
+   * rodea esas celdas con un ring sutil; los dos colores alternos separan una
+   * semana de rutina de la siguiente. Opcional: sin rutinas no se pinta nada.
+   */
+  routineDays?: Record<string, { colorIndex: 0 | 1 }>;
   /** Carga de eventos en curso. */
   isLoading?: boolean;
   /** Mensaje de error de la carga; `null`/`undefined` si no hay error. */
