@@ -89,6 +89,7 @@ function baseProps(overrides: Partial<CalendarViewProps> = {}): CalendarViewProp
     view: 'month',
     viewYear: 2026,
     viewMonth: 4, // mayo (0-indexed)
+    weekStart: new Date(2026, 4, 11),
     selectedDay: null,
     isDayPanelOpen: false,
     isEventModalOpen: false,
@@ -102,6 +103,8 @@ function baseProps(overrides: Partial<CalendarViewProps> = {}): CalendarViewProp
     onChangeView: vi.fn(),
     onPrevMonth: vi.fn(),
     onNextMonth: vi.fn(),
+    onPrevWeek: vi.fn(),
+    onNextWeek: vi.fn(),
     onToday: vi.fn(),
     onSelectDay: vi.fn(),
     onCloseDayPanel: vi.fn(),
@@ -467,5 +470,50 @@ describe('CalendarView — cabecera', () => {
   it('oculta el grid cuando view=agenda', () => {
     render(<CalendarView {...baseProps({ view: 'agenda' })} />);
     expect(screen.queryByRole('grid')).not.toBeInTheDocument();
+  });
+
+  it('incluye el botón de vista "Semana"', () => {
+    render(<CalendarView {...baseProps()} />);
+    expect(screen.getByRole('button', { name: /^semana$/i })).toBeInTheDocument();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 5. Vista semanal
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('CalendarView — semana', () => {
+  // WeekView pinta 7 días consecutivos desde `weekStart` (no fuerza el lunes).
+  const weekStart = new Date(2026, 4, 11); // 11–17 de mayo de 2026
+
+  it('renderiza los 7 días de la semana (todos sin eventos)', () => {
+    render(<CalendarView {...baseProps({ view: 'week', weekStart })} />);
+    expect(screen.getAllByText(/sin eventos/i)).toHaveLength(7);
+  });
+
+  it('no muestra la rejilla mensual en vista semana', () => {
+    render(<CalendarView {...baseProps({ view: 'week', weekStart })} />);
+    expect(screen.queryByRole('grid')).not.toBeInTheDocument();
+  });
+
+  it('muestra un evento en su día dentro de la semana', () => {
+    const event = makeEvent({ id: 'ev-w', title: 'Médico', year: 2026, month: 5, day: 13 });
+    render(<CalendarView {...baseProps({ view: 'week', weekStart, events: [event] })} />);
+    expect(screen.getByText('Médico')).toBeInTheDocument();
+  });
+
+  it('navega entre semanas con los botones anterior/siguiente', async () => {
+    const user = userEvent.setup();
+    const onPrevWeek = vi.fn();
+    const onNextWeek = vi.fn();
+    render(
+      <CalendarView {...baseProps({ view: 'week', weekStart, onPrevWeek, onNextWeek })} />,
+    );
+
+    await user.click(screen.getByRole('button', { name: /semana anterior/i }));
+    expect(onPrevWeek).toHaveBeenCalledOnce();
+
+    await user.click(screen.getByRole('button', { name: /semana siguiente/i }));
+    expect(onNextWeek).toHaveBeenCalledOnce();
   });
 });

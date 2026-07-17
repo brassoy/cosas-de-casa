@@ -82,10 +82,13 @@ export function CalendarPage() {
   // ── Estado del store (vista, mes visible, día seleccionado) ──
   const viewYear = useCalendarStore((s) => s.viewYear);
   const viewMonth = useCalendarStore((s) => s.viewMonth);
+  const weekStart = useCalendarStore((s) => s.weekStart);
   const activeView = useCalendarStore((s) => s.activeView);
   const selectedDate = useCalendarStore((s) => s.selectedDate);
   const goToPrevMonth = useCalendarStore((s) => s.goToPrevMonth);
   const goToNextMonth = useCalendarStore((s) => s.goToNextMonth);
+  const goToPrevWeek = useCalendarStore((s) => s.goToPrevWeek);
+  const goToNextWeek = useCalendarStore((s) => s.goToNextWeek);
   const goToToday = useCalendarStore((s) => s.goToToday);
   const setActiveView = useCalendarStore((s) => s.setActiveView);
   const setSelectedDate = useCalendarStore((s) => s.setSelectedDate);
@@ -282,6 +285,7 @@ export function CalendarPage() {
     view: activeView,
     viewYear,
     viewMonth,
+    weekStart,
     selectedDay: selectedDate,
     isDayPanelOpen: showDayPanel,
     isEventModalOpen: showEventModal,
@@ -295,6 +299,8 @@ export function CalendarPage() {
     onChangeView: setActiveView,
     onPrevMonth: goToPrevMonth,
     onNextMonth: goToNextMonth,
+    onPrevWeek: goToPrevWeek,
+    onNextWeek: goToNextWeek,
     onToday: goToToday,
     onSelectDay: handleSelectDay,
     onCloseDayPanel: () => setShowDayPanel(false),

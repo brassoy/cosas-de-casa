@@ -36,8 +36,8 @@ import type {
 
 export type { CalendarEventDto, FamilyMemberDto } from '@cosasdecasa/contracts';
 
-/** Vista activa del calendario: rejilla mensual o lista de agenda. */
-export type CalendarViewMode = 'month' | 'agenda';
+/** Vista activa del calendario: semana, rejilla mensual o lista de agenda. */
+export type CalendarViewMode = 'week' | 'month' | 'agenda';
 
 /**
  * Clases del ring sutil que marca los días cubiertos por una rutina. Helper
@@ -102,6 +102,8 @@ export interface CalendarViewProps {
   viewYear: number;
   /** Mes visible (0-indexed, igual que Date.getMonth). */
   viewMonth: number;
+  /** Lunes de la semana visible (vista semanal). */
+  weekStart: Date;
   /** Día seleccionado (resaltado en la rejilla), o `null`. */
   selectedDay: Date | null;
 
@@ -141,7 +143,11 @@ export interface CalendarViewProps {
   onPrevMonth: () => void;
   /** Va al mes siguiente. */
   onNextMonth: () => void;
-  /** Vuelve al mes actual (y selecciona hoy). */
+  /** Va a la semana anterior (vista semanal). */
+  onPrevWeek: () => void;
+  /** Va a la semana siguiente (vista semanal). */
+  onNextWeek: () => void;
+  /** Vuelve al mes/semana actual (y selecciona hoy). */
   onToday: () => void;
 
   // ── Callbacks de selección / apertura ───────────────────────────────────────

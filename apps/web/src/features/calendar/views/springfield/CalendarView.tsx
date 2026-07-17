@@ -75,6 +75,7 @@ import type {
   FamilyMemberDto,
 } from '../types';
 import { routineRingClass } from '../types';
+import WeekView from '../shared/WeekView';
 
 // ── Constantes de presentación ────────────────────────────────────────────────
 
@@ -121,6 +122,7 @@ export default function CalendarView(props: CalendarViewProps) {
     view,
     viewYear,
     viewMonth,
+    weekStart,
     selectedDay,
     isDayPanelOpen,
     isEventModalOpen,
@@ -134,6 +136,8 @@ export default function CalendarView(props: CalendarViewProps) {
     onChangeView,
     onPrevMonth,
     onNextMonth,
+    onPrevWeek,
+    onNextWeek,
     onToday,
     onSelectDay,
     onCloseDayPanel,
@@ -157,7 +161,7 @@ export default function CalendarView(props: CalendarViewProps) {
             <div className="flex flex-wrap items-center gap-3">
               {/* Selector de vista (pestañas tipo etiqueta) */}
               <div role="group" aria-label="Cambiar vista" className="flex gap-2">
-                {(['month', 'agenda'] as CalendarViewMode[]).map((v) => (
+                {(['week', 'month', 'agenda'] as CalendarViewMode[]).map((v) => (
                   <button
                     key={v}
                     type="button"
@@ -170,7 +174,7 @@ export default function CalendarView(props: CalendarViewProps) {
                         : 'bg-card',
                     )}
                   >
-                    {v === 'month' ? 'Mes' : 'Agenda'}
+                    {v === 'week' ? 'Semana' : v === 'month' ? 'Mes' : 'Agenda'}
                   </button>
                 ))}
               </div>
@@ -188,7 +192,20 @@ export default function CalendarView(props: CalendarViewProps) {
         </header>
 
         <ScreenState isLoading={isLoading} error={error}>
-          {view === 'month' ? (
+          {view === 'week' ? (
+            <WeekView
+              weekStart={weekStart}
+              events={events}
+              routineDays={routineDays}
+              selectedDay={selectedDay}
+              onSelectDay={onSelectDay}
+              onEventClick={onOpenEvent}
+              onNewEventForDay={onNewEventForDay}
+              onPrevWeek={onPrevWeek}
+              onNextWeek={onNextWeek}
+              onToday={onToday}
+            />
+          ) : view === 'month' ? (
             <CalendarGrid
               year={viewYear}
               month={viewMonth}

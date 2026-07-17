@@ -95,6 +95,42 @@ export function getMonthRangeISO(year: number, month: number): { from: string; t
 }
 
 /**
+ * Devuelve el lunes (a medianoche local) de la semana que contiene `date`.
+ * La semana empieza en lunes (ISO 8601), igual que la grilla del mes.
+ */
+export function startOfWeekMonday(date: Date): Date {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const dayOfWeek = (d.getDay() + 6) % 7; // lunes=0
+  d.setDate(d.getDate() - dayOfWeek);
+  return d;
+}
+
+/** Devuelve los 7 días (lunes→domingo) de la semana que arranca en `weekStart`. */
+export function daysOfWeek(weekStart: Date): Date[] {
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(weekStart);
+    d.setDate(weekStart.getDate() + i);
+    return d;
+  });
+}
+
+/**
+ * Etiqueta legible del rango de una semana, p. ej. "12–18 may" o
+ * "28 abr – 4 may" cuando cruza de mes.
+ */
+export function formatWeekRange(weekStart: Date): string {
+  const end = new Date(weekStart);
+  end.setDate(weekStart.getDate() + 6);
+  const sameMonth = weekStart.getMonth() === end.getMonth();
+  const dayMonth = (d: Date) =>
+    d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+  const day = (d: Date) => d.toLocaleDateString('es-ES', { day: 'numeric' });
+  return sameMonth
+    ? `${day(weekStart)}–${dayMonth(end)}`
+    : `${dayMonth(weekStart)} – ${dayMonth(end)}`;
+}
+
+/**
  * Compara si dos fechas ISO pertenecen al mismo día en hora local.
  */
 export function isSameDay(a: Date, b: Date): boolean {
