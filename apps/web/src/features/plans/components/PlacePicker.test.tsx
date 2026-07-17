@@ -32,6 +32,9 @@ vi.mock('@vis.gl/react-google-maps', () => {
       <div data-testid="gmap">{children}</div>
     ),
     Marker: () => <div data-testid="gmarker" />,
+    // MapCameraController usa useMap() para recentrar la cámara; en el test no
+    // hay coords seleccionadas (efecto no dispara), basta un stub del mapa.
+    useMap: () => ({ panTo: () => {}, setZoom: () => {} }),
     useMapsLibrary: (name: string) => {
       if (name !== 'places') return null;
       return {

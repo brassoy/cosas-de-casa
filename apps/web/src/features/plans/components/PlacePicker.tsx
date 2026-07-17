@@ -26,7 +26,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { APIProvider, Map, Marker, useMapsLibrary } from '@vis.gl/react-google-maps';
+import { APIProvider, Map, Marker, useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
 
 /** Lugar resuelto por el selector. `lat`/`lng` solo si Places los aporta. */
 export interface PickedPlace {
@@ -56,6 +56,32 @@ interface PlacePickerProps {
   inputClassName?: string;
   /** Texto del placeholder del buscador. */
   placeholder?: string;
+}
+
+/**
+ * Recentra el mapa de forma imperativa cuando cambian las coordenadas elegidas.
+ *
+ * El `<Map>` es NO controlado (`defaultCenter`/`defaultZoom` solo aplican al
+ * montar). Sin esto, al elegir un lugar el `<Marker>` se coloca en las coords
+ * correctas pero la cámara sigue clavada en el centro inicial (Madrid), así que
+ * el pin queda fuera de la vista y parece que "no cambia nada". Con `useMap()`
+ * hacemos `panTo` + `setZoom` en cada nueva selección, sin romper el gesto
+ * manual del usuario (el mapa sigue siendo no controlado el resto del tiempo).
+ */
+function MapCameraController({
+  center,
+  hasCoords,
+}: {
+  center: google.maps.LatLngLiteral;
+  hasCoords: boolean;
+}) {
+  const map = useMap();
+  useEffect(() => {
+    if (!map || !hasCoords) return;
+    map.panTo(center);
+    map.setZoom(15);
+  }, [map, hasCoords, center.lat, center.lng]);
+  return null;
 }
 
 /**
@@ -129,6 +155,7 @@ function PlacePickerInner({
           gestureHandling="cooperative"
           disableDefaultUI
         >
+          <MapCameraController center={center} hasCoords={hasCoords} />
           {hasCoords && <Marker position={center} />}
         </Map>
       </div>
