@@ -31,6 +31,7 @@ import {
 } from '@/shared/ui/dialog';
 import { ScreenState } from '@/shared/components/ScreenState';
 import { cn } from '@/shared/lib/cn';
+import { useTaskAutofillForm } from '../../hooks/useTaskAutofillForm';
 import { TASK_STATUS_LABELS } from '../../types';
 import type {
   TaskDto,
@@ -269,6 +270,14 @@ function CreateTaskDialog({
     currentUserId ? [currentUserId] : [],
   );
 
+  // Dictado por voz: la IA rellena título, descripción y las dos fechas.
+  const voice = useTaskAutofillForm({
+    setTitle,
+    setDescription,
+    setRecommendedDate,
+    setDeadlineDate,
+  });
+
   function toggleAssignee(userId: string, checked: boolean) {
     setAssigneeIds((prev) =>
       checked ? [...prev, userId] : prev.filter((id) => id !== userId),
@@ -293,8 +302,26 @@ function CreateTaskDialog({
       <DialogContent aria-label="Crear tarea" className="ck ck-card">
         <span className="ck-tape" />
         <DialogHeader>
-          <DialogTitle className="ck-marker text-3xl text-primary">nueva tarea</DialogTitle>
+          <div className="flex items-center justify-between gap-2">
+            <DialogTitle className="ck-marker text-3xl text-primary">nueva tarea</DialogTitle>
+            {voice.voiceSupported && (
+              <button
+                type="button"
+                className="ck-btn ck-btn-blue inline-flex items-center gap-1 disabled:opacity-50"
+                disabled={voice.isBusy}
+                onClick={voice.startVoice}
+                aria-label="Dictar la tarea hablando"
+                title="Habla y la IA rellena la tarea"
+              >
+                {voice.isBusy ? '…' : '🎤'} dictar
+              </button>
+            )}
+          </div>
         </DialogHeader>
+
+        {voice.voiceInterim && (
+          <p className="text-sm italic opacity-70">{voice.voiceInterim}</p>
+        )}
 
         {error && (
           <div className="ck-card !p-3 text-sm font-bold text-destructive" role="alert">

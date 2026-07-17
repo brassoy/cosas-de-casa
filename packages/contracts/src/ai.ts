@@ -42,6 +42,38 @@ export const ParsePlanResponseSchema = z.object({
 });
 export type ParsePlanResponse = z.infer<typeof ParsePlanResponseSchema>;
 
+// ── Autocompletado de tarea por IA ────────────────────────────────────────────
+
+/**
+ * Payload para deducir los campos de una tarea a partir de lenguaje natural.
+ * `phrase` es lo que el usuario dijo o escribió; `now` es el instante de
+ * referencia (ISO) para resolver expresiones relativas ("mañana", "el viernes").
+ */
+export const ParseTaskInputSchema = z.object({
+  phrase: z.string().min(1).max(1000),
+  now: z.string().datetime(),
+});
+export type ParseTaskInput = z.infer<typeof ParseTaskInputSchema>;
+
+/**
+ * Respuesta del autocompletado de tarea. Cada campo es `null` cuando la IA no
+ * puede inferirlo. `recommendedDate` y `deadlineDate` son fechas sin hora en
+ * formato `YYYY-MM-DD` (mismo formato/regex que `CreateTaskInputSchema`).
+ */
+export const ParseTaskResponseSchema = z.object({
+  title: z.string().nullable(),
+  description: z.string().nullable(),
+  recommendedDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato esperado: YYYY-MM-DD')
+    .nullable(),
+  deadlineDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato esperado: YYYY-MM-DD')
+    .nullable(),
+});
+export type ParseTaskResponse = z.infer<typeof ParseTaskResponseSchema>;
+
 // ── Deduplicación ────────────────────────────────────────────────────────────
 
 /**

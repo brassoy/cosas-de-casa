@@ -24,6 +24,7 @@ import type {
   DedupCheckResponse,
   FrequentItemDto,
   ParsePlanResponse,
+  ParseTaskResponse,
 } from '@cosasdecasa/contracts';
 import { JwtAuthGuard } from '../../identity-access/interface/jwt-auth.guard';
 import { FamilyScopeGuard } from '../../family/interface/family-scope.guard';
@@ -32,9 +33,11 @@ import { ExtractItemsUseCase } from '../application/extract-items.use-case';
 import { DedupCheckUseCase } from '../application/dedup-check.use-case';
 import { GetFrequentItemsUseCase } from '../application/get-frequent-items.use-case';
 import { ParsePlanUseCase } from '../application/parse-plan.use-case';
+import { ParseTaskUseCase } from '../application/parse-task.use-case';
 import { ExtractItemsDto } from './dto/extract-items.dto';
 import { DedupCheckDto } from './dto/dedup-check.dto';
 import { ParsePlanDto } from './dto/parse-plan.dto';
+import { ParseTaskDto } from './dto/parse-task.dto';
 import { AiPresenter } from './ai.presenter';
 import { AiErrorFilter } from './ai-error.filter';
 
@@ -49,6 +52,7 @@ export class AiController {
     private readonly dedupCheck: DedupCheckUseCase,
     private readonly getFrequentItems: GetFrequentItemsUseCase,
     private readonly parsePlanUseCase: ParsePlanUseCase,
+    private readonly parseTaskUseCase: ParseTaskUseCase,
   ) {}
 
   /**
@@ -78,6 +82,21 @@ export class AiController {
   @ApiCreatedResponse({ description: 'Campos del plan deducidos.' })
   async parsePlan(@Body() body: ParsePlanDto): Promise<ParsePlanResponse> {
     return this.parsePlanUseCase.execute({ phrase: body.phrase, now: body.now });
+  }
+
+  /**
+   * Deduce los campos de una tarea (título, descripción, fecha recomendada y
+   * fecha límite) a partir de una frase en lenguaje natural. Si la IA no está
+   * configurada o falla, responde 503 (AiUnavailableError → AiErrorFilter).
+   * POST /api/v1/ai/parse-task
+   */
+  @Post('ai/parse-task')
+  @UseGuards(RateLimitGuard)
+  @RateLimit({ limit: 5, ttl: 60_000 }) // 5 req/min — costoso (LLM)
+  @ApiOperation({ summary: 'Autocompletar una tarea a partir de una frase (IA).' })
+  @ApiCreatedResponse({ description: 'Campos de la tarea deducidos.' })
+  async parseTask(@Body() body: ParseTaskDto): Promise<ParseTaskResponse> {
+    return this.parseTaskUseCase.execute({ phrase: body.phrase, now: body.now });
   }
 
   /**

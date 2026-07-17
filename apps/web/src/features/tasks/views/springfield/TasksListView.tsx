@@ -28,6 +28,7 @@ import {
 } from '@/shared/ui/dialog';
 import { ScreenState } from '@/shared/components/ScreenState';
 import { cn } from '@/shared/lib/cn';
+import { useTaskAutofillForm } from '../../hooks/useTaskAutofillForm';
 import { TASK_STATUS_LABELS } from '../../types';
 import type {
   TaskDto,
@@ -273,6 +274,14 @@ function CreateTaskDialog({
     currentUserId ? [currentUserId] : [],
   );
 
+  // Dictado por voz: la IA rellena título, descripción y las dos fechas.
+  const voice = useTaskAutofillForm({
+    setTitle,
+    setDescription,
+    setRecommendedDate,
+    setDeadlineDate,
+  });
+
   function toggleAssignee(userId: string, checked: boolean) {
     setAssigneeIds((prev) =>
       checked ? [...prev, userId] : prev.filter((id) => id !== userId),
@@ -296,8 +305,26 @@ function CreateTaskDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent aria-label="Crear tarea" className="sf">
         <DialogHeader>
-          <DialogTitle className="sf-bangers text-3xl">Nueva tarea</DialogTitle>
+          <div className="flex items-center justify-between gap-2">
+            <DialogTitle className="sf-bangers text-3xl">Nueva tarea</DialogTitle>
+            {voice.voiceSupported && (
+              <button
+                type="button"
+                className="sf-btn sf-btn-w flex shrink-0 items-center gap-1 text-sm disabled:opacity-50"
+                disabled={voice.isBusy}
+                onClick={voice.startVoice}
+                aria-label="Dictar la tarea hablando"
+                title="Habla y la IA rellena la tarea"
+              >
+                {voice.isBusy ? '…' : '🎤'} Dictar
+              </button>
+            )}
+          </div>
         </DialogHeader>
+
+        {voice.voiceInterim && (
+          <p className="sf-fredoka text-xs italic opacity-70">{voice.voiceInterim}</p>
+        )}
 
         {error && (
           <div

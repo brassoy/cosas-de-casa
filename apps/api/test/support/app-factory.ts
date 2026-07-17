@@ -92,6 +92,7 @@ import { AiController } from '../../src/contexts/ai/interface/ai.controller';
 import { EMBEDDING_PORT } from '../../src/contexts/ai/domain/ports/embedding.port';
 import { ITEM_EXTRACTION_PORT } from '../../src/contexts/ai/domain/ports/item-extraction.port';
 import { PLAN_PARSING_PORT } from '../../src/contexts/ai/domain/ports/plan-parsing.port';
+import { TASK_PARSING_PORT } from '../../src/contexts/ai/domain/ports/task-parsing.port';
 import { CATALOG_ITEM_REPOSITORY } from '../../src/contexts/ai/domain/ports/catalog-item.repository';
 import { DrizzleCatalogItemRepository } from '../../src/contexts/ai/infrastructure/drizzle-catalog-item.repository';
 import { ExtractItemsUseCase } from '../../src/contexts/ai/application/extract-items.use-case';
@@ -99,6 +100,7 @@ import { DedupCheckUseCase } from '../../src/contexts/ai/application/dedup-check
 import { UpsertCatalogItemUseCase } from '../../src/contexts/ai/application/upsert-catalog-item.use-case';
 import { GetFrequentItemsUseCase } from '../../src/contexts/ai/application/get-frequent-items.use-case';
 import { ParsePlanUseCase } from '../../src/contexts/ai/application/parse-plan.use-case';
+import { ParseTaskUseCase } from '../../src/contexts/ai/application/parse-task.use-case';
 
 import { EnsureAndListListsUseCase } from '../../src/contexts/shopping/application/ensure-and-list-lists.use-case';
 import { CreateCustomListUseCase } from '../../src/contexts/shopping/application/create-custom-list.use-case';
@@ -626,12 +628,26 @@ export async function createTestApp(): Promise<TestApp> {
         },
       },
 
+      // ── ai: autocompletado de tarea (stub determinista para tests) ────
+      {
+        provide: TASK_PARSING_PORT,
+        useValue: {
+          parseTask: async () => ({
+            title: 'Tarea de prueba',
+            description: null,
+            recommendedDate: null,
+            deadlineDate: null,
+          }),
+        },
+      },
+
       // ── ai: casos de uso ──────────────────────────────────────────────
       ExtractItemsUseCase,
       DedupCheckUseCase,
       UpsertCatalogItemUseCase,
       GetFrequentItemsUseCase,
       ParsePlanUseCase,
+      ParseTaskUseCase,
 
       // ── tasks: repositorios ────────────────────────────────────────────
       {
