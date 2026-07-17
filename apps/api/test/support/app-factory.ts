@@ -347,6 +347,9 @@ import { CreateIncidentUseCase } from '../../src/contexts/routines/application/c
 import { UpdateIncidentUseCase } from '../../src/contexts/routines/application/update-incident.use-case';
 import { DeleteIncidentUseCase } from '../../src/contexts/routines/application/delete-incident.use-case';
 import { RoutineStatsQuery } from '../../src/contexts/routines/application/routine-stats.query';
+import { ROUTINE_HISTORY_REPOSITORY } from '../../src/contexts/routines/application/ports/routine-history.repository';
+import { DrizzleRoutineHistoryRepository } from '../../src/contexts/routines/infrastructure/drizzle-routine-history.repository';
+import { RoutineHistoryService } from '../../src/contexts/routines/application/routine-history.service';
 
 export interface TestApp {
   app: INestApplication;
@@ -716,9 +719,16 @@ export async function createTestApp(): Promise<TestApp> {
         useFactory: (db: ReturnType<typeof drizzle>) =>
           new DrizzleRoutineItemRepository(db as Parameters<typeof DrizzleRoutineItemRepository.prototype.constructor>[0]),
       },
+      {
+        provide: ROUTINE_HISTORY_REPOSITORY,
+        inject: [DRIZZLE],
+        useFactory: (db: ReturnType<typeof drizzle>) =>
+          new DrizzleRoutineHistoryRepository(db as Parameters<typeof DrizzleRoutineHistoryRepository.prototype.constructor>[0]),
+      },
 
-      // ── routines: read-model de estadísticas ───────────────────────────
+      // ── routines: read-model de estadísticas + historial ───────────────
       RoutineStatsQuery,
+      RoutineHistoryService,
 
       // ── routines: puertos de infra (reutiliza los de family) ───────────
       {

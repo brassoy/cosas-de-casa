@@ -9,6 +9,7 @@
 
 import type {
   RoutineDto,
+  RoutineHistoryEntryDto,
   RoutineItemDto,
   RoutineListItemDto,
   RoutineStatsDto,
@@ -84,11 +85,14 @@ export interface RoutineItemsViewProps {
 
 // ── Pantalla: detalle de rutina (kanban) ──────────────────────────────────────
 
-export type RoutineDetailTab = 'kanban' | 'summary';
+export type RoutineDetailTab = 'kanban' | 'summary' | 'history';
 
 export interface RoutineDetailViewProps {
   routine: RoutineDto | null;
   summary: RoutineSummaryDto | null;
+  /** Historial de cambios (quién, qué y cuándo); null mientras carga o sin abrir. */
+  history: RoutineHistoryEntryDto[] | null;
+  isHistoryLoading?: boolean;
   /** Catálogo activo, para el selector de items de la semana. */
   catalogItems: RoutineItemDto[];
   isLoading?: boolean;

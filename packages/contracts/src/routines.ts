@@ -214,6 +214,41 @@ export const RoutineStatsDtoSchema = z.object({
 });
 export type RoutineStatsDto = z.infer<typeof RoutineStatsDtoSchema>;
 
+// ── Historial de cambios ──────────────────────────────────────────────────────
+
+/** Un campo modificado dentro de un evento del historial (antes → después). */
+export const RoutineChangeFieldSchema = z.object({
+  /** Etiqueta legible del campo, p. ej. "Día", "Horario", "Descripción". */
+  label: z.string(),
+  /** Valor anterior renderizado, o null si el campo no existía (creación). */
+  before: z.string().nullable(),
+  /** Valor nuevo renderizado, o null si el campo desapareció (borrado). */
+  after: z.string().nullable(),
+});
+export type RoutineChangeField = z.infer<typeof RoutineChangeFieldSchema>;
+
+/**
+ * Entrada del historial de cambios de una rutina: quién, qué y cuándo.
+ * Append-only; las entradas se generan al ejecutarse cada modificación.
+ */
+export const RoutineHistoryEntryDtoSchema = z.object({
+  id: UuidSchema,
+  routineId: UuidSchema,
+  /** Qué tipo de elemento cambió. */
+  entity: z.enum(['routine', 'items', 'assignment', 'incident']),
+  action: z.enum(['created', 'updated', 'deleted']),
+  /** Titular legible del cambio, p. ej. «Movió «Fregar» al jueves». */
+  summary: z.string(),
+  /** Detalle campo a campo (antes → después). */
+  changes: z.array(RoutineChangeFieldSchema),
+  /** Autor del cambio (FK app_user); null si el usuario fue eliminado. */
+  createdBy: UuidSchema.nullable(),
+  /** Nombre visible del autor, resuelto por la API; null si no disponible. */
+  createdByName: z.string().nullable(),
+  createdAt: z.string().datetime(),
+});
+export type RoutineHistoryEntryDto = z.infer<typeof RoutineHistoryEntryDtoSchema>;
+
 // ── Payloads de entrada ───────────────────────────────────────────────────────
 
 /** Payload para crear un item del catálogo. */

@@ -24,6 +24,7 @@ import type {
   CreateRoutineInput,
   CreateRoutineItemInput,
   RoutineDto,
+  RoutineHistoryEntryDto,
   RoutineItemDto,
   RoutineListItemDto,
   RoutineStatsDto,
@@ -47,6 +48,7 @@ export const routineKeys = {
     ['routines', 'detailed', familyId, from ?? null, to ?? null] as const,
   detail: (routineId: string) => ['routines', 'detail', routineId] as const,
   summary: (routineId: string) => ['routines', 'summary', routineId] as const,
+  history: (routineId: string) => ['routines', 'history', routineId] as const,
   stats: (familyId: string, from?: string, to?: string) =>
     ['routines', 'stats', familyId, from ?? null, to ?? null] as const,
 };
@@ -120,6 +122,19 @@ export function useRoutineSummary(routineId: string | undefined) {
   });
 }
 
+/**
+ * Historial de cambios de la rutina. Se carga en diferido (`enabled`): solo
+ * cuando la pestaña «Historial» está activa, para no pedirlo en cada detalle.
+ */
+export function useRoutineHistory(routineId: string | undefined, enabled = true) {
+  return useQuery<RoutineHistoryEntryDto[]>({
+    queryKey: routineId ? routineKeys.history(routineId) : ['routines', 'history', 'none'],
+    queryFn: () => api.get<RoutineHistoryEntryDto[]>(`/routines/${routineId!}/history`),
+    enabled: Boolean(routineId) && enabled,
+    staleTime: 15_000,
+  });
+}
+
 export function useRoutineStats(familyId: string | undefined, from?: string, to?: string) {
   return useQuery<RoutineStatsDto>({
     queryKey: familyId ? routineKeys.stats(familyId, from, to) : ['routines', 'stats', 'none'],
@@ -139,6 +154,7 @@ function useApplyRoutine() {
     void qc.invalidateQueries({ queryKey: ['routines', 'list', routine.familyId] });
     void qc.invalidateQueries({ queryKey: ['routines', 'detailed', routine.familyId] });
     void qc.invalidateQueries({ queryKey: routineKeys.summary(routine.id) });
+    void qc.invalidateQueries({ queryKey: routineKeys.history(routine.id) });
     void qc.invalidateQueries({ queryKey: ['routines', 'stats', routine.familyId] });
   };
 }

@@ -15,6 +15,7 @@ export type {
   RoutineIncidentDto,
   RoutineSummaryDto,
   RoutineStatsDto,
+  RoutineHistoryEntryDto,
   CreateRoutineInput,
   CreateRoutineItemInput,
   UpdateRoutineItemInput,

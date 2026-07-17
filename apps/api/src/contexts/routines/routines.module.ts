@@ -10,6 +10,7 @@ import { ROUTINE_ITEM_REPOSITORY } from './domain/ports/routine-item.repository'
 // ── Application ports ────────────────────────────────────────────────────────
 import { ROUTINES_CLOCK } from './application/ports/clock';
 import { ROUTINES_ID_GENERATOR } from './application/ports/id-generator';
+import { ROUTINE_HISTORY_REPOSITORY } from './application/ports/routine-history.repository';
 
 // ── Use cases ────────────────────────────────────────────────────────────────
 import { CreateRoutineItemUseCase } from './application/create-routine-item.use-case';
@@ -30,10 +31,12 @@ import { CreateIncidentUseCase } from './application/create-incident.use-case';
 import { UpdateIncidentUseCase } from './application/update-incident.use-case';
 import { DeleteIncidentUseCase } from './application/delete-incident.use-case';
 import { RoutineStatsQuery } from './application/routine-stats.query';
+import { RoutineHistoryService } from './application/routine-history.service';
 
 // ── Infrastructure ──────────────────────────────────────────────────────────
 import { DrizzleRoutineRepository } from './infrastructure/drizzle-routine.repository';
 import { DrizzleRoutineItemRepository } from './infrastructure/drizzle-routine-item.repository';
+import { DrizzleRoutineHistoryRepository } from './infrastructure/drizzle-routine-history.repository';
 
 // ── Interface ────────────────────────────────────────────────────────────────
 import { RoutinesController } from './interface/routines.controller';
@@ -62,6 +65,11 @@ import { UuidIdGenerator } from '../family/infrastructure/uuid-id-generator';
       inject: [DRIZZLE],
       useFactory: (db: Database) => new DrizzleRoutineItemRepository(db),
     },
+    {
+      provide: ROUTINE_HISTORY_REPOSITORY,
+      inject: [DRIZZLE],
+      useFactory: (db: Database) => new DrizzleRoutineHistoryRepository(db),
+    },
 
     // ── Repositorio de familia (para los guards) ──────────────────────────
     {
@@ -72,6 +80,9 @@ import { UuidIdGenerator } from '../family/infrastructure/uuid-id-generator';
 
     // ── Read-model de estadísticas ────────────────────────────────────────
     RoutineStatsQuery,
+
+    // ── Historial de cambios (auditoría) ──────────────────────────────────
+    RoutineHistoryService,
 
     // ── Puertos de infraestructura compartidos ────────────────────────────
     SystemClock,

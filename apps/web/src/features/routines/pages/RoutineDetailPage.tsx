@@ -17,6 +17,7 @@ import {
   useDeleteAssignment,
   useDeleteIncident,
   useRoutine,
+  useRoutineHistory,
   useRoutineItems,
   useRoutineSummary,
   useSetRoutineItems,
@@ -44,6 +45,10 @@ export function RoutineDetailPage() {
 
   const { data: routine = null, isLoading, error } = useRoutine(routineId);
   const { data: summary = null } = useRoutineSummary(routineId);
+  const { data: history = null, isLoading: isHistoryLoading } = useRoutineHistory(
+    routineId,
+    activeTab === 'history',
+  );
   const { data: catalogItems = [] } = useRoutineItems(resolvedFamilyId);
 
   const rid = routineId ?? '';
@@ -71,6 +76,8 @@ export function RoutineDetailPage() {
   const props: RoutineDetailViewProps = {
     routine,
     summary,
+    history,
+    isHistoryLoading,
     catalogItems,
     isLoading,
     error: error ? 'No se ha podido cargar la rutina.' : null,

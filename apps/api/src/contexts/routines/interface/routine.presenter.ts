@@ -1,12 +1,14 @@
 import type {
   RoutineAssignmentDto,
   RoutineDto,
+  RoutineHistoryEntryDto,
   RoutineIncidentDto,
   RoutineItemDto,
   RoutineListItemDto,
 } from '@cosasdecasa/contracts';
 import type { Routine, RoutineAssignment, RoutineIncident } from '../domain/routine';
 import type { RoutineItem } from '../domain/routine-item';
+import type { RoutineEventRecord } from '../application/ports/routine-history.repository';
 
 /**
  * Traduce entidades de dominio a DTOs del contrato público. Deriva aquí lo que
@@ -102,6 +104,24 @@ export const RoutinePresenter = {
       lostMinutes: incident.lostMinutes,
       createdBy: incident.createdBy,
       createdAt: incident.createdAt.toISOString(),
+    };
+  },
+
+  toHistoryEntryDto(record: RoutineEventRecord): RoutineHistoryEntryDto {
+    return {
+      id: record.id,
+      routineId: record.routineId,
+      entity: record.entity,
+      action: record.action,
+      summary: record.summary,
+      changes: record.changes.map((change) => ({
+        label: change.label,
+        before: change.before,
+        after: change.after,
+      })),
+      createdBy: record.createdBy,
+      createdByName: record.createdByName,
+      createdAt: record.createdAt.toISOString(),
     };
   },
 };

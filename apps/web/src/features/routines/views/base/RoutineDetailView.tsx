@@ -35,12 +35,17 @@ import {
   shortDateLabel,
   weekdayLabel,
 } from '../../types';
-import type { RoutineAssignmentDto, RoutineDto, RoutineSummaryDto } from '../../types';
+import type {
+  RoutineAssignmentDto,
+  RoutineDto,
+  RoutineHistoryEntryDto,
+  RoutineSummaryDto,
+} from '../../types';
 import type { RoutineDetailViewProps } from '../types';
 
 export default function RoutineDetailView(props: RoutineDetailViewProps) {
   const {
-    routine, summary, catalogItems, isLoading, error,
+    routine, summary, history, isHistoryLoading, catalogItems, isLoading, error,
     activeTab, isItemPickerOpen, isMutating, mutationError,
     onChangeTab, onOpenItemPicker, onCloseItemPicker, onSubmitItems,
     onAssign, onMoveAssignment, onUpdateWindow, onDeleteAssignment,
@@ -80,7 +85,7 @@ export default function RoutineDetailView(props: RoutineDetailViewProps) {
             {/* ── Tabs ── */}
             <div className="flex items-center justify-between gap-2">
               <div className="flex gap-1 rounded-full bg-surface-raised p-1">
-                {(['kanban', 'summary'] as const).map((tab) => (
+                {(['kanban', 'summary', 'history'] as const).map((tab) => (
                   <button
                     key={tab}
                     type="button"
@@ -92,7 +97,7 @@ export default function RoutineDetailView(props: RoutineDetailViewProps) {
                         : 'text-muted-foreground',
                     )}
                   >
-                    {tab === 'kanban' ? 'Semana' : 'Resumen'}
+                    {tab === 'kanban' ? 'Semana' : tab === 'summary' ? 'Resumen' : 'Historial'}
                   </button>
                 ))}
               </div>
@@ -155,8 +160,10 @@ export default function RoutineDetailView(props: RoutineDetailViewProps) {
                   </p>
                 </>
               )
-            ) : (
+            ) : activeTab === 'summary' ? (
               <SummaryPanel summary={summary} routine={routine} />
+            ) : (
+              <HistoryPanel entries={history} isLoading={isHistoryLoading} />
             )}
           </>
         )}
@@ -405,6 +412,80 @@ function TimeBar({
         </div>
       </div>
     </li>
+  );
+}
+
+// ── Historial de cambios ──────────────────────────────────────────────────────
+
+function formatHistoryDate(iso: string): string {
+  return new Date(iso).toLocaleString('es-ES', {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function HistoryPanel({
+  entries,
+  isLoading,
+}: {
+  entries: RoutineHistoryEntryDto[] | null;
+  isLoading?: boolean;
+}) {
+  if (isLoading && !entries) {
+    return <p className="text-sm text-muted-foreground">Cargando historial…</p>;
+  }
+  if (!entries || entries.length === 0) {
+    return (
+      <Card className="p-6 text-center text-sm text-muted-foreground">
+        Todavía no hay cambios registrados. A partir de ahora, cada modificación de
+        esta rutina quedará aquí: quién, qué y cuándo.
+      </Card>
+    );
+  }
+  return (
+    <ul className="m-0 list-none space-y-3 p-0">
+      {entries.map((entry) => (
+        <li
+          key={entry.id}
+          className="space-y-1 rounded-card border border-border bg-surface-raised p-3"
+        >
+          <div className="flex items-baseline justify-between gap-2">
+            <p className="min-w-0 text-sm font-medium">{entry.summary}</p>
+            <time
+              dateTime={entry.createdAt}
+              className="shrink-0 text-xs text-muted-foreground"
+            >
+              {formatHistoryDate(entry.createdAt)}
+            </time>
+          </div>
+          <p className="text-xs text-muted-foreground">{entry.createdByName ?? 'Alguien'}</p>
+          {entry.changes.length > 0 && (
+            <ul className="m-0 mt-1 list-none space-y-1 border-t border-border pt-2 text-xs">
+              {entry.changes.map((change, index) => (
+                <li key={index} className="flex flex-wrap items-baseline gap-1">
+                  <span className="text-muted-foreground">{change.label}:</span>
+                  {change.before !== null && (
+                    <span
+                      className={cn(
+                        change.after !== null && 'text-muted-foreground line-through',
+                      )}
+                    >
+                      {change.before}
+                    </span>
+                  )}
+                  {change.before !== null && change.after !== null && (
+                    <span aria-hidden="true" className="text-muted-foreground">→</span>
+                  )}
+                  {change.after !== null && <span className="font-medium">{change.after}</span>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </li>
+      ))}
+    </ul>
   );
 }
 

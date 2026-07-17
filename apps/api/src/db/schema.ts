@@ -912,6 +912,37 @@ export const routineIncidents = pgTable(
   ],
 );
 
+// ── routine_events ────────────────────────────────────────────────────────────
+// Historial de cambios de una rutina (auditoría append-only): quién, qué y
+// cuándo. `changes` guarda el diff campo a campo (antes → después) ya renderizado
+// como texto, para que la lista sea legible aunque el item se archive o renombre.
+
+export const routineEvents = pgTable(
+  'routine_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    routineId: uuid('routine_id')
+      .notNull()
+      .references(() => routines.id, { onDelete: 'cascade' }),
+    /** 'routine' | 'items' | 'assignment' | 'incident'. */
+    entity: text('entity').notNull(),
+    /** 'created' | 'updated' | 'deleted'. */
+    action: text('action').notNull(),
+    /** Titular legible del cambio. */
+    summary: text('summary').notNull(),
+    /** Diff campo a campo: [{ label, before, after }]. */
+    changes: jsonb('changes')
+      .$type<{ label: string; before: string | null; after: string | null }[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    createdBy: uuid('created_by').references(() => appUsers.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('routine_events_routine_created_idx').on(table.routineId, table.createdAt),
+  ],
+);
+
 // ── Tipos de fila inferidos (uso interno de infraestructura) ──────────────────
 
 export type AppUserRow = typeof appUsers.$inferSelect;
@@ -951,3 +982,4 @@ export type RoutineRow = typeof routines.$inferSelect;
 export type RoutineSelectionRow = typeof routineSelections.$inferSelect;
 export type RoutineAssignmentRow = typeof routineAssignments.$inferSelect;
 export type RoutineIncidentRow = typeof routineIncidents.$inferSelect;
+export type RoutineEventRow = typeof routineEvents.$inferSelect;

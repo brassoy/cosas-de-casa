@@ -25,6 +25,7 @@ import {
 } from '@nestjs/swagger';
 import type {
   RoutineDto,
+  RoutineHistoryEntryDto,
   RoutineItemDto,
   RoutineListItemDto,
   RoutineStatsDto,
@@ -53,6 +54,7 @@ import { CreateIncidentUseCase } from '../application/create-incident.use-case';
 import { UpdateIncidentUseCase } from '../application/update-incident.use-case';
 import { DeleteIncidentUseCase } from '../application/delete-incident.use-case';
 import { RoutineStatsQuery } from '../application/routine-stats.query';
+import { RoutineHistoryService } from '../application/routine-history.service';
 
 import type { Routine } from '../domain/routine';
 import {
@@ -109,6 +111,7 @@ export class RoutinesController {
     private readonly updateIncident: UpdateIncidentUseCase,
     private readonly deleteIncident: DeleteIncidentUseCase,
     private readonly statsQuery: RoutineStatsQuery,
+    private readonly history: RoutineHistoryService,
     @Inject(ROUTINE_ITEM_REPOSITORY) private readonly itemRepo: RoutineItemRepository,
   ) {}
 
@@ -208,6 +211,7 @@ export class RoutinesController {
       duplicateFromRoutineId: body.duplicateFromRoutineId,
       createdBy: user.id,
     });
+    await this.history.recordRoutineCreated(routine, user.id);
     return this.presentRoutine(routine);
   }
 
@@ -280,13 +284,16 @@ export class RoutinesController {
   @ApiOperation({ summary: 'Editar la etiqueta de una rutina.' })
   @ApiOkResponse({ description: 'Rutina actualizada.' })
   async updateRoutineHandler(
+    @CurrentUser() user: AuthenticatedUser,
     @Param('routineId', ParseUUIDPipe) routineId: string,
     @Body() body: UpdateRoutineDto,
   ): Promise<RoutineDto> {
+    const before = await this.getRoutine.execute({ routineId });
     const routine = await this.updateRoutine.execute({
       routineId,
       name: body.name,
     });
+    await this.history.recordRoutineRenamed(before, routine, user.id);
     return this.presentRoutine(routine);
   }
 
@@ -306,13 +313,16 @@ export class RoutinesController {
   @ApiOperation({ summary: 'Reemplazar la selección de items de la rutina.' })
   @ApiOkResponse({ description: 'Selección actualizada.' })
   async setItemsHandler(
+    @CurrentUser() user: AuthenticatedUser,
     @Param('routineId', ParseUUIDPipe) routineId: string,
     @Body() body: SetRoutineItemsDto,
   ): Promise<RoutineDto> {
+    const before = await this.getRoutine.execute({ routineId });
     const routine = await this.setRoutineItems.execute({
       routineId,
       itemIds: body.itemIds,
     });
+    await this.history.recordItemsChanged(before, routine, user.id);
     return this.presentRoutine(routine);
   }
 
@@ -326,6 +336,17 @@ export class RoutinesController {
     return this.getSummary.execute({ routineId });
   }
 
+  @Get('routines/:routineId/history')
+  @UseGuards(RoutineScopeGuard)
+  @ApiOperation({ summary: 'Historial de cambios de la rutina (quién, qué y cuándo).' })
+  @ApiOkResponse({ description: 'Entradas del historial, más recientes primero.' })
+  async historyHandler(
+    @Param('routineId', ParseUUIDPipe) routineId: string,
+  ): Promise<RoutineHistoryEntryDto[]> {
+    const records = await this.history.list(routineId);
+    return records.map(RoutinePresenter.toHistoryEntryDto);
+  }
+
   // ── Asignaciones ──────────────────────────────────────────────────────────
 
   @Post('routines/:routineId/assignments')
@@ -333,9 +354,11 @@ export class RoutinesController {
   @ApiOperation({ summary: 'Asignar un item seleccionado a un día de la rutina.' })
   @ApiCreatedResponse({ description: 'Asignación creada; devuelve la rutina completa.' })
   async createAssignmentHandler(
+    @CurrentUser() user: AuthenticatedUser,
     @Param('routineId', ParseUUIDPipe) routineId: string,
     @Body() body: CreateAssignmentDto,
   ): Promise<RoutineDto> {
+    const before = await this.getRoutine.execute({ routineId });
     const { routine } = await this.createAssignment.execute({
       routineId,
       routineItemId: body.routineItemId,
@@ -343,6 +366,7 @@ export class RoutinesController {
       startTime: body.startTime,
       endTime: body.endTime,
     });
+    await this.history.recordAssignmentCreated(before, routine, user.id);
     return this.presentRoutine(routine);
   }
 
@@ -351,10 +375,12 @@ export class RoutinesController {
   @ApiOperation({ summary: 'Mover una asignación de día o ajustar su ventana horaria.' })
   @ApiOkResponse({ description: 'Asignación actualizada; devuelve la rutina completa.' })
   async updateAssignmentHandler(
+    @CurrentUser() user: AuthenticatedUser,
     @Param('routineId', ParseUUIDPipe) routineId: string,
     @Param('assignmentId', ParseUUIDPipe) assignmentId: string,
     @Body() body: UpdateAssignmentDto,
   ): Promise<RoutineDto> {
+    const before = await this.getRoutine.execute({ routineId });
     const { routine } = await this.updateAssignment.execute({
       routineId,
       assignmentId,
@@ -362,6 +388,7 @@ export class RoutinesController {
       startTime: body.startTime,
       endTime: body.endTime,
     });
+    await this.history.recordAssignmentUpdated(before, routine, assignmentId, user.id);
     return this.presentRoutine(routine);
   }
 
@@ -371,10 +398,13 @@ export class RoutinesController {
   @ApiOperation({ summary: 'Quitar una asignación (sus incidencias caen en cascada).' })
   @ApiNoContentResponse({ description: 'Asignación eliminada.' })
   async deleteAssignmentHandler(
+    @CurrentUser() user: AuthenticatedUser,
     @Param('routineId', ParseUUIDPipe) routineId: string,
     @Param('assignmentId', ParseUUIDPipe) assignmentId: string,
   ): Promise<void> {
+    const before = await this.getRoutine.execute({ routineId });
     await this.deleteAssignment.execute({ routineId, assignmentId });
+    await this.history.recordAssignmentDeleted(before, assignmentId, user.id);
   }
 
   // ── Incidencias ───────────────────────────────────────────────────────────
@@ -389,6 +419,7 @@ export class RoutinesController {
     @Param('assignmentId', ParseUUIDPipe) assignmentId: string,
     @Body() body: CreateIncidentDto,
   ): Promise<RoutineDto> {
+    const before = await this.getRoutine.execute({ routineId });
     const { routine } = await this.createIncident.execute({
       routineId,
       assignmentId,
@@ -396,6 +427,7 @@ export class RoutinesController {
       lostMinutes: body.lostMinutes,
       createdBy: user.id,
     });
+    await this.history.recordIncidentCreated(before, routine, user.id);
     return this.presentRoutine(routine);
   }
 
@@ -404,16 +436,19 @@ export class RoutinesController {
   @ApiOperation({ summary: 'Editar una incidencia (descripción y/o minutos perdidos).' })
   @ApiOkResponse({ description: 'Incidencia actualizada; devuelve la rutina completa.' })
   async updateIncidentHandler(
+    @CurrentUser() user: AuthenticatedUser,
     @Param('routineId', ParseUUIDPipe) routineId: string,
     @Param('incidentId', ParseUUIDPipe) incidentId: string,
     @Body() body: UpdateIncidentDto,
   ): Promise<RoutineDto> {
+    const before = await this.getRoutine.execute({ routineId });
     const { routine } = await this.updateIncident.execute({
       routineId,
       incidentId,
       description: body.description,
       lostMinutes: body.lostMinutes,
     });
+    await this.history.recordIncidentUpdated(before, routine, incidentId, user.id);
     return this.presentRoutine(routine);
   }
 
@@ -423,9 +458,12 @@ export class RoutinesController {
   @ApiOperation({ summary: 'Eliminar una incidencia.' })
   @ApiNoContentResponse({ description: 'Incidencia eliminada.' })
   async deleteIncidentHandler(
+    @CurrentUser() user: AuthenticatedUser,
     @Param('routineId', ParseUUIDPipe) routineId: string,
     @Param('incidentId', ParseUUIDPipe) incidentId: string,
   ): Promise<void> {
+    const before = await this.getRoutine.execute({ routineId });
     await this.deleteIncident.execute({ routineId, incidentId });
+    await this.history.recordIncidentDeleted(before, incidentId, user.id);
   }
 }
