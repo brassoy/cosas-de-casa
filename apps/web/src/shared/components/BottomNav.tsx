@@ -1,12 +1,14 @@
 import { useNavigate, useRouterState } from '@tanstack/react-router';
+import { Home } from 'lucide-react';
 import { APP_MAX_WIDTH } from '@/shared/layout';
 
 /**
  * Barra de navegación inferior (solo móvil).
  *
- * Accesos rápidos a las 4 secciones más usadas. Es "chrome" del shell, así que
- * —igual que AppHeader y NavDrawer— se estiliza con CSS vars semánticas y se
- * adapta a los 4 themes sin necesidad de una celda por theme.
+ * Accesos rápidos a las 4 secciones más usadas + un botón central (rombo) que
+ * lleva al dashboard (home del hogar). Es "chrome" del shell, así que —igual que
+ * AppHeader y NavDrawer— se estiliza con CSS vars semánticas y se adapta a los 4
+ * themes sin necesidad de una celda por theme.
  *
  * La visibilidad (móvil + sesión + familia activa) la decide el shell (App.tsx);
  * este componente es presentacional y recibe el `familyId` ya resuelto.
@@ -55,27 +57,59 @@ export function BottomNav({ familyId }: { familyId: string }) {
   const isActive = (item: BottomNavItem): boolean =>
     pathname === item.path || pathname.startsWith(`${item.path}/`);
 
+  // Botón central → dashboard (home del hogar). Coincidencia EXACTA: el path del
+  // dashboard (`/family/:id`) es prefijo de todas las rutas de familia, así que
+  // usar startsWith lo marcaría activo en cada pantalla.
+  const dashboardPath = `/family/${familyId}`;
+  const dashboardActive = pathname === dashboardPath;
+  const goDashboard = () =>
+    void navigate({ to: '/family/$familyId', params: { familyId } });
+
+  // 2 accesos | botón central | 2 accesos.
+  const left = items.slice(0, 2);
+  const right = items.slice(2);
+
+  const renderItem = (item: BottomNavItem) => {
+    const active = isActive(item);
+    return (
+      <button
+        key={item.path}
+        type="button"
+        onClick={item.go}
+        aria-current={active ? 'page' : undefined}
+        aria-label={item.label}
+        style={{ ...styles.item, ...(active ? styles.itemActive : null) }}
+      >
+        <span style={styles.icon} aria-hidden="true">
+          {item.icon}
+        </span>
+        <span style={styles.label}>{item.label}</span>
+      </button>
+    );
+  };
+
   return (
     <nav aria-label="Navegación rápida" style={styles.bar}>
       <div style={styles.inner}>
-      {items.map((item) => {
-        const active = isActive(item);
-        return (
+        {left.map(renderItem)}
+        <div style={styles.centerSlot}>
           <button
-            key={item.path}
             type="button"
-            onClick={item.go}
-            aria-current={active ? 'page' : undefined}
-            aria-label={item.label}
-            style={{ ...styles.item, ...(active ? styles.itemActive : null) }}
+            onClick={goDashboard}
+            aria-current={dashboardActive ? 'page' : undefined}
+            aria-label="Inicio"
+            style={styles.centerButton}
           >
-            <span style={styles.icon} aria-hidden="true">
-              {item.icon}
+            <span
+              aria-hidden="true"
+              style={{ ...styles.diamond, ...(dashboardActive ? styles.diamondActive : null) }}
+            />
+            <span style={styles.centerIcon} aria-hidden="true">
+              <Home size={22} strokeWidth={2.25} />
             </span>
-            <span style={styles.label}>{item.label}</span>
           </button>
-        );
-      })}
+        </div>
+        {right.map(renderItem)}
       </div>
     </nav>
   );
@@ -131,5 +165,44 @@ const styles: Record<string, React.CSSProperties> = {
   label: {
     fontSize: 'var(--font-size-xs)',
     lineHeight: 1,
+  },
+  // --- Botón central (rombo, sobresale hacia arriba) ---
+  centerSlot: {
+    flex: 1,
+    position: 'relative',
+  },
+  centerButton: {
+    position: 'absolute',
+    left: '50%',
+    top: 0,
+    transform: 'translate(-50%, -42%)',
+    width: '52px',
+    height: '52px',
+    background: 'none',
+    border: 'none',
+    padding: 0,
+    cursor: 'pointer',
+  },
+  diamond: {
+    position: 'absolute',
+    inset: 0,
+    borderRadius: 'var(--radius-md)',
+    backgroundColor: 'var(--color-accent)',
+    // Cuadrado rotado 45° → rombo/diamante (como la tab bar de Hadara).
+    transform: 'rotate(45deg)',
+    boxShadow: 'var(--shadow-lg, 0 4px 12px rgba(0, 0, 0, 0.2))',
+    transition: 'background-color 0.15s ease',
+  },
+  diamondActive: {
+    backgroundColor: 'var(--color-accent-hover)',
+  },
+  centerIcon: {
+    // El icono NO se rota (es hermano del rombo, no hijo).
+    position: 'absolute',
+    inset: 0,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: 'var(--color-text-inverse)',
   },
 };
