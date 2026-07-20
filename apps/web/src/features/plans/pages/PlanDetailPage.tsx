@@ -15,7 +15,7 @@
  * porque la vista presentacional pinta el chat.
  */
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { ThemeView } from '@/shared/theme/ThemeView';
 import { useFamilyStore } from '@/features/family/store/family.store';
@@ -31,6 +31,7 @@ import {
   useSavedPlaces,
 } from '../hooks/usePlans';
 import { usePlanChat, buildParticipantNames } from '../hooks/usePlanChat';
+import { usePlanDetailRealtime } from '../hooks/usePlansRealtime';
 import type { PlanRsvpStatus, UpdatePlanInput } from '../contracts';
 import type { PlanDetailViewProps } from '../views/types';
 import { ApiRequestError } from '@/shared/lib/api';
@@ -51,6 +52,9 @@ export function PlanDetailPage() {
   const { data: friendFamilies } = useFriendFamilies(activeFamily?.id);
   const { data: savedPlaces } = useSavedPlaces(activeFamily?.id);
 
+  // Realtime: "quién viene" (plan_participants) y los campos/estado del plan.
+  usePlanDetailRealtime(planId);
+
   const setRsvp = useSetRsvp(planId);
   const sharePlan = useSharePlan(planId);
   const deletePlan = useDeletePlan(activeFamily?.id);
@@ -59,7 +63,12 @@ export function PlanDetailPage() {
 
   // Chat realtime: el mapa de nombres se construye desde los participantes del
   // plan para resolver el displayName de los INSERTs ajenos (la tabla no lo trae).
-  const participantNames = buildParticipantNames(plan?.participants ?? []);
+  // Memoizado por `participants`: si se reconstruye en cada render, la suscripción
+  // del chat se re-suscribe sin parar y se pierden mensajes.
+  const participantNames = useMemo(
+    () => buildParticipantNames(plan?.participants ?? []),
+    [plan?.participants],
+  );
   const {
     messages,
     isLoading: messagesLoading,

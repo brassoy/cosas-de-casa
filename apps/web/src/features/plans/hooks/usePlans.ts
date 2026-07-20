@@ -29,6 +29,11 @@ export function useFamilyPlans(familyId: string | undefined) {
     queryKey: ['plans', familyId],
     queryFn: () => api.get<PlanSummaryDto[]>(`/families/${familyId}/plans`),
     enabled: Boolean(familyId),
+    // El listado cambia por acciones de OTRAS familias (un plan compartido
+    // contigo, un plan nuevo). Con el staleTime global de 5min podía quedar
+    // obsoleto; lo refrescamos al abrir/enfocar. Los cambios en vivo llegan por
+    // `usePlansListRealtime`.
+    staleTime: 0,
   });
 }
 
@@ -37,6 +42,10 @@ export function usePlan(planId: string | undefined) {
     queryKey: ['plans', 'detail', planId],
     queryFn: () => api.get<PlanDto>(`/plans/${planId}`),
     enabled: Boolean(planId),
+    // "Quién viene" (participantes) cambia por RSVP de otras personas, incluidas
+    // familias amigas. staleTime:0 → el detalle se refetchea al abrir/refrescar;
+    // los cambios en vivo llegan por `usePlanDetailRealtime`.
+    staleTime: 0,
   });
 }
 

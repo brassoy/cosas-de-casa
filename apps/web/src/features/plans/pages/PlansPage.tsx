@@ -10,12 +10,16 @@ import { useNavigate } from '@tanstack/react-router';
 import { ThemeView } from '@/shared/theme/ThemeView';
 import { useFamilyStore } from '@/features/family/store/family.store';
 import { useFamilyPlans } from '../hooks/usePlans';
+import { usePlansListRealtime } from '../hooks/usePlansRealtime';
 import type { PlansViewProps } from '../views/types';
 
 export function PlansPage() {
   const navigate = useNavigate();
   const activeFamily = useFamilyStore((s) => s.activeFamily);
   const { data: plans, isLoading, error } = useFamilyPlans(activeFamily?.id);
+
+  // Realtime: planes propios nuevos y planes recién compartidos por familias amigas.
+  usePlansListRealtime(activeFamily?.id);
 
   if (!activeFamily) {
     return (

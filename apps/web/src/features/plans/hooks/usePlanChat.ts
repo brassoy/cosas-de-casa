@@ -32,7 +32,7 @@
  *     la query de mensajes para que el refetch REST (con JOIN) traiga el nombre.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import { supabase } from '@/shared/lib/supabase';
@@ -72,6 +72,15 @@ export function usePlanChat(
   { participantNames }: UsePlanChatOptions = {},
 ) {
   const qc = useQueryClient();
+
+  // `participantNames` es un Map que el container reconstruye en cada render, así
+  // que NO puede ir en las deps del efecto de suscripción (haría teardown +
+  // re-subscribe en cada render y se perderían los INSERT). Lo leemos a través de
+  // un ref siempre actualizado: la suscripción depende solo de `[planId, qc]`.
+  const participantNamesRef = useRef(participantNames);
+  useEffect(() => {
+    participantNamesRef.current = participantNames;
+  }, [participantNames]);
 
   const [realtimeMessages, setRealtimeMessages] = useState<PlanMessageDto[]>([]);
   // Páginas antiguas cargadas bajo demanda con el cursor `?before=`.
@@ -128,10 +137,10 @@ export function usePlanChat(
           const record = payload.new as RawPlanMessageRecord;
           if (!record?.id) return;
 
-          // Resuelve el displayName desde el mapa de participantes.
+          // Resuelve el displayName desde el mapa de participantes (vía ref).
           // Si no está (usuario aún no cargado), forzamos refetch del endpoint
           // REST que hace el JOIN y trae el nombre correcto.
-          const displayName = participantNames?.get(record.user_id);
+          const displayName = participantNamesRef.current?.get(record.user_id);
           if (!displayName) {
             void qc.invalidateQueries({ queryKey: ['plan-messages', planId] });
             return;
@@ -162,7 +171,7 @@ export function usePlanChat(
       unsubscribed = true;
       void supabase.removeChannel(channel);
     };
-  }, [planId, participantNames, qc]);
+  }, [planId, qc]);
 
   // Combina páginas antiguas + iniciales + nuevos de Realtime (sin duplicar por
   // id) y ordena ascendente (más antiguo arriba).
