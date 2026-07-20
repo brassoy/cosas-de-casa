@@ -37,6 +37,7 @@ export function JoinFamilyPage() {
   const viewProps: JoinFamilyViewProps = {
     isSubmitting: isPending,
     error,
+    onBack: () => void navigate({ to: '/onboarding' }),
     onSubmit: (code) => {
       setError(null);
 
@@ -50,8 +51,11 @@ export function JoinFamilyPage() {
       mutate(
         { code },
         {
-          onSuccess: async (family) => {
-            await navigate({ to: '/family/$familyId', params: { familyId: family.id } });
+          onSuccess: async (res) => {
+            await navigate({
+              to: '/family/$familyId',
+              params: { familyId: res.familyId },
+            });
           },
           onError: (err) => setError(friendlyJoinError(err)),
         },

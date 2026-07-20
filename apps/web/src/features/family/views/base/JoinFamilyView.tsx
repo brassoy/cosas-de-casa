@@ -22,7 +22,7 @@ import { Alert, AlertDescription } from '@/shared/ui/alert';
 import type { JoinFamilyViewProps } from '../types';
 
 export default function JoinFamilyView(props: JoinFamilyViewProps) {
-  const { isSubmitting, error, onSubmit } = props;
+  const { isSubmitting, error, onSubmit, onBack } = props;
 
   const [pin, setPin] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
@@ -49,6 +49,15 @@ export default function JoinFamilyView(props: JoinFamilyViewProps) {
   return (
     <div className="min-h-[80dvh] grid place-items-center px-4">
       <div className="w-full max-w-[440px] bg-card text-card-foreground rounded-card shadow-lg border border-border p-8 space-y-5">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={onBack}
+          className="-ml-2 h-8 self-start px-2 text-muted-foreground"
+        >
+          ← Volver
+        </Button>
         <div className="space-y-1">
           <h2 className="text-2xl font-bold">Únete con un PIN</h2>
           <p className="text-sm text-muted-foreground">

@@ -26,6 +26,7 @@ const INVALID_CHAR_PIN = 'IOLIOULX'; // I, O, L, U se filtran en el input
 function setup(overrides: Partial<JoinFamilyViewProps> = {}) {
   const props: JoinFamilyViewProps = {
     onSubmit: vi.fn(),
+    onBack: vi.fn(),
     ...overrides,
   };
   render(<JoinFamilyView {...props} />);

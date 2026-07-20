@@ -19,7 +19,7 @@ import { JOIN_PIN_LENGTH } from '@cosasdecasa/contracts';
 import type { JoinFamilyViewProps } from '../types';
 
 export default function JoinFamilyView(props: JoinFamilyViewProps) {
-  const { isSubmitting, error, onSubmit } = props;
+  const { isSubmitting, error, onSubmit, onBack } = props;
 
   const [pin, setPin] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
@@ -46,6 +46,14 @@ export default function JoinFamilyView(props: JoinFamilyViewProps) {
   return (
     <div className="cz cz-wallpaper min-h-[80dvh] px-5 py-8">
       <div className="max-w-[480px] mx-auto">
+        <button
+          type="button"
+          onClick={onBack}
+          className="cz-serif mb-3 text-sm opacity-70"
+          aria-label="Volver"
+        >
+          ← Volver
+        </button>
         <header className="mb-5 cz-pop">
           <div className="cz-wood inline-block mb-3">
             <p className="cz-serif text-base">Llaves de la casa</p>

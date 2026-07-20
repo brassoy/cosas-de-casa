@@ -19,7 +19,7 @@ import { JOIN_PIN_LENGTH } from '@cosasdecasa/contracts';
 import type { JoinFamilyViewProps } from '../types';
 
 export default function JoinFamilyView(props: JoinFamilyViewProps) {
-  const { isSubmitting, error, onSubmit } = props;
+  const { isSubmitting, error, onSubmit, onBack } = props;
 
   const [pin, setPin] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
@@ -46,6 +46,14 @@ export default function JoinFamilyView(props: JoinFamilyViewProps) {
   return (
     <div className="ck ck-page min-h-[80dvh] px-5 py-8">
       <div className="max-w-[480px] mx-auto">
+        <button
+          type="button"
+          onClick={onBack}
+          className="ck-marker mb-3 text-base opacity-70"
+          aria-label="Volver"
+        >
+          ← Volver
+        </button>
         <header className="text-center mb-6">
           <p className="ck-marker text-base opacity-70">— diario de la casa —</p>
           <h1 className="ck-marker text-5xl leading-none mt-1 text-primary">Unirme</h1>

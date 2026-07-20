@@ -19,7 +19,7 @@ import { useFamilyStore } from '../store/family.store';
 // GET    /api/v1/families/:id/members                 → FamilyMemberDto[]
 // PATCH  /api/v1/families/:id/members/:userId         → FamilyMemberDto     (body: ChangeMemberRoleInput, solo OWNER)
 // DELETE /api/v1/families/:id/members/:userId         → void                (expulsar miembro, solo OWNER)
-// POST   /api/v1/families/join                        → FamilyDto           (body: { code })
+// POST   /api/v1/families/join                        → { familyId, joined } (body: { code })
 // POST   /api/v1/families/:id/join-pins               → GeneratePinResponse ({ code, expiresAt })
 // DELETE /api/v1/families/:id/members/me              → void                (salir de la familia)
 // DELETE /api/v1/families/:id/join-pins/active        → void                (revocar PIN activo, solo OWNER)
@@ -40,6 +40,12 @@ export function useFamilyMembers(familyId: string | undefined) {
     queryKey: ['families', familyId, 'members'],
     queryFn: () => api.get<FamilyMemberDto[]>(`/families/${familyId}/members`),
     enabled: Boolean(familyId),
+    // La lista de miembros cambia por acciones de OTROS usuarios (unirse por PIN,
+    // salir). Con el `staleTime` global de 5 min, el OWNER podía abrir "Gestionar
+    // familia" y seguir viéndose solo a sí mismo. `staleTime: 0` la refetchea al
+    // montar/enfocar (sin polling); los cambios en vivo llegan por
+    // `useFamilyMembersRealtime` (suscripción a `memberships`).
+    staleTime: 0,
   });
 }
 
@@ -71,15 +77,28 @@ export function useCreateFamily() {
   });
 }
 
+/** Respuesta real del endpoint POST /families/join (NO es un FamilyDto). */
+interface JoinFamilyResponse {
+  familyId: string;
+  joined: boolean;
+}
+
 export function useJoinFamily() {
   const qc = useQueryClient();
   const setActiveFamily = useFamilyStore((s) => s.setActiveFamily);
 
-  return useMutation<FamilyDto, ApiRequestError, { code: string }>({
-    mutationFn: (body) => api.post<FamilyDto>('/families/join', body),
-    onSuccess: (family) => {
-      setActiveFamily({ id: family.id, name: family.name });
-      void qc.invalidateQueries({ queryKey: ['families'] });
+  return useMutation<JoinFamilyResponse, ApiRequestError, { code: string }>({
+    mutationFn: (body) => api.post<JoinFamilyResponse>('/families/join', body),
+    // El endpoint solo devuelve `{ familyId, joined }` (sin nombre). Antes se
+    // tipaba mal como `FamilyDto` y se hacía `setActiveFamily({ id: undefined,
+    // name: undefined })`, lo que llevaba a navegar a `/family/undefined`.
+    // Refrescamos el listado y resolvemos el nombre real desde él; si aún no lo
+    // trae, el loader de la ruta `/family/$familyId` lo corrige al navegar.
+    onSuccess: async (res) => {
+      await qc.invalidateQueries({ queryKey: ['families'] });
+      const families = qc.getQueryData<FamilyDto[]>(['families']);
+      const joined = families?.find((f) => f.id === res.familyId);
+      setActiveFamily({ id: res.familyId, name: joined?.name ?? '' });
     },
   });
 }

@@ -19,7 +19,7 @@ import { JOIN_PIN_LENGTH } from '@cosasdecasa/contracts';
 import type { JoinFamilyViewProps } from '../types';
 
 export default function JoinFamilyView(props: JoinFamilyViewProps) {
-  const { isSubmitting, error, onSubmit } = props;
+  const { isSubmitting, error, onSubmit, onBack } = props;
 
   const [pin, setPin] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
@@ -46,6 +46,14 @@ export default function JoinFamilyView(props: JoinFamilyViewProps) {
   return (
     <div className="sf sf-dot min-h-[80dvh] px-5 py-8">
       <div className="max-w-[480px] mx-auto">
+        <button
+          type="button"
+          onClick={onBack}
+          className="sf-btn sf-btn-w mb-3 !px-3 !py-1.5 text-sm"
+          aria-label="Volver"
+        >
+          ← Volver
+        </button>
         <header className="sf-card-s p-4 mb-5 relative sf-pop">
           <h1 className="sf-bangers text-4xl leading-none mt-1">Únete con un PIN</h1>
           <p className="sf-fredoka text-sm mt-1">

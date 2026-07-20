@@ -25,6 +25,7 @@ import {
   useLeaveFamily,
   useRevokeFamilyPin,
 } from '../hooks/useFamily';
+import { useFamilyMembersRealtime } from '../hooks/useFamilyMembersRealtime';
 import { useFamilyManage } from '../hooks/useFamilyManage';
 import { useFamilyStore } from '../store/family.store';
 import type { FamilyInviteProps, FamilyManageViewProps } from '../views/types';
@@ -47,6 +48,16 @@ export function FamilyManagePage() {
   const generatePin = useGenerateJoinPin(familyId);
   const revokePin = useRevokeFamilyPin(familyId);
   const leaveFamily = useLeaveFamily(familyId);
+
+  // Realtime: refresca la lista de miembros cuando alguien se une/sale/cambia de
+  // rol, para que el OWNER no se quede con una lista obsoleta (ver hook).
+  useFamilyMembersRealtime(activeFamily?.id);
+
+  // El único OWNER no puede "Salir" (el backend lo bloquea con LastOwnerError):
+  // la familia se quedaría sin propietario. Lo detectamos en cliente para guiar
+  // hacia "Borrar familia" en vez de lanzar una llamada que va a fallar.
+  const ownerCount = (members ?? []).filter((m) => m.role === 'OWNER').length;
+  const isSoleOwner = isOwner && ownerCount <= 1;
 
   // ── Invitación por PIN (solo OWNER) ─────────────────────────────────────────
   const [generatedPin, setGeneratedPin] = useState<GeneratePinResponse | null>(null);
@@ -160,7 +171,18 @@ export function FamilyManagePage() {
     members: members ?? [],
     membersLoading,
     membersError: membersQueryError ? 'No se han podido cargar los miembros.' : null,
-    onLeaveFamily: () => setConfirmLeaveOpen(true),
+    onLeaveFamily: () => {
+      // Guard del OWNER único: en vez de abrir el diálogo y fallar en el backend,
+      // explicamos la salida real (transferir propiedad o borrar la familia).
+      if (isSoleOwner) {
+        setLeaveError(
+          'Eres el único propietario de la familia. Para dejarla, primero pasa el rol de propietario a otro miembro, o bórrala con «Borrar familia» aquí abajo.',
+        );
+        return;
+      }
+      setLeaveError(null);
+      setConfirmLeaveOpen(true);
+    },
     leaveLoading: leaveFamily.isPending,
     leaveError,
     onBack: () =>

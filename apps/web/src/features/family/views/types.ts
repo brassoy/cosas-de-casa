@@ -68,6 +68,8 @@ export interface JoinFamilyViewProps {
    * vista. La validación de formato Crockford definitiva vive en el container.
    */
   onSubmit: (code: string) => void;
+  /** Volver a la pantalla de onboarding (elegir crear/unirse). Nav en el container. */
+  onBack: () => void;
 }
 
 // ── family_home ────────────────────────────────────────────────────────────
