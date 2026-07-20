@@ -69,9 +69,16 @@ export function useJoinGroup() {
 
   return useMutation<JoinGroupResponse, ApiRequestError, { code: string }>({
     mutationFn: (body) => api.post<JoinGroupResponse>('/groups/join', body),
-    onSuccess: (res) => {
-      setActiveGroup({ id: res.groupId, name: res.groupId });
-      void qc.invalidateQueries({ queryKey: ['groups'] });
+    // El endpoint de join solo devuelve `{ groupId, joined }` (sin nombre). NO
+    // guardamos el `groupId` como nombre (mostraría el UUID en la cabecera):
+    // refrescamos el listado y resolvemos el nombre real desde él antes de fijar
+    // la peña activa. Si el listado aún no lo trae, dejamos el nombre vacío para
+    // que la vista caiga al literal "Peña" en vez de a un UUID.
+    onSuccess: async (res) => {
+      await qc.invalidateQueries({ queryKey: ['groups'] });
+      const groups = qc.getQueryData<GroupSummaryDto[]>(['groups']);
+      const joined = groups?.find((g) => g.id === res.groupId);
+      setActiveGroup({ id: res.groupId, name: joined?.name ?? '' });
     },
   });
 }

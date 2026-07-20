@@ -17,6 +17,7 @@ import { useNavigate, useParams } from '@tanstack/react-router';
 import { toast } from 'sonner';
 import { ThemeView } from '@/shared/theme/ThemeView';
 import {
+  useMyGroups,
   useGroupMembers,
   useGenerateGroupPin,
   useRevokeGroupPin,
@@ -43,7 +44,18 @@ export function GroupHomePage() {
   const [pinError, setPinError] = useState<string | null>(null);
   const [pinRevokeError, setPinRevokeError] = useState<string | null>(null);
 
+  const { data: myGroups } = useMyGroups();
   const { data: members, isLoading, error } = useGroupMembers(groupId);
+
+  // El nombre lo resolvemos SIEMPRE desde el listado real (fuente de verdad):
+  // `activeGroup.name` puede ser el UUID (placeholder al unirse por PIN) o quedar
+  // obsoleto. Solo usamos el del store como respaldo si NO es el propio id.
+  const storeName =
+    activeGroup?.id === groupId && activeGroup.name && activeGroup.name !== activeGroup.id
+      ? activeGroup.name
+      : undefined;
+  const groupName =
+    myGroups?.find((g) => g.id === groupId)?.name ?? storeName ?? 'Peña';
   const generatePin = useGenerateGroupPin(groupId);
   const revokePin = useRevokeGroupPin(groupId);
   const changeRole = useChangeGroupMemberRole(groupId);
@@ -120,7 +132,7 @@ export function GroupHomePage() {
   }
 
   const props: GroupHomeViewProps = {
-    groupName: activeGroup?.name ?? 'Peña',
+    groupName,
     isOwner,
     members,
     membersLoading: isLoading,
