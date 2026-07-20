@@ -33,6 +33,13 @@ import { DrizzleFamilyRepository } from '../family/infrastructure/drizzle-family
 import { FRIEND_LINK_REPOSITORY } from '../social/domain/ports/friend-link.repository';
 import { DrizzleFriendLinkRepository } from '../social/infrastructure/drizzle-friend-link.repository';
 
+// Notifications (push): al auto-compartir un plan con familias amigas se notifica
+// a sus miembros. Se reprovén los tokens aquí (mismo patrón que romantic.module).
+import { PUSH_SUBSCRIPTION_REPOSITORY } from '../notifications/domain/ports/push-subscription.repository';
+import { NOTIFICATION_SENDER } from '../notifications/domain/ports/notification-sender.port';
+import { DrizzlePushSubscriptionRepository } from '../notifications/infrastructure/drizzle-push-subscription.repository';
+import { WebpushNotificationSenderAdapter } from '../notifications/infrastructure/webpush-notification-sender.adapter';
+
 // ── Use cases ─────────────────────────────────────────────────────────────────
 import { CreatePlanUseCase } from './application/create-plan.use-case';
 import { ListPlansUseCase } from './application/list-plans.use-case';
@@ -92,6 +99,26 @@ import { PlanScopeGuard } from './interface/plan-scope.guard';
       provide: FRIEND_LINK_REPOSITORY,
       inject: [DRIZZLE],
       useFactory: (db: Database) => new DrizzleFriendLinkRepository(db),
+    },
+
+    // ── Notificaciones push (reprovisto, igual que romantic.module) ────────
+    {
+      provide: PUSH_SUBSCRIPTION_REPOSITORY,
+      inject: [DRIZZLE],
+      useFactory: (db: Database) => new DrizzlePushSubscriptionRepository(db),
+    },
+    {
+      provide: NOTIFICATION_SENDER,
+      inject: [ConfigService],
+      useFactory: (config: ConfigService<Env, true>) => {
+        const pub = config.get('VAPID_PUBLIC_KEY', { infer: true });
+        const priv = config.get('VAPID_PRIVATE_KEY', { infer: true });
+        const sub = config.get('VAPID_SUBJECT', { infer: true });
+        if (!pub || !priv || !sub) {
+          return { sendToTargets: async () => undefined };
+        }
+        return new WebpushNotificationSenderAdapter(pub, priv, sub);
+      },
     },
 
     // ── Plans-specific infra ───────────────────────────────────────────────
