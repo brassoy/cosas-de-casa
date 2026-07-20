@@ -15,37 +15,44 @@ import { AiUnavailableError } from '../domain/ai.errors';
 import type { TaskParsingPort, ParsedTask } from '../domain/ports/task-parsing.port';
 import type { MiniMaxConfig } from './minimax-item-extraction.adapter';
 
+// IMPORTANTE: los campos usan `type: 'string'` ESCALAR, no la unión
+// `['string', 'null']`. MiniMax-M2 no soporta el tipo unión en tool-calling: si
+// se declara, devuelve TODOS los campos a null (verificado contra el endpoint
+// real). Para que resuelva de verdad, `title`/`description` van en `required`
+// (fuerzan la llamada al tool y siempre son inferibles) y las fechas quedan
+// OPCIONALES: la IA las OMITE cuando no hay pista temporal (con las fechas en
+// `required` las inventa). `cleanString` trata el campo ausente como null.
 const PARSE_TASK_TOOL = {
   name: 'parse_task',
   description:
     'Rellena los campos de una tarea doméstica a partir de lo que el usuario ha dicho o escrito. ' +
     'Devuelve un título corto, una descripción, la fecha recomendada para realizarla y la fecha límite. ' +
-    'Cualquier campo que no puedas inferir con confianza debe ir a null.',
+    'Cualquier campo que no puedas inferir con confianza, omítelo (no lo incluyas en la respuesta).',
   input_schema: {
     type: 'object' as const,
     properties: {
       title: {
-        type: ['string', 'null'] as const,
-        description: 'Título corto y claro de la tarea (3-6 palabras), o null si no se puede inferir.',
+        type: 'string' as const,
+        description: 'Título corto y claro de la tarea (3-6 palabras).',
       },
       description: {
-        type: ['string', 'null'] as const,
-        description: 'Descripción breve de la tarea en una o dos frases, o null.',
+        type: 'string' as const,
+        description: 'Descripción breve de la tarea en una o dos frases.',
       },
       recommendedDate: {
-        type: ['string', 'null'] as const,
+        type: 'string' as const,
         description:
           'Fecha recomendada para realizar la tarea en formato YYYY-MM-DD (fecha sin hora, p. ej. 2026-06-23). ' +
-          'Resuelve expresiones relativas ("mañana", "el viernes", "en dos semanas") tomando como referencia el instante "now" que se indica en el mensaje. Null si no hay ninguna pista temporal.',
+          'Resuelve expresiones relativas ("mañana", "el viernes", "en dos semanas") tomando como referencia el instante "now" que se indica en el mensaje. Omítelo si no hay ninguna pista temporal.',
       },
       deadlineDate: {
-        type: ['string', 'null'] as const,
+        type: 'string' as const,
         description:
           'Fecha límite de la tarea en formato YYYY-MM-DD (fecha sin hora, p. ej. 2026-06-30). ' +
-          'Resuelve expresiones relativas ("antes del lunes", "para fin de mes") respecto al instante "now" del mensaje. Null si no se menciona ninguna fecha límite.',
+          'Resuelve expresiones relativas ("antes del lunes", "para fin de mes") respecto al instante "now" del mensaje. Omítelo si no se menciona ninguna fecha límite.',
       },
     },
-    required: ['title', 'description', 'recommendedDate', 'deadlineDate'],
+    required: ['title', 'description'],
   },
 } satisfies Anthropic.Tool;
 

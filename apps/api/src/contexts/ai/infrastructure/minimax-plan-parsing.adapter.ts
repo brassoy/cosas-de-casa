@@ -14,37 +14,44 @@ import { AiUnavailableError } from '../domain/ai.errors';
 import type { PlanParsingPort, ParsedPlan } from '../domain/ports/plan-parsing.port';
 import type { MiniMaxConfig } from './minimax-item-extraction.adapter';
 
+// IMPORTANTE: los campos usan `type: 'string'` ESCALAR, no la unión
+// `['string', 'null']`. MiniMax-M2 no soporta el tipo unión en tool-calling: si
+// se declara, devuelve TODOS los campos a null (verificado contra el endpoint
+// real). Para que resuelva de verdad, `title`/`description` van en `required`
+// (fuerzan la llamada al tool y siempre son inferibles) y `scheduledAt`/
+// `placeQuery` quedan OPCIONALES: la IA los OMITE cuando no hay fecha ni lugar.
+// `cleanString` trata el campo ausente como null.
 const PARSE_PLAN_TOOL = {
   name: 'parse_plan',
   description:
     'Rellena los campos de un plan familiar a partir de lo que el usuario ha dicho o escrito. ' +
     'Devuelve un título corto, una descripción, la fecha/hora del plan y una consulta de lugar buscable en mapas. ' +
-    'Cualquier campo que no puedas inferir con confianza debe ir a null.',
+    'Cualquier campo que no puedas inferir con confianza, omítelo (no lo incluyas en la respuesta).',
   input_schema: {
     type: 'object' as const,
     properties: {
       title: {
-        type: ['string', 'null'] as const,
-        description: 'Título corto y claro del plan (3-6 palabras), o null si no se puede inferir.',
+        type: 'string' as const,
+        description: 'Título corto y claro del plan (3-6 palabras).',
       },
       description: {
-        type: ['string', 'null'] as const,
-        description: 'Descripción breve del plan en una o dos frases, o null.',
+        type: 'string' as const,
+        description: 'Descripción breve del plan en una o dos frases.',
       },
       scheduledAt: {
-        type: ['string', 'null'] as const,
+        type: 'string' as const,
         description:
           'Fecha y hora del plan en formato ISO 8601 con zona (p. ej. 2026-06-23T18:30:00.000Z). ' +
-          'Resuelve expresiones relativas ("en dos horas", "mañana a las 5", "este sábado") tomando como referencia el instante "now" que se indica en el mensaje. Null si no hay ninguna pista temporal.',
+          'Resuelve expresiones relativas ("en dos horas", "mañana a las 5", "este sábado") tomando como referencia el instante "now" que se indica en el mensaje. Omítelo si no hay ninguna pista temporal.',
       },
       placeQuery: {
-        type: ['string', 'null'] as const,
+        type: 'string' as const,
         description:
           'Texto buscable en Google Maps para localizar el sitio: nombre del lugar más la ciudad o zona ' +
-          '(p. ej. "Parque de Ateca, Santander"). No inventes direcciones exactas ni coordenadas. Null si no se menciona ningún lugar.',
+          '(p. ej. "Parque de Ateca, Santander"). No inventes direcciones exactas ni coordenadas. Omítelo si no se menciona ningún lugar.',
       },
     },
-    required: ['title', 'description', 'scheduledAt', 'placeQuery'],
+    required: ['title', 'description'],
   },
 } satisfies Anthropic.Tool;
 
