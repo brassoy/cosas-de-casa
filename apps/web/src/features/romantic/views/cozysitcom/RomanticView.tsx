@@ -86,7 +86,7 @@ export default function RomanticView(props: RomanticViewProps) {
 
   return (
     <div className="cz min-h-[80dvh] px-5 py-8">
-      <div className="mx-auto max-w-[520px] space-y-4">
+      <div className="mx-auto max-w-[520px] space-y-6">
       <ScreenState isLoading={isLoading} error={error}>
         {/* Cabecera estilo cintillo de madera + cinta a rayas. */}
         <header className="cz-pop">

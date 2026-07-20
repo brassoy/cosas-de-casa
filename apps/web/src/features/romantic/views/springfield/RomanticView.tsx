@@ -109,7 +109,7 @@ export default function RomanticView(props: RomanticViewProps) {
 
   return (
     <div className="sf sf-dot min-h-[80dvh] px-5 py-8">
-      <div className="mx-auto max-w-[520px] space-y-5">
+      <div className="mx-auto max-w-[520px] space-y-6">
       <ScreenState isLoading={isLoading} error={error}>
         {/* Cabecera estilo cartel de cómic (tarjeta amarilla con pegatina).
             mb-2 (sobre el space-y del contenedor) para que el hard-shadow de 6px

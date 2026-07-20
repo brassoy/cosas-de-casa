@@ -86,7 +86,7 @@ export default function RomanticView(props: RomanticViewProps) {
   }
 
   return (
-    <div className="mx-auto max-w-[640px] space-y-4 p-6">
+    <div className="mx-auto max-w-[640px] space-y-5 p-6">
       <ScreenState isLoading={isLoading} error={error}>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h1 className="text-2xl font-bold">💕 Rincón de pareja</h1>

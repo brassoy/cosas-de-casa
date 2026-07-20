@@ -116,10 +116,10 @@ export default function RomanticView(props: RomanticViewProps) {
 
   return (
     <div className="ck ck-page min-h-[80dvh] px-5 py-8">
-      <div className="mx-auto max-w-[520px] space-y-4">
+      <div className="mx-auto max-w-[520px] space-y-5">
       <ScreenState isLoading={isLoading} error={error}>
         {/* Cabecera manuscrita estilo diario, con el botón de maldad a un lado. */}
-        <header className="relative mb-1 text-center">
+        <header className="relative mb-2 text-center">
           <p className="ck-marker text-base opacity-70">— sólo para vosotros ❤ —</p>
           <div className="mt-1 flex items-end justify-center gap-3">
             <h1 className="ck-marker text-5xl leading-none text-accent">rincón</h1>
