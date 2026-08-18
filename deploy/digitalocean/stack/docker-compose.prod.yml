@@ -99,8 +99,21 @@ services:
     #   shared_buffers=48MB   → la base entera son 63 MB, no hace falta más
     #   max_connections=40    → 10 contenedores + migraciones, sobra de largo
     #   work_mem=2MB          → se multiplica por operación de sort/hash
+    #
+    # ¡EL `-D /etc/postgresql` NO ES OPCIONAL! El CMD por defecto de la imagen es
+    # `postgres -D /etc/postgresql`: supabase/postgres guarda su configuración en
+    # un directorio SEPARADO del PGDATA, y es ahí donde vive listen_addresses='*'.
+    #
+    # Sobrescribir `command` sin repetir el -D hace que Postgres cargue el
+    # postgresql.conf del datadir, que trae listen_addresses='localhost'. El
+    # resultado es de los que cuesta diagnosticar: el contenedor arranca, el
+    # healthcheck (pg_isready -h localhost) pasa y `docker compose ps` lo da por
+    # healthy — pero NINGÚN otro contenedor puede conectar (ECONNREFUSED), así
+    # que la pila entera se queda con solo `db` arriba.
     command:
       - postgres
+      - -D
+      - /etc/postgresql
       - -c
       - shared_buffers=48MB
       - -c

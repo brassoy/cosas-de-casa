@@ -57,10 +57,20 @@ log "Verificando que el droplet nuevo ya pasó por el bootstrap..."
 new "test -d $DATA_DIR && test -f /opt/cosasdecasa/.env" \
   || die "el droplet nuevo no ha completado el bootstrap. Mira /var/log/cosasdecasa-bootstrap.log y espera a que termine."
 
+# Solo `grep`: es lo único que se puede dar por sentado en un Ubuntu recién
+# instalado. Nada de rg/fd/bat aquí — un script de operación no puede asumir
+# herramientas que el servidor puede no tener.
+#
+# Y sin pipes en la comprobación: `rg ... | head -1` devuelve el código de salida
+# de `head` (0) aunque `rg` no exista, así que un `|| fallback` detrás JAMÁS se
+# dispara y la variable queda vacía en silencio. Se valida el contenido, no el
+# código de salida.
 log "Verificando que las versiones de Postgres coinciden..."
-PG_OLD=$(old "rg -o 'supabase/postgres:[0-9.]+' $STACK/docker-compose.prod.yml | head -1" 2>/dev/null \
-       || old "grep -o 'supabase/postgres:[0-9.]*' $STACK/docker-compose.prod.yml | head -1")
-PG_NEW=$(new "grep -o 'supabase/postgres:[0-9.]*' $STACK/docker-compose.prod.yml | head -1")
+pg_version() { "$1" "grep -oE 'supabase/postgres:[0-9.]+' $STACK/docker-compose.prod.yml | head -1"; }
+PG_OLD=$(pg_version old || true)
+PG_NEW=$(pg_version new || true)
+[ -n "$PG_OLD" ] || die "no pude leer la versión de Postgres del droplet viejo ($STACK/docker-compose.prod.yml)"
+[ -n "$PG_NEW" ] || die "no pude leer la versión de Postgres del droplet nuevo ($STACK/docker-compose.prod.yml)"
 [ "$PG_OLD" = "$PG_NEW" ] || die "versiones de Postgres distintas: viejo=$PG_OLD nuevo=$PG_NEW. Una copia física entre versiones distintas NO arranca."
 log "  ambos en $PG_OLD ✓"
 
@@ -74,8 +84,21 @@ log "Espacio libre en el nuevo: ${FREE} MB"
 echo
 warn "A PARTIR DE AQUÍ HAY CORTE DE SERVICIO (se para la pila del droplet viejo)."
 warn "Viejo: $OLD_IP   →   Nuevo: $NEW_IP   ($SIZE de datos)"
-read -rp "¿Continuar? escribe 'migrar': " confirm
-[ "$confirm" = "migrar" ] || die "cancelado por el usuario"
+# La confirmación se lee de /dev/tty, NO de stdin. Motivo: `ssh` sin -n consume
+# stdin, y las comprobaciones de arriba abren varias sesiones ssh — con un
+# `echo migrar | este-script` la confirmación se la come el primer ssh y el read
+# se queda sin nada. Leyendo del terminal real eso no puede pasar.
+#
+# Para ejecución desatendida (CI, o desde un agente sin TTY) usa:
+#   MIGRATE_ASSUME_YES=1 ./migrate-to-new-droplet.sh <vieja> <nueva>
+if [ "${MIGRATE_ASSUME_YES:-}" = "1" ]; then
+  warn "MIGRATE_ASSUME_YES=1 — se omite la confirmación interactiva."
+elif [ -r /dev/tty ]; then
+  read -rp "¿Continuar? escribe 'migrar': " confirm </dev/tty
+  [ "$confirm" = "migrar" ] || die "cancelado por el usuario"
+else
+  die "sin terminal para confirmar. Relanza con MIGRATE_ASSUME_YES=1 si es intencionado."
+fi
 
 ###############################################################################
 # 1. Dump lógico de seguridad (cinturón además de los tirantes)
@@ -183,12 +206,22 @@ else
 fi
 
 # 5b. Conteo de filas en las tablas de negocio: la prueba de que el dato llegó.
+#
+# Los nombres van en PLURAL (app_users, no app_user) — el esquema los define así.
+# Con los nombres mal, ambos lados devolvían "n/a" y la comparación "n/a = n/a"
+# se daba por buena: una verificación que decía ✓ sin haber verificado nada.
+# Por eso abajo se trata "n/a" como FALLO explícito, no como coincidencia.
 log "Comparando conteos de filas..."
-COUNT_SQL="select count(*) from app_user"
-for t in app_user family shopping_list; do
+for t in app_users families shopping_lists; do
   A=$(old "cd $STACK && docker compose --env-file /opt/cosasdecasa/.env -f docker-compose.prod.yml up -d db >/dev/null 2>&1; sleep 5; docker compose --env-file /opt/cosasdecasa/.env -f docker-compose.prod.yml exec -T db psql -U postgres -d postgres -tAc 'select count(*) from \"$t\"' 2>/dev/null" || echo "n/a")
   B=$(new "cd $STACK && docker compose --env-file /opt/cosasdecasa/.env -f docker-compose.prod.yml exec -T db psql -U postgres -d postgres -tAc 'select count(*) from \"$t\"' 2>/dev/null" || echo "n/a")
-  if [ "$A" = "$B" ]; then log "  $t: $A = $B ✓"; else warn "  $t: viejo=$A nuevo=$B ✗ REVISAR"; fi
+  if [ "$A" = "n/a" ] || [ "$B" = "n/a" ] || [ -z "$A" ] || [ -z "$B" ]; then
+    warn "  $t: no se pudo consultar (viejo=$A nuevo=$B) ✗ — verifica a mano, esto NO es un OK"
+  elif [ "$A" = "$B" ]; then
+    log "  $t: $A = $B ✓"
+  else
+    warn "  $t: viejo=$A nuevo=$B ✗ REVISAR"
+  fi
 done
 
 # 5c. Salud de la pila y consumo real — el número que motivó toda la operación.
