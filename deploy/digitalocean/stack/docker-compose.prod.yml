@@ -247,8 +247,10 @@ services:
     # Mantenemos ese hostname de red (network alias) por compatibilidad con la
     # config declarativa oficial de Kong.
     container_name: cosasdecasa_realtime
-    # BEAM (Elixir). Medido: 50 MB, pero la VM crece con las conexiones websocket.
-    mem_limit: 160m
+    # BEAM (Elixir). Medido 50 MB en el droplet de 4 GB, pero 133 MB en marcha
+    # real sobre el nuevo: la VM de Erlang dimensiona sus arenas según la máquina
+    # y las conexiones websocket abiertas. Con 160m se quedaba al 83 % del techo.
+    mem_limit: 224m
     restart: unless-stopped
     environment:
       PORT: 4000
@@ -283,8 +285,10 @@ services:
   storage:
     image: supabase/storage-api:v1.60.4
     container_name: cosasdecasa_storage
-    # Node. Medido: 74 MB.
-    mem_limit: 128m
+    # Node. Medido 74 MB en el droplet viejo, pero 116 MB en marcha real aquí
+    # (al 90 % de un techo de 128m — un OOM kill esperando a ocurrir). Node no
+    # devuelve heap al SO con alegría y storage-api sube al servir imágenes.
+    mem_limit: 224m
     restart: unless-stopped
     environment:
       ANON_KEY: ${ANON_KEY}
