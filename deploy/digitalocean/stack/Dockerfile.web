@@ -1,0 +1,20 @@
+# =============================================================================
+# Cosas de Casa — imagen de la web estática (apps/web/dist)
+# =============================================================================
+# NO compila nada: recibe un `dist/` ya construido por GitHub Actions y lo
+# empaqueta para que el droplet pueda bajarlo con `docker pull`.
+#
+# ¿Por qué una imagen y no un artefacto de Actions o un scp?
+#   - `docker pull` ya está autenticado y es idempotente; un artefacto de Actions
+#     exigiría un token de GitHub en el droplet y una llamada a la API.
+#   - Queda versionada por tag igual que la API: `:latest` y `:<sha>`. Volver a
+#     una versión anterior de la web es cambiar el tag, no recompilar.
+#
+# El droplet no la EJECUTA: hace `docker create` + `docker cp /dist` y vuelca el
+# contenido en /mnt/cosasdecasa-data/web, que es lo que sirve Caddy. Por eso la
+# base es alpine (necesita un comando válido para que `docker create` funcione;
+# `scratch` fallaría con "no command specified") y el CMD es un no-op.
+# =============================================================================
+FROM alpine:3.21
+COPY dist /dist
+CMD ["true"]

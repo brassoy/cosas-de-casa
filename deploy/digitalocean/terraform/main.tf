@@ -22,24 +22,21 @@ resource "digitalocean_vpc" "cosasdecasa" {
 }
 
 ###############################################################################
-# Volumen de datos persistentes
-#
-# Se crea preformateado en ext4 para que el bootstrap solo tenga que montarlo.
-# Aloja TODO lo que debe sobrevivir a un rebuild del droplet: la base Postgres de
-# Supabase, los objetos de Storage (fotos de tareas y avatares), los datos/certs
-# de Caddy y el secrets.env con las contraseñas y el JWT_SECRET generados una vez.
-###############################################################################
-
-resource "digitalocean_volume" "data" {
-  name                    = var.volume_name
-  region                  = var.region
-  size                    = var.volume_size_gb
-  initial_filesystem_type = "ext4"
-  description             = "Cosas de Casa: datos persistentes (Postgres, Storage, Caddy, secretos)"
-}
-
-###############################################################################
 # Droplet
+#
+# SIN BLOCK VOLUME (right-sizing 2026-08).
+#
+# Antes había un `digitalocean_volume` de 50 GB montado en /mnt/cosasdecasa-data.
+# Se eliminó porque la medición en producción dio 77 MB de datos reales — un
+# 0,15 % de ocupación por $5/mes. Ahora ese MISMO path es un directorio normal
+# del disco de arranque, así que ni el compose ni los scripts cambiaron de ruta.
+#
+# CONSECUENCIA QUE NO PUEDES IGNORAR:
+#   Con el volumen, destruir el droplet era barato: los datos sobrevivían fuera.
+#   Ahora Postgres, Storage, los certs de Caddy y `secrets.env` viven EN el disco
+#   de arranque. Destruir el droplet = destruir la base de datos.
+#   Por eso abajo hay un bloque `lifecycle` con prevent_destroy, y por eso
+#   `enable_backups` viene en true por defecto.
 ###############################################################################
 
 resource "digitalocean_droplet" "cosasdecasa" {
@@ -49,8 +46,12 @@ resource "digitalocean_droplet" "cosasdecasa" {
   region     = var.region
   vpc_uuid   = digitalocean_vpc.cosasdecasa.id
   ssh_keys   = [var.admin_ssh_fingerprint != "" ? var.admin_ssh_fingerprint : digitalocean_ssh_key.admin[0].id]
-  volume_ids = [digitalocean_volume.data.id]
   monitoring = true
+
+  # Backups semanales gestionados por DO (+20 % ≈ $1.20/mes sobre el plan de $6).
+  # Cubren el disco de arranque ENTERO, que ahora es donde vive el dato. Con el
+  # volumen fuera de escena, esta es la única red de seguridad automática.
+  backups = var.enable_backups
 
   user_data = templatefile("${path.module}/cloud-init.yaml.tftpl", {
     app_domain = var.app_domain
@@ -61,26 +62,46 @@ resource "digitalocean_droplet" "cosasdecasa" {
     # rechaza la clave sin newline ("error in libcrypto"), y `$(cat ...)` en bash
     # se come el newline al exportar TF_VAR_git_deploy_private_key.
     git_deploy_key = "${trimspace(var.git_deploy_private_key)}\n"
-    data_device    = "/dev/disk/by-id/scsi-0DO_Volume_${var.volume_name}"
 
     # Clave pública de CI para el auto-deploy (vacía = sin auto-deploy).
     ci_deploy_pubkey = trimspace(var.ci_deploy_pubkey)
   })
 
-  # OJO: user_data es ForceNew. Cambiar el cloud-init o cualquier var inyectada
-  # (app_domain, acme_email, git_branch...) recrea el droplet en el próximo apply.
-  # Es barato y seguro: el block volume de datos y la reserved IP persisten, y los
-  # secretos viven en /mnt/cosasdecasa-data/secrets.env (volumen), que el bootstrap
-  # reutiliza — así el JWT_SECRET, las keys derivadas y la contraseña de Postgres
-  # no cambian al recrear (re-firmar las keys invalidaría las sesiones existentes).
+  lifecycle {
+    # `user_data` es ForceNew en el provider: cualquier cambio en el cloud-init
+    # (o en app_domain, git_branch, el tag de imagen...) recrearía el droplet y,
+    # sin volumen, se llevaría la base de datos por delante.
+    #
+    # Lo ignoramos a propósito: el cloud-init SOLO importa en el primer arranque.
+    # A partir de ahí quien despliega es redeploy.sh (docker pull + up), no el
+    # cloud-init. Si de verdad necesitas re-bootstrapear, entra por SSH y lanza
+    # bootstrap.sh a mano — es idempotente y respeta los secretos existentes.
+    ignore_changes = [user_data]
+
+    # Red de seguridad final: que `terraform destroy` o un plan con reemplazo
+    # falle RUIDOSAMENTE en vez de borrar el dato en silencio. Para retirar el
+    # droplet de verdad (p. ej. tras migrar a otro), quita esta línea de forma
+    # consciente, o sácalo del state con `terraform state rm`.
+    prevent_destroy = true
+  }
 }
 
 ###############################################################################
 # IP reservada (estable aunque recrees el droplet)
+#
+# Esta es la pieza que hace la migración TRANSPARENTE: el DNS apunta aquí, no a
+# la IP del droplet. Cambiar de máquina es reasignar esta IP — segundos de corte,
+# sin tocar DNS ni esperar TTL.
 ###############################################################################
 
 resource "digitalocean_reserved_ip" "cosasdecasa" {
   region = var.region
+
+  lifecycle {
+    # Perder la reserved IP significa perder la dirección que tiene el DNS
+    # (y, con Cloudflare de por medio, un rato de NXDOMAIN hasta rehacerlo).
+    prevent_destroy = true
+  }
 }
 
 resource "digitalocean_reserved_ip_assignment" "cosasdecasa" {

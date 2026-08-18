@@ -18,16 +18,30 @@ variable "region" {
 # Droplet
 ###############################################################################
 
+variable "droplet_size" {
+  type        = string
+  description = <<-EOT
+    Tamaño del droplet. `s-1vcpu-1gb` (1 vCPU / 1 GB / 25 GB) tras el
+    right-sizing de 2026-08: la medición en producción dio 837 MB de RAM en los
+    10 contenedores y 77 MB de datos reales, con la CPU al 93 % idle.
+
+    ESTE TAMAÑO SOLO FUNCIONA CON LA PILA "SIN BUILDS":
+      - Las imágenes se construyen en la máquina del desarrollador y se cargan
+        aquí por SSH (deploy-from-local.sh). Compilar en el droplet (Vite +
+        turbo + docker build del monorepo) NO cabe en 1 GB — moriría por OOM.
+      - El compose fija `mem_limit` por servicio y la API arranca con
+        `--max-old-space-size` (sin él Node acapara ~425 MB él solo, la mitad
+        del presupuesto de la máquina).
+
+    Si vuelves a construir en el droplet, sube como mínimo a `s-1vcpu-2gb`.
+  EOT
+  default     = "s-1vcpu-1gb"
+}
+
 variable "droplet_image" {
   type        = string
   description = "Imagen base del droplet. Ubuntu 24.04; el cloud-init instala Docker encima."
   default     = "ubuntu-24-04-x64"
-}
-
-variable "droplet_size" {
-  type        = string
-  description = "Tamaño del droplet. `s-2vcpu-4gb` (Basic: 2 vCPU / 4 GB / 80 GB) — el MISMO tipo/importe que la referencia. La pila completa (API NestJS + Supabase self-hosted + build de la web con Vite) cabe en 4 GB gracias a 4G de swap que crea el bootstrap (los builds son hambrientos; sin swap el OOM killer puede matar el primer deploy). Si vas muy justo, sube a `s-2vcpu-8gb`."
-  default     = "s-2vcpu-4gb"
 }
 
 variable "droplet_name" {
@@ -36,34 +50,39 @@ variable "droplet_name" {
   default     = "cosasdecasa-prod"
 }
 
-###############################################################################
-# Block storage (datos que DEBEN persistir)
-###############################################################################
+variable "enable_backups" {
+  type        = bool
+  description = <<-EOT
+    Backups gestionados por DigitalOcean (+20 % del coste del droplet: ~$1.20/mes
+    sobre el plan de $6).
 
-variable "volume_name" {
-  type        = string
-  description = "Nombre del volumen de bloque. Determina el device path /dev/disk/by-id/scsi-0DO_Volume_<volume_name> que monta el bootstrap."
-  default     = "cosasdecasa-data"
-
-  validation {
-    condition     = can(regex("^[a-z][a-z0-9-]{0,63}$", var.volume_name))
-    error_message = "volume_name debe ser minúsculas alfanuméricas + guiones, empezar por letra y máx 64 chars (si no, el device path no coincide con el que crea DO)."
-  }
+    RECOMENDADO EN TRUE, y aquí NO es opcional de verdad: al eliminar el block
+    volume, los datos (Postgres, Storage, certs y `secrets.env`) viven en el
+    DISCO DE ARRANQUE del droplet. Sin backups, destruir el droplet es destruir
+    la base de datos. Antes había un volumen que sobrevivía al `ForceNew`; ahora
+    la única red de seguridad es esta.
+  EOT
+  default     = true
 }
 
-variable "volume_size_gb" {
-  type        = number
-  description = "Tamaño del volumen de datos en GB. Aloja la base Postgres de Supabase, los objetos de Storage (fotos de tareas y avatares), los datos de Caddy y los secretos generados en el primer boot."
-  default     = 50
-}
+###############################################################################
+# Imágenes de contenedor
+#
+# El droplet NO construye y NO baja de ningún registro: las imágenes se le cargan
+# por SSH desde la máquina del desarrollador con
+# `deploy/digitalocean/stack/deploy-from-local.sh` (docker save | docker load).
+# Por eso aquí no hay variables de registro ni credenciales que custodiar.
+#
+# Consecuencia operativa: tras un `terraform apply` que cree el droplet, la pila
+# NO arranca sola. El bootstrap deja la máquina lista (Docker, directorios,
+# secretos, .env) y se para a esperar las imágenes. Lánzalas con el script.
+###############################################################################
 
 ###############################################################################
 # Dominio / DNS
 #
 # Cosas de Casa NO necesita un subdominio aparte para Realtime: Supabase Realtime
-# viaja por Kong (el gateway) en el MISMO dominio, bajo la ruta /realtime/*. Por
-# eso aquí solo hay un host (app_domain), a diferencia de HADARA que separaba el
-# subdominio ws. para los websockets de Reverb.
+# viaja por Kong (el gateway) en el MISMO dominio, bajo la ruta /realtime/*.
 ###############################################################################
 
 variable "app_domain" {
@@ -112,6 +131,10 @@ variable "ci_deploy_pubkey" {
 
 ###############################################################################
 # Origen del código (clone en el droplet)
+#
+# El droplet sigue clonando el repo, pero YA NO PARA COMPILAR: necesita el
+# docker-compose.prod.yml, el Caddyfile, los scripts de despliegue y las
+# migraciones SQL de Supabase (supabase/migrations/*.sql).
 ###############################################################################
 
 variable "git_repo" {

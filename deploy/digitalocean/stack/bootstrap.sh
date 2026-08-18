@@ -3,9 +3,27 @@
 # Cosas de Casa — bootstrap de producción (corre en el droplet, lo lanza cloud-init)
 # =============================================================================
 # Idempotente en lo razonable: los secretos se generan una vez y se persisten en
-# el volumen; si /opt/cosasdecasa/.env ya existe NO se pisa (respeta ajustes
+# $DATA_DIR; si /opt/cosasdecasa/.env ya existe NO se pisa (respeta ajustes
 # manuales de SMTP/IA/push). Relánzalo a mano con:
 #   bash /opt/cosasdecasa/deploy/digitalocean/stack/bootstrap.sh
+#
+# RIGHT-SIZING 2026-08 — dos cambios de fondo respecto a la versión anterior:
+#
+#   1. NO HAY BLOCK VOLUME. /mnt/cosasdecasa-data es ahora un directorio normal
+#      del disco de arranque. Se mantiene la MISMA ruta a propósito: el compose
+#      la tiene hardcodeada en 8 sitios y no hacía falta tocarlos.
+#      Corolario: el dato ya no sobrevive a la destrucción del droplet. Los
+#      backups de DO (enable_backups) y el dump de abajo son la red.
+#
+#   2. NO SE COMPILA AQUI. Ni `docker build` ni `pnpm build`. Las imágenes las
+#      construye la máquina del desarrollador y se cargan por SSH con
+#      deploy-from-local.sh (`docker save | ssh docker load`). Es LO QUE PERMITE
+#      que quepa en 1 GB: compilar el monorepo con Vite + turbo pedía varios GB.
+#
+#      Corolario: si las imágenes NO están cargadas, este script prepara la
+#      máquina (Docker, directorios, secretos, .env, kong.yml) y SE PARA ahí sin
+#      levantar la pila. No es un fallo: es que le toca el turno al script de
+#      despliegue desde local.
 # =============================================================================
 set -euo pipefail
 
@@ -22,39 +40,36 @@ log() { echo "[cosasdecasa-bootstrap] $*"; }
 set -a
 . /opt/cosasdecasa-deploy.env
 set +a
-: "${APP_DOMAIN:?falta APP_DOMAIN}" "${ACME_EMAIL:?falta ACME_EMAIL}" "${DATA_DEVICE:?falta DATA_DEVICE}"
+: "${APP_DOMAIN:?falta APP_DOMAIN}" "${ACME_EMAIL:?falta ACME_EMAIL}"
+# Imágenes locales, cargadas por deploy-from-local.sh. Sin registro, sin login.
+API_IMAGE="${API_IMAGE:-cosasdecasa-api:latest}"
+WEB_IMAGE="${WEB_IMAGE:-cosasdecasa-web:latest}"
+export API_IMAGE WEB_IMAGE
 
-# --- 2. Montar el block volume de datos --------------------------------------
-log "Esperando el device de datos $DATA_DEVICE ..."
-for _ in $(seq 1 30); do [ -b "$DATA_DEVICE" ] && break; sleep 2; done
-[ -b "$DATA_DEVICE" ] || {
-  log "ERROR: el device $DATA_DEVICE no apareció"
-  exit 1
-}
-
-mkdir -p "$DATA_DIR"
-if ! mountpoint -q "$DATA_DIR"; then
-  log "Montando $DATA_DEVICE en $DATA_DIR"
-  mount -o defaults,nofail,discard "$DATA_DEVICE" "$DATA_DIR"
-fi
-grep -q "$DATA_DIR" /etc/fstab || echo "$DATA_DEVICE $DATA_DIR ext4 defaults,nofail,discard 0 0" >>/etc/fstab
-
-# Subdirectorios persistentes.
-mkdir -p "$DATA_DIR"/{db,db-init,storage,kong,caddy/data,caddy/config,web}
+# --- 2. Directorio de datos (antes era un block volume montado) --------------
+# Ya no hay `mount`: /mnt/cosasdecasa-data vive en el disco de arranque. Se
+# conserva la ruta para no tocar el compose ni los scripts.
+log "Preparando $DATA_DIR (disco local, sin block volume)"
+mkdir -p "$DATA_DIR"/{db,db-init,storage,kong,caddy/data,caddy/config,web,backups}
 # Storage (supabase/storage-api) corre como uid 1000 en su imagen.
 chown -R 1000:1000 "$DATA_DIR/storage" 2>/dev/null || true
 
-# --- 2.5 Swap: CLAVE en un droplet con build pesado --------------------------
-# El `pnpm build` de la web (Vite) y el build de la imagen de la API son
-# hambrientos; sin swap el OOM killer puede matar el primer deploy a mitad.
+# --- 2.5 Swap: red de seguridad, NO presupuesto de trabajo -------------------
+# Antes eran 4G porque se compilaba aquí (Vite/turbo). Ya no se compila, así que
+# el swap solo absorbe picos puntuales: 2G bastan y no se comen el disco de 25G.
+# swappiness=10: con 1 GB de RAM queremos que el kernel prefiera descartar
+# page-cache antes que swapear páginas activas de Postgres o de la API (swapear
+# la BD es la forma más rápida de convertir "va justo" en "va inservible").
 if ! swapon --show 2>/dev/null | grep -q /swapfile; then
-  log "Creando 4G de swap (CLAVE en un droplet de 4GB: evita OOM en los builds)..."
-  fallocate -l 4G /swapfile 2>/dev/null || dd if=/dev/zero of=/swapfile bs=1M count=4096
+  log "Creando 2G de swap..."
+  fallocate -l 2G /swapfile 2>/dev/null || dd if=/dev/zero of=/swapfile bs=1M count=2048
   chmod 600 /swapfile
   mkswap /swapfile >/dev/null
   swapon /swapfile
   grep -q '/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' >>/etc/fstab
 fi
+sysctl -w vm.swappiness=10 >/dev/null
+grep -q 'vm.swappiness' /etc/sysctl.conf || echo 'vm.swappiness=10' >>/etc/sysctl.conf
 
 # --- 3. Secretos estables (se generan una vez, se reutilizan en re-runs) ------
 # JWT_SECRET firma TODOS los JWT de Supabase (HS256). De él derivamos ANON_KEY y
@@ -303,8 +318,25 @@ fi
 cd "$STACK_DIR"
 dc() { docker compose --env-file "$ENV_FILE" -f docker-compose.prod.yml "$@"; }
 
-log "Construyendo la imagen de la API (monorepo + turbo; tarda)..."
-dc build api
+# La imagen la trae deploy-from-local.sh. Si todavía no está, paramos AQUÍ con un
+# mensaje útil en vez de reventar tres pasos más abajo con un error de docker.
+if ! docker image inspect "$API_IMAGE" >/dev/null 2>&1; then
+  log "───────────────────────────────────────────────────────────────"
+  log "La máquina está lista, pero faltan las imágenes."
+  log ""
+  log "  Falta: $API_IMAGE"
+  log ""
+  log "Este droplet no compila (1 GB de RAM no da para el monorepo). Lanza"
+  log "desde tu máquina, con Docker arrancado:"
+  log ""
+  log "  deploy/digitalocean/stack/deploy-from-local.sh $(hostname -I | awk '{print $1}')"
+  log ""
+  log "Ese script construye la API y la web, las carga aquí por SSH y levanta"
+  log "la pila. Los secretos y el .env de este bootstrap ya están puestos."
+  log "───────────────────────────────────────────────────────────────"
+  exit 0
+fi
+log "Imagen de la API presente ($API_IMAGE) ✓"
 
 log "Levantando Postgres y esperando a que esté sano..."
 dc up -d --wait db
@@ -322,15 +354,34 @@ dc run --rm --no-deps \
 #      el PASO 10, DESPUÉS de levantar la pila: insertan en storage.buckets, una
 #      tabla que NO existe hasta que el servicio storage-api migra al arrancar.)
 
-# --- 8. Build de la web estática (hornea las VITE_* del .env) -----------------
-# Construimos dentro de la imagen de la API (tiene pnpm y todo el workspace) y
-# copiamos apps/web/dist al volumen que sirve Caddy (/mnt/cosasdecasa-data/web).
-log "Construyendo la web estática (pnpm build --filter @cosasdecasa/web)..."
-# --env-file NO es flag de `compose run` (ya va a nivel global en dc()); las
-# VITE_* del build salen del env_file del servicio api (/opt/cosasdecasa/.env).
-dc run --rm --no-deps \
-  -v "$DATA_DIR/web:/out" \
-  api sh -c "cd /repo && pnpm build --filter @cosasdecasa/web... && rm -rf /out/* && cp -r apps/web/dist/. /out/"
+# --- 8. Publicar la web estática (ya construida por CI) ----------------------
+# Antes aquí corría `pnpm build --filter @cosasdecasa/web` DENTRO de la imagen de
+# la API. Eso pedía ~1,5-2 GB de RAM (Vite + esbuild + tsc) y es exactamente lo
+# que impedía bajar de droplet.
+#
+# Ahora la web la construye tu máquina —con las VITE_* horneadas, que son TODAS
+# públicas: se sirven al navegador— y la carga aquí como una imagen alpine que
+# solo contiene /dist. Aquí volcamos su contenido al directorio que sirve Caddy.
+log "Publicando la web estática desde $WEB_IMAGE..."
+publish_web() {
+  local cid
+  docker image inspect "$WEB_IMAGE" >/dev/null 2>&1 || {
+    log "AVISO: falta $WEB_IMAGE — la web no se publica. Lanza deploy-from-local.sh."
+    return 0
+  }
+  cid=$(docker create "$WEB_IMAGE")
+  # Directorio temporal + swap atómico: si el `docker cp` falla a medias no
+  # dejamos a Caddy sirviendo un dist mutilado.
+  rm -rf "$DATA_DIR/web.new"
+  mkdir -p "$DATA_DIR/web.new"
+  docker cp "$cid:/dist/." "$DATA_DIR/web.new/"
+  docker rm -f "$cid" >/dev/null
+  rm -rf "$DATA_DIR/web.old"
+  [ -d "$DATA_DIR/web" ] && mv "$DATA_DIR/web" "$DATA_DIR/web.old"
+  mv "$DATA_DIR/web.new" "$DATA_DIR/web"
+  rm -rf "$DATA_DIR/web.old"
+}
+publish_web
 
 # --- 9. Levantar la pila completa --------------------------------------------
 log "Levantando la pila completa..."

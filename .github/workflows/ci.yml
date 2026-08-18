@@ -2,6 +2,18 @@
 # Disparado en cada PR y en cada push a main.
 # Ejecuta lint, comprobación de tipos y tests unitarios vía Turborepo.
 #
+# AQUÍ NO SE DESPLIEGA NADA (decisión de 2026-08).
+# El despliegue se hace desde la máquina del desarrollador con:
+#   deploy/digitalocean/stack/deploy-from-local.sh
+# que construye las imágenes en local y las empuja al droplet por SSH
+# (`docker save | ssh docker load`), sin registry de por medio.
+#
+# El motivo: el droplet de 1 GB no puede compilar el monorepo, así que el build
+# tiene que ocurrir fuera. Una máquina de desarrollo con Docker ya es un build
+# server perfectamente bueno para un proyecto de este tamaño, y evita mantener
+# credenciales de registro, variables VITE_* duplicadas en GitHub y un job de CI
+# que solo sirve para empaquetar. Ver deploy/digitalocean/README.md §7.
+#
 # Tests de integración (apps/api/test:integration) quedan separados en el
 # job `integration` porque requieren una instancia de Supabase local.
 # TODO: activar el job `integration` cuando se configure el servicio Supabase
@@ -51,41 +63,8 @@ jobs:
           # son opcionales — sin ellos simplemente usa caché local.
           TURBO_TELEMETRY_DISABLED: 1
 
-  # ─── Auto-deploy a producción (DigitalOcean) ─────────────────────────────
-  # Solo en push a `main` y SOLO si `quality` ha pasado. Entra por SSH al droplet,
-  # trae el código nuevo y re-despliega (redeploy.sh: rebuild API+web, migra,
-  # reinicia la pila). Requiere dos secrets del repo (Settings → Secrets → Actions):
-  #   - DEPLOY_HOST     → IP/host del droplet (la reserved IP del output de Terraform)
-  #   - DEPLOY_SSH_KEY  → clave PRIVADA SSH cuya pública está en `ci_deploy_pubkey`
-  # Solo se ejecuta si la VARIABLE de repo `DEPLOY_ENABLED` = "true" (Settings →
-  # Secrets and variables → Actions → Variables). Así el CI NO falla mientras el
-  # droplet/secrets no existan: activas el auto-deploy cuando todo esté listo.
-  deploy:
-    name: Auto-deploy a producción
-    needs: quality
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && vars.DEPLOY_ENABLED == 'true'
-    runs-on: ubuntu-latest
-    # No solapar despliegues ni cancelar uno a medias (puede dejar la pila a medio build).
-    concurrency:
-      group: deploy-production
-      cancel-in-progress: false
 
-    steps:
-      - name: Redeploy por SSH en el droplet
-        uses: appleboy/ssh-action@v1.2.2
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: root
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          command_timeout: 30m
-          script_stop: true
-          script: |
-            set -euo pipefail
-            cd /opt/cosasdecasa
-            git fetch --depth 1 origin main
-            git reset --hard origin/main
-            chmod +x deploy/digitalocean/stack/redeploy.sh
-            deploy/digitalocean/stack/redeploy.sh
+
 
   # ─── Tests de integración (desactivado hasta configurar Supabase) ─────────
   # Los tests de integración de apps/api usan una instancia NestJS real

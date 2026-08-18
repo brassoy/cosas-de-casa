@@ -19,6 +19,8 @@ services:
   caddy:
     image: caddy:2-alpine
     container_name: cosasdecasa_caddy
+    # Estáticos + TLS. Medido: 32 MB.
+    mem_limit: 64m
     restart: unless-stopped
     ports:
       - "80:80"
@@ -44,14 +46,28 @@ services:
   # Interna; Caddy la expone en /api/*. Verifica el JWT de Supabase por JWKS.
   ###########################################################################
   api:
+    # La imagen se construye en la máquina del desarrollador y se carga aquí por
+    # SSH (deploy-from-local.sh: `docker save | ssh docker load`). NO hay registro
+    # de por medio y el droplet NO la construye: `docker build` de este monorepo
+    # no cabe en 1 GB de RAM. El bloque `build` se conserva porque es justo lo que
+    # usa deploy-from-local.sh para construirla EN LOCAL.
+    image: ${API_IMAGE:-cosasdecasa-api:latest}
     build:
       context: ../../../
       dockerfile: deploy/digitalocean/stack/Dockerfile.api
-    image: cosasdecasa-api:latest
     container_name: cosasdecasa_api
+    # Medido: 425 MB SIN límite de heap. Con --max-old-space-size=224 baja a ~220 MB. Es el servicio más caro de la pila.
+    mem_limit: 320m
     restart: unless-stopped
     env_file:
       - /opt/cosasdecasa/.env
+    environment:
+      # SIN ESTO EL DROPLET DE 1 GB NO SE SOSTIENE. V8 dimensiona su heap por
+      # defecto según la RAM que ve; en el droplet de 4 GB la API se comía 425 MB
+      # ella sola —la mitad del presupuesto de la máquina nueva— simplemente
+      # porque podía. Acotarlo la deja en ~220 MB sin efecto en la latencia: la
+      # API es I/O-bound (Postgres, MiniMax, Web Push), no memory-bound.
+      NODE_OPTIONS: --max-old-space-size=224
     depends_on:
       db:
         condition: service_healthy
@@ -68,6 +84,8 @@ services:
   db:
     image: supabase/postgres:17.6.1.136
     container_name: cosasdecasa_db
+    # Medido: 50 MB. shared_buffers recortado abajo en `command`.
+    mem_limit: 192m
     restart: unless-stopped
     environment:
       POSTGRES_HOST: /var/run/postgresql
@@ -76,6 +94,23 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXP: ${JWT_EXP}
+    # Ajuste para 1 GB de RAM. Los defaults de la imagen supabase/postgres
+    # asumen una máquina holgada; con 1 GB hay que ser explícito.
+    #   shared_buffers=48MB   → la base entera son 63 MB, no hace falta más
+    #   max_connections=40    → 10 contenedores + migraciones, sobra de largo
+    #   work_mem=2MB          → se multiplica por operación de sort/hash
+    command:
+      - postgres
+      - -c
+      - shared_buffers=48MB
+      - -c
+      - max_connections=40
+      - -c
+      - work_mem=2MB
+      - -c
+      - maintenance_work_mem=32MB
+      - -c
+      - effective_cache_size=256MB
     volumes:
       - /mnt/cosasdecasa-data/db:/var/lib/postgresql/data
       # OJO: NO montar sobre /docker-entrypoint-initdb.d ENTERO. La imagen
@@ -101,6 +136,8 @@ services:
   kong:
     image: kong/kong:3.9.1
     container_name: cosasdecasa_kong
+    # Medido: 81 MB con KONG_NGINX_WORKER_PROCESSES=1.
+    mem_limit: 128m
     restart: unless-stopped
     environment:
       KONG_DATABASE: "off"
@@ -125,6 +162,8 @@ services:
   auth:
     image: supabase/gotrue:v2.189.0
     container_name: cosasdecasa_auth
+    # GoTrue (Go). Medido: 26 MB.
+    mem_limit: 64m
     restart: unless-stopped
     environment:
       GOTRUE_API_HOST: 0.0.0.0
@@ -171,6 +210,8 @@ services:
   rest:
     image: postgrest/postgrest:v14.12
     container_name: cosasdecasa_rest
+    # PostgREST (Haskell). Medido: 13 MB.
+    mem_limit: 64m
     restart: unless-stopped
     environment:
       PGRST_DB_URI: postgres://authenticator:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
@@ -193,6 +234,8 @@ services:
     # Mantenemos ese hostname de red (network alias) por compatibilidad con la
     # config declarativa oficial de Kong.
     container_name: cosasdecasa_realtime
+    # BEAM (Elixir). Medido: 50 MB, pero la VM crece con las conexiones websocket.
+    mem_limit: 160m
     restart: unless-stopped
     environment:
       PORT: 4000
@@ -227,6 +270,8 @@ services:
   storage:
     image: supabase/storage-api:v1.60.4
     container_name: cosasdecasa_storage
+    # Node. Medido: 74 MB.
+    mem_limit: 128m
     restart: unless-stopped
     environment:
       ANON_KEY: ${ANON_KEY}
@@ -257,6 +302,8 @@ services:
   imgproxy:
     image: darthsim/imgproxy:v3.30.1
     container_name: cosasdecasa_imgproxy
+    # Go. Medido: 9,5 MB, pero transformar imágenes le hace picos.
+    mem_limit: 64m
     restart: unless-stopped
     environment:
       IMGPROXY_BIND: ":5001"
@@ -268,10 +315,22 @@ services:
     networks:
       - cosasdecasa
 
-  # --- postgres-meta (lo usa Storage/otros para introspección del esquema) ---
+  # --- postgres-meta ---
+  # NO LO USA NADIE EN ESTA PILA. Se creía que lo consumía Storage, pero:
+  #   - ningún servicio lo declara en `depends_on`
+  #   - kong.yml (lo renderiza bootstrap.sh) no publica ninguna ruta hacia él
+  # postgres-meta existe para dar introspección del esquema a Supabase Studio, y
+  # aquí no hay Studio. Medía 75 MB en producción: un 9 % del presupuesto de RAM
+  # del droplet nuevo, gastado en un servicio que nadie llama.
+  #
+  # Se deja declarado detrás de un profile por si algún día se levanta Studio:
+  #   docker compose --profile studio up -d meta
   meta:
+    profiles: [studio]
     image: supabase/postgres-meta:v0.96.6
     container_name: cosasdecasa_meta
+    # Medido: 75 MB. Bajo perfil: no arranca por defecto (ver nota).
+    mem_limit: 96m
     restart: unless-stopped
     environment:
       PG_META_PORT: 8080
@@ -283,6 +342,33 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    networks:
+      - cosasdecasa
+
+  ###########################################################################
+  # pasarola-review — sitio estático de otro proyecto que comparte el droplet.
+  ###########################################################################
+  # Migrado tal cual desde el droplet viejo (su contenido vive en
+  # /opt/pasarola-review). Dos cambios respecto a como estaba:
+  #
+  #   1. Escucha en 127.0.0.1:8088, no en 0.0.0.0:8088. En el droplet viejo se
+  #      publicaba al mundo, pero el firewall de DO solo abre 22/80/443, así que
+  #      NUNCA fue alcanzable desde fuera: quien lo usaba entraba por túnel SSH.
+  #      Atarlo a loopback deja explícito lo que ya era cierto de hecho.
+  #   2. mem_limit, como todo lo demás en esta pila.
+  #
+  # Si algún día quieres publicarlo de verdad, NO abras el 8088 en el firewall:
+  # añade un bloque al Caddyfile (subdominio o ruta) y te lo sirve el Caddy que
+  # ya está corriendo — cero contenedores y cero RAM extra frente a este nginx.
+  pasarola:
+    image: nginx:alpine
+    container_name: pasarola-review
+    restart: unless-stopped
+    mem_limit: 32m
+    ports:
+      - "127.0.0.1:8088:80"
+    volumes:
+      - /opt/pasarola-review:/usr/share/nginx/html:ro
     networks:
       - cosasdecasa
 

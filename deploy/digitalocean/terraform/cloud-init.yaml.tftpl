@@ -2,6 +2,11 @@
 # Primer boot del droplet: instala Docker, clona el repo con la deploy key y
 # lanza el bootstrap de la pila. La lógica pesada vive en bootstrap.sh (no en
 # este template) para no pelear con el escapado $${...} de Terraform templatefile.
+#
+# NOTA (right-sizing 2026-08): ya NO hay block volume que montar. Los datos viven
+# en /mnt/cosasdecasa-data, que ahora es un directorio normal del disco de
+# arranque. Y el droplet ya no compila nada: las imágenes se le cargan por SSH
+# desde la máquina del desarrollador (deploy-from-local.sh).
 package_update: true
 package_upgrade: false
 packages:
@@ -19,7 +24,6 @@ write_files:
       ACME_EMAIL=${acme_email}
       GIT_REPO=${git_repo}
       GIT_BRANCH=${git_branch}
-      DATA_DEVICE=${data_device}
 
   # Deploy key SSH (read-only) para clonar el repo privado. base64 + encoding b64
   # evita la corrupción por indentación/newline que sufre un PEM en un block scalar.

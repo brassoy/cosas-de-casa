@@ -1,0 +1,57 @@
+# =============================================================================
+# Contexto de build de Docker
+# =============================================================================
+# Existe desde que se construye en la máquina del desarrollador
+# (deploy/digitalocean/stack/deploy-from-local.sh) en vez de en el droplet.
+#
+# El droplet clonaba con `git clone --depth 1`, así que su contexto de build
+# venía limpio por construcción. Un árbol de trabajo local NO: son 1,4 GB, de los
+# cuales 1,1 GB son node_modules que el Dockerfile reinstala igualmente con
+# `pnpm install --frozen-lockfile`. Sin este fichero, esos node_modules se envían
+# al daemon Y acaban dentro de la imagen vía `COPY . .` — con el riesgo añadido
+# de arrastrar binarios nativos compilados para el host.
+# =============================================================================
+
+# Dependencias — las reinstala el Dockerfile desde el lockfile.
+node_modules
+**/node_modules
+
+# Artefactos de build — se regeneran dentro de la imagen.
+dist
+**/dist
+build
+**/build
+.turbo
+**/.turbo
+*.tsbuildinfo
+
+# Historia de git: la imagen no la necesita.
+.git
+.github
+.gitignore
+
+# Secretos y configuración local: NUNCA deben acabar en una imagen.
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+deploy/digitalocean/terraform/terraform.tfvars
+deploy/digitalocean/terraform/*.tfstate*
+deploy/digitalocean/terraform/.terraform
+
+# Tests, cobertura y reportes.
+coverage
+**/coverage
+playwright-report
+**/playwright-report
+test-results
+**/test-results
+
+# Ruido del editor y del sistema.
+.vscode
+.idea
+.DS_Store
+*.log
+npm-debug.log*

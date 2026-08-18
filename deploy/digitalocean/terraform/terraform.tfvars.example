@@ -9,11 +9,21 @@ do_token = "dop_v1_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 region   = "fra1"
 
 # --- Droplet ---
-droplet_size = "s-2vcpu-4gb" # Basic 2 vCPU / 4 GB / 80 GB — mismo tipo/importe que la referencia
+# Right-sizing 2026-08: medido en producción → 837 MB de RAM en los 10 contenedores
+# y 77 MB de datos. SOLO válido con la pila "sin builds": las imágenes se
+# construyen fuera y se cargan por SSH (stack/deploy-from-local.sh).
+droplet_size = "s-1vcpu-1gb" # Basic 1 vCPU / 1 GB / 25 GB — $6/mes
+
+# Backups de DO (+20 % ≈ $1.20/mes). Sin block volume, el dato vive en el disco
+# de arranque: esta es la única red de seguridad automática. Déjalo en true.
+enable_backups = true
+
+# NOTA: no hay variables de registro de imágenes. El droplet no compila NI baja
+# de ningún registro propio: las imágenes se le cargan por SSH desde tu máquina
+# con deploy/digitalocean/stack/deploy-from-local.sh
 # droplet_name = "cosasdecasa-prod"
 
 # --- Volumen de datos ---
-volume_size_gb = 50
 
 # --- Dominio ---
 # Realtime de Supabase va por Kong en el MISMO dominio (/realtime/*), no hace
