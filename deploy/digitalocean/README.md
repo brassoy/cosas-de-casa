@@ -421,12 +421,16 @@ terraform state rm digitalocean_firewall.cosasdecasa
 terraform state rm digitalocean_reserved_ip_assignment.cosasdecasa
 terraform state rm digitalocean_volume.data            # el volumen ya no se declara
 
-terraform plan     # debe crear droplet + firewall + assignment. NADA de destroy.
-terraform apply
+# -target A PROPÓSITO: crea el droplet y su firewall SIN crear todavía el
+# reserved_ip_assignment. Un apply completo aquí movería la IP a una máquina
+# vacía, antes de haber migrado un solo byte. La IP se mueve en la Fase 4.
+terraform plan -target=digitalocean_droplet.cosasdecasa \
+               -target=digitalocean_firewall.cosasdecasa
+terraform apply -target=digitalocean_droplet.cosasdecasa \
+                -target=digitalocean_firewall.cosasdecasa
 ```
 
-> El `plan` **no puede** contener ningún `destroy`. Si lo contiene, para: algo
-> quedó en el state que no debía.
+> El `plan` **no puede** contener ningún `destroy`. Si lo contiene, para.
 
 El cloud-init corre `bootstrap.sh`, que ahora solo hace `docker pull` (~3-5 min,
 no los 20 de antes). Sigue el log:
@@ -461,11 +465,31 @@ coincide, el script aborta y te dice que **no** reasignes la IP.
 
 #### Fase 4 — Mover la IP (aquí se hace visible el cambio)
 
+Con Terraform, que es lo limpio: el `reserved_ip_assignment` sigue en el código,
+solo faltaba crearlo.
+
 ```bash
-doctl compute reserved-ip-action assign <RESERVED_IP> <ID_DROPLET_NUEVO>
+terraform plan     # debe decir exactamente: 1 to add, 0 to change, 0 to destroy
+terraform apply
 ```
 
-Comprueba: `curl -I https://<app_domain>`.
+O a mano: `doctl compute reserved-ip-action assign <RESERVED_IP> <ID_DROPLET_NUEVO>`.
+
+**Cómo confirmar que el cambio surtió efecto.** `curl -w '%{remote_ip}'` NO sirve:
+seguirá mostrando la reserved IP, porque es a esa dirección a la que apunta el
+DNS — lo que cambia es a qué máquina enruta. Tres comprobaciones que sí valen:
+
+1. `ssh root@<RESERVED_IP>` avisará de que **la host key ha cambiado**. Es
+   exactamente lo que debe pasar: esa IP lleva ahora a otra máquina. Actualiza
+   con `ssh-keygen -R <RESERVED_IP>`.
+2. Con la pila del droplet viejo parada, cualquier `200` solo puede venir del
+   nuevo.
+3. `ssh root@<RESERVED_IP> hostname` y compara `free -m` con el tamaño esperado.
+
+```bash
+curl -o /dev/null -w 'HTTP %{http_code} TLS %{ssl_verify_result}\n' https://<app_domain>/
+curl -o /dev/null -w 'API  %{http_code}\n' https://<app_domain>/api/v1/health
+```
 
 #### Fase 5 — Reconciliar Terraform y retirar el viejo
 
