@@ -48,9 +48,20 @@ resource "digitalocean_droplet" "cosasdecasa" {
   ssh_keys   = [var.admin_ssh_fingerprint != "" ? var.admin_ssh_fingerprint : digitalocean_ssh_key.admin[0].id]
   monitoring = true
 
-  # Backups semanales gestionados por DO (+20 % ≈ $1.20/mes sobre el plan de $6).
-  # Cubren el disco de arranque ENTERO, que ahora es donde vive el dato. Con el
-  # volumen fuera de escena, esta es la única red de seguridad automática.
+  # Backups gestionados por DO. Cubren el disco de arranque ENTERO, que ahora es
+  # donde vive el dato: con el volumen fuera de escena, esta es la única red de
+  # seguridad automática. Política real confirmada en este proyecto: DIARIOS con
+  # 7 días de retención (GET /v2/droplets/<id>/backups/policy).
+  #
+  # OJO con este atributo: DigitalOcean tarda en reflejar los backups en el campo
+  # `features` del droplet, y el provider lee JUSTO ese campo. Resultado: tras el
+  # apply, `terraform state show` puede decir `backups = false` aunque estén
+  # activos de verdad. No te fíes de ahí — pregunta al endpoint de política:
+  #   curl -H "Authorization: Bearer $DO_TOKEN" \
+  #     https://api.digitalocean.com/v2/droplets/<id>/backups/policy
+  # Si de verdad no estuvieran, se activan con:
+  #   curl -X POST -H "Authorization: Bearer $DO_TOKEN" -H "Content-Type: application/json" \
+  #     -d '{"type":"enable_backups"}' https://api.digitalocean.com/v2/droplets/<id>/actions
   backups = var.enable_backups
 
   user_data = templatefile("${path.module}/cloud-init.yaml.tftpl", {
@@ -118,7 +129,9 @@ resource "digitalocean_reserved_ip_assignment" "cosasdecasa" {
 ###############################################################################
 
 resource "digitalocean_firewall" "cosasdecasa" {
-  name        = "cosasdecasa-fw"
+  # Único por cuenta (DO devuelve 409 si se repite). Ligado al droplet para que
+  # dos droplets coexistiendo durante una migración no se peleen por el nombre.
+  name        = var.firewall_name != "" ? var.firewall_name : "${var.droplet_name}-fw"
   droplet_ids = [digitalocean_droplet.cosasdecasa.id]
 
   inbound_rule {

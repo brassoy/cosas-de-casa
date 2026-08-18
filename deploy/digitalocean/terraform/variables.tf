@@ -50,11 +50,26 @@ variable "droplet_name" {
   default     = "cosasdecasa-prod"
 }
 
+variable "firewall_name" {
+  type        = string
+  description = <<-EOT
+    Nombre del firewall en DigitalOcean. DO EXIGE que sea único en la cuenta y
+    devuelve 409 "duplicate name" si repites uno.
+
+    Va ligado al nombre del droplet a propósito: durante una migración conviven
+    dos droplets, cada uno con SU firewall, y el viejo debe conservar el suyo
+    intacto mientras siga sirviendo producción. Si ambos compartieran nombre, o
+    Terraform falla al crear el segundo, o (peor) reasigna el existente al
+    droplet nuevo y deja el viejo expuesto.
+  EOT
+  default     = ""
+}
+
 variable "enable_backups" {
   type        = bool
   description = <<-EOT
-    Backups gestionados por DigitalOcean (+20 % del coste del droplet: ~$1.20/mes
-    sobre el plan de $6).
+    Backups gestionados por DigitalOcean (~+20 % del coste del droplet).
+    Política aplicada en este proyecto: diarios, retención de 7 días.
 
     RECOMENDADO EN TRUE, y aquí NO es opcional de verdad: al eliminar el block
     volume, los datos (Postgres, Storage, certs y `secrets.env`) viven en el

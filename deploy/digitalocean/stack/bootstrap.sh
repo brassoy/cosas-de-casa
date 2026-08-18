@@ -248,6 +248,14 @@ chmod 644 "$DATA_DIR/db-init/"*.sql
 # detecta automáticamente y no usa JWKS. El issuer/audience deben casar con
 # GOTRUE_JWT_ISSUER (https://APP_DOMAIN/auth/v1) y GOTRUE_JWT_AUD (authenticated)
 # del compose, cosa que aquí garantizamos.
+#
+# OJO CON ESTE HEREDOC: el delimitador va SIN comillas (<<EOF) porque necesitamos
+# que interpole ${APP_DOMAIN}, ${POSTGRES_PASSWORD} y compañía. El efecto
+# secundario es que bash TAMBIÉN sustituye backticks — incluidos los de los
+# COMENTARIOS. Escribir `authenticator` aquí dentro hace que bash intente
+# ejecutar `authenticator` como orden, ensuciando el log del bootstrap con
+# "command not found" y dejando el comentario mutilado en el .env resultante.
+# Usa comillas dobles para citar identificadores dentro de este bloque.
 if [ ! -f "$ENV_FILE" ]; then
   log "Renderizando $ENV_FILE"
   umask 077
@@ -275,9 +283,9 @@ NODE_ENV=production
 API_PORT=3000
 API_CORS_ORIGINS=https://${APP_DOMAIN}
 # La API conecta con ESTE rol directamente (Pool de pg en db.module.ts, sin
-# SET ROLE). Por eso NO vale `authenticator`: es el rol de switching de PostgREST,
+# SET ROLE). Por eso NO vale "authenticator": es el rol de switching de PostgREST,
 # sin privilegios propios, y daría "permission denied for schema public" tanto al
-# migrar como en runtime. Usamos `postgres` (rol dueño de la app en Supabase),
+# migrar como en runtime. Usamos "postgres" (rol dueño de la app en Supabase),
 # igual que en local. Nota: a nivel de conexión NO respeta RLS; la autorización
 # fina la hacen los scope guards de la API.
 DATABASE_URL=postgres://postgres:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
